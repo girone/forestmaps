@@ -1,12 +1,12 @@
 """This is an Python/ArcPy wrapper to the C++ module.
 
-Note: Keep all input data in the same directoy.
-
+Important note: Keep all input data in the same directoy. 
 """
 import arcpy
 import os
 import subprocess
 import random
+from collections import defaultdict
 import atkis_graph
 from arcutil import msg, Timer
 
@@ -25,36 +25,43 @@ tifFile             = "preferences_TIF.txt"
 
 columnName = "EdgeWeight"
 
-def set_paths(argv):
+def set_paths(argv, env):
     """  """
     global scriptDir
-    scriptDir = os.path.split(argv[0])[0] + "\\\\"
-    msg("############# Path is " + scriptDir)
+    scriptDir = os.path.split(argv[0])[0] + "\\"
+    msg("############# scriptDir is " + scriptDir)
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
-    tmpDir = ""
+    global ttfFile, tifFile
+    # converted inputs are created at the input data's location
+    tmpDir = env.path + "\\"
     roadGraphFile       = tmpDir + roadGraphFile
     forestGraphFile     = tmpDir + forestGraphFile
     entryXYFile         = tmpDir + entryXYFile
+    ttfFile             = env.paramTxtTimeToForest
+    tifFile             = env.paramTxtTimeInForest
+
+    # intermediate files are created at the script's location
     populationFile      = tmpDir + populationFile
     entryXYRFFile       = tmpDir + entryXYRFFile
     entryPopularityFile = tmpDir + entryPopularityFile
     edgeWeightFile      = tmpDir + edgeWeightFile
 
 
-def shape_to_polygons(lines):
-    """Parses polygons from the points represented by a numpy RecordArray
-
-    created by arcpy.FeatureClassToNumPyArray(explode_to_points=True).
-    """
+def shape_to_polygons(lines, idKeyword):
+    """Parses polygons from the points represented by a numpy RecordArray."""
     from itertools import tee, izip
     def pairwise(iterable):
         a,b = tee(iterable)
         next(b, None)
         return izip(a, b)
-    polygons = [[tuple(lines[0]['shape'])]]
-    for a, b in pairwise(lines):
-        if a['fid'] != b['fid']:
+    polygons = [[tuple(lines[0]['shape'])]]  ############ TODO JONAS  ########
+    for a, b in pairwise(lines):             # Go on here: Add empty field for
+                                             # population, fill it afterwards
+                                             # with a dummy (if unknown) or
+                                             # extract and use the value from
+                                             # the 'population' field.
+        if a[idKeyword] != b[idKeyword]:
             polygons.append([])
         polygons[-1].append(tuple(b['shape']))
     return polygons
@@ -66,43 +73,39 @@ def create_road_graph(dataset, max_speed):
     Returns the graph, a mapping from coordinates to node index, a mapping from
     (s,t) arcs to FIDs of the shapefile, and a list documenting the contraction
     order.
-
     """
     graph, coord_map, arc_to_fid = \
             atkis_graph.create_from_feature_class(dataset, max_speed)
     msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
       sum([len(edge_set) for edge_set in graph.edges.values()])))
 
-    msg("Contracting binary nodes...")
+    #msg("Contracting binary nodes...")
     #contraction_list = graph.contract_binary_nodes()
     contraction_list = []
-    msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
-      sum([len(edge_set) for edge_set in graph.edges.values()])))
+    #msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+    #  sum([len(edge_set) for edge_set in graph.edges.values()])))
     #lcc = graph.lcc()
     #msg("The largest connected component has %d nodes and %d edges." %
     #    (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
     return graph, coord_map, arc_to_fid, contraction_list
 
 
-def create_populations_from_settlement_fc(lines, point_distance):
-    """ Creates population points from the 'Ortslage' feature class.
-
-    The point_distance parameter influences the density of the grid.
-    """
-    polygons = shape_to_polygons(lines)
-    from forestentrydetection import create_population_grid
-    return create_population_grid(polygons, [], gridPointDistance=point_distance)
-
-
-def create_population(settlement_dataset,
-                      point_distance):
+def create_population(fc, distance):
     """Creates the population grid."""
-    arr2 = arcpy.da.FeatureClassToNumPyArray(settlement_dataset, ["fid", "shape"],
-                                             explode_to_points=True)
-    population_coords = create_populations_from_settlement_fc(
-        arr2, point_distance)
-    msg("There are %d populations." % len(population_coords))
-    return population_coords
+    from forestentrydetection import create_population_grid
+    fields = [f.name.lower() for f in arcpy.ListFields(fc)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    array = arcpy.da.FeatureClassToNumPyArray(fc, 
+                                              [idKeyword, "shape", "FIRST_Bevo"], 
+                                              explode_to_points=True)
+    if len(array.dtype.names) == 3:
+        array.dtype.names = (idKeyword, 'shape', 'population')
+    else:
+        array.dtype.names = (idKeyword, 'shape')
+    polygons = shape_to_polygons(array, idKeyword)
+    populations = create_population_grid(polygons, [], gridPointDistance=distance)
+    msg("There are %d populations." % len(populations))
+    return populations
 
 
 def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
@@ -110,8 +113,7 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
     res = create_road_graph(shpFile, max_speed=maxSpeed)
     graph, coordinateMap, arcToFID, contractionList = res
     nodeToCoords = {node : coords for coords, node in coordinateMap.items()}
-    global scriptDir
-    with open(scriptDir + filename, "w") as f:
+    with open(filename, "w") as f:
         f.write("{0}\n".format(graph.size()))
         f.write("{0}\n".format(
                 sum([len(edges) for edges in graph.edges.values()])))
@@ -128,33 +130,35 @@ def parse_and_dump(env):
     """Parses data from shapefiles, dumps it as plain text.
 
     Returns the mapping from forest graph arcs to shapefile FIDs.
-
     """
-
     t = Timer()
     t.start_timing("Creating road graph from the data...")
-    read_graph_and_dump_it(env.paramShpRoads, roadGraphFile)
+    speed = 5
+    read_graph_and_dump_it(env.paramShpRoads, roadGraphFile, speed)
     t.stop_timing()
 
     t.start_timing("Creating forest road graph from the data...")
-    forestArcToFID = read_graph_and_dump_it(env.paramShpForestRoads, forestGraphFile)
+    speed = 5
+    forestArcToFID = read_graph_and_dump_it(
+            env.paramShpForestRoads, forestGraphFile, speed)
     t.stop_timing()
 
     t.start_timing("Creating population points...")
-    population_coords = create_population(env.paramShpSettlements,
-                                          point_distance=200)
+    population_coords = create_population(env.paramShpSettlements, 200)
     total_population = 230000
     avg_population = total_population / float(len(population_coords))
-    global scriptDir
-    with open(scriptDir + populationFile, "w") as f:
+    with open(populationFile, "w") as f:
         for coord in population_coords:
             f.write("{0} {1} {2}\n".format(coord[0], coord[1], avg_population))
     t.stop_timing()
 
     t.start_timing("Parsing forest entry locations...")
-    arr4 = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntryLocations, ["fid", "shape"])
-    with open(scriptDir + entryXYFile, "w") as f:
-        for east, north in arr4['shape']:
+    fields = [f.name.lower() for f in arcpy.ListFields(env.paramShpEntrypoints)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    array = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntrypoints, 
+                                              [idKeyword, "shape"])
+    with open(entryXYFile, "w") as f:
+        for east, north in array['shape']:
             f.write("{0} {1}\n".format(east, north))
     t.stop_timing()
 
@@ -165,14 +169,30 @@ def call_subprocess(prog, args):
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
-        output = subprocess.check_output(prog + " " + args, stderr=subprocess.STDOUT)  # shell=False
+        #output = subprocess.check_output(prog + " " + args, 
+        #                                 stderr=subprocess.STDOUT)  # shell=False
+        p = subprocess.Popen(prog + " " + args, 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        output = ""
+        while True:
+            line = p.stdout.readline()
+            if not line:
+                break
+            if line.startswith("Progress: "):
+                msg(line.strip())
+            else:
+                msg("Read from pipe.")
+                output += line
     except subprocess.CalledProcessError as e:
         msg("Error occured.")
         msg(e.output)
         raise
+    msg("=====================")
     msg("Subprocess has finished, its output was:")
     msg(output)
     timer.stop_timing()
+    msg("=====================")
     return output
 
 
@@ -180,7 +200,6 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
     """Adds a column to the dataset in shp and inserts the values.
 
     Needs graph file as input to map from arcs to FIDs.
-
     """
     edges = []
     with open(forestGraphFile) as f:
@@ -192,7 +211,8 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 break
         for line in f:
             components = line.strip().split(" ")
-            edges.append((float(components[0]), float(components[1])))
+            assert len(components) == 3
+            edges.append((int(components[0]), int(components[1])))
     msg(str(numArcs) + " " + str(len(edges)))
     assert numArcs == len(edges)
 
@@ -202,10 +222,17 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
             weights.append(float(line.strip()))
     assert len(weights) == len(edges)
 
-    FIDtoWeight = {arcToFID[e] : w for e, w in zip(edges, weights)}
+    # TODO(Jonas): Fix the mapping of edge weights to multi-edge shapes.
+    # Workaround / HACK:
+    FIDtoWeight = defaultdict(list)
+    for e, w in zip(edges, weights):
+        FIDtoWeight[arcToFID[e]].append(w)
+    FIDtoWeight = {fid: max(weights) for fid, weights in FIDtoWeight.items()}
 
     arcpy.management.AddField(shp, columnName, "FLOAT")
-    fields = ["fid", columnName]
+    fields = [f.name.lower() for f in arcpy.ListFields(shp)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    fields = [idKeyword, columnName]
     count = 0
     with arcpy.da.UpdateCursor(shp, fields) as cursor:
         for row in cursor:
@@ -220,7 +247,7 @@ class AlgorithmEnvironment(object):
         """Reads the parameters from ArcGIS."""
         self.paramShpRoads = arcpy.GetParameterAsText(0)
         self.paramShpForestRoads = arcpy.GetParameterAsText(1)
-        self.paramShpEntryLocations = arcpy.GetParameterAsText(2)
+        self.paramShpEntrypoints = arcpy.GetParameterAsText(2)
         ## TODO(jonas): Generate population nodes from polygons. ##
         #shpPopulationNodes = arcpy.GetParameterAsText(3)
         self.paramShpSettlements = arcpy.GetParameterAsText(3)
@@ -231,12 +258,13 @@ class AlgorithmEnvironment(object):
         self.paramValAlgorithm = arcpy.GetParameterAsText(7)
         self.paramValRasterize = arcpy.GetParameterAsText(8)
 
+        """The path for temporaries and output."""
         self.path = os.path.split(self.paramShpRoads)[0] + "\\"
 
         if not (self.paramShpRoads and
                 self.paramShpForestRoads and
                 self.paramShpSettlements and
-                self.paramShpEntryLocations and
+                self.paramShpEntrypoints and
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
@@ -250,8 +278,11 @@ class AlgorithmEnvironment(object):
 
 
 def create_raster(env, columnName, rasterPixelSize=20):
-    if not arcpy.GetParameterAsText(0):
-        # we are not working in ArcMap
+    if not arcpy.GetParameterAsText(0) or env.path.endswith(".gdb\\"):
+        # Reason: We are not working in ArcMap, or
+        # raster file handling in geodatabases is one hack of inconvenience...
+        msg("NOTE: I am not creating any raster from the data. Please do that"+
+            " yourself.")
         return
     t = Timer()
     t.start_timing("Rasterizing the forest roads...")
@@ -261,6 +292,7 @@ def create_raster(env, columnName, rasterPixelSize=20):
     # delete any file named "raster_*.*" and restart the application.
     if os.path.exists(raster):
         arcpy.management.Delete(raster)
+    msg(raster)
     arcpy.conversion.PolylineToRaster(
             env.paramShpForestRoads,
             columnName,
@@ -288,23 +320,25 @@ def main():
     2. Call the succeeding steps of the C++ module, wait for each to finish.
     3. Load back the resuling arc weights,
     4. If selected, visualize the result in ArcGIS.
-
     """
-    set_paths(sys.argv)
     env = AlgorithmEnvironment()
+    set_paths(sys.argv, env)
     forestArcToFID = parse_and_dump(env)
     msg("scriptDir = " + scriptDir)
+    s = scriptDir
     call_subprocess(scriptDir + "MatchForestEntriesMain.exe",
-            roadGraphFile + " " + forestGraphFile + " " + entryXYFile)
+            roadGraphFile + " " + forestGraphFile + " " + entryXYFile + " " +
+            entryXYRFFile)
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
-            roadGraphFile + " " + entryXYRFFile + " " + populationFile + " " +
-            ttfFile)
+            roadGraphFile + " " + entryXYRFFile + " " + 
+            populationFile + " " + ttfFile + " " + entryPopularityFile)
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
-            forestGraphFile + " " + entryXYRFFile + " " + entryPopularityFile +
-            " " + tifFile + " " + str(env.paramValAlgorithm))
+            forestGraphFile + " " + entryXYRFFile + " " + 
+            entryPopularityFile + " " + tifFile + 
+            " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
 
-    add_column(env.paramShpForestRoads, columnName, forestGraphFile, forestArcToFID,
-            edgeWeightFile)
+    add_column(env.paramShpForestRoads, columnName, forestGraphFile, 
+            forestArcToFID, edgeWeightFile)
 
     if env.paramValRasterize:
         create_raster(env, columnName)

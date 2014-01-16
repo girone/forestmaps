@@ -96,7 +96,7 @@ def create_mappings_from_polylines(arr):
     arcs[y].add((x, arc_id, cost))
 
   coord_to_node = {}  # {(easting, northing) : node_index}
-  arcs = defaultdict(set)  # {base_node --> set([(head_node, fid, type, cost)])
+  arcs = defaultdict(set)  # {base_node --> set([(head_node, ID, type, cost)])
   for a, b in pairwise(arr):
     if a['fid'] == b['fid']:
       index_a = add_node(tuple(a['shape']))
@@ -135,37 +135,53 @@ def create_graph_via_numpy_array(dataset, max_speed=5):
 
 def create_from_feature_class(fc, max_speed=5):
   """ Reads a feature class from disk, creates a graph from its Polylines. """
+  import arcpy
   def add_node(coordinate):
     """ Adds a node for a coordinate (if none exists yet). Returns its id. """
     if coordinate not in coord_to_node:
       coord_to_node[coordinate] = len(coord_to_node)
     return coord_to_node[coordinate]
+  # In file-geodatabases the id has another name than in plain feature classes
+  fields = [field.name.lower() for field in arcpy.ListFields(fc)]
+  idKeyword = "fid" if "fid" in fields else "objectid"
+
+  # The forest road graph does not contain a column 'klasse'. In case this is
+  # not present, assume a constant speed.
+  field_names = [idKeyword, "SHAPE@XY"]
+  clsKeyword = "klasse"
+  if clsKeyword in fields:
+      field_names.append(clsKeyword)
+  else:
+      way_type = 87003
+
   graph = Graph()
   coord_to_node = {}
   arc_to_fid = {}
-  field_names = ["fid", "SHAPE@XY", "klasse", "wanderweg"]
-  last_fid = None
-  import arcpy
+  lastIndex = None
   total = int(arcpy.management.GetCount(fc).getOutput(0))
   count = 0
   p = Progress("Building graph from FeatureClass.", total, 100)
   with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
     for row in rows:
       #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
-      fid, coordinates, way_type, path_flag = row
-      if fid == last_fid:
+      if len(field_names) == 3:
+          index, coordinates, way_type = row
+      else:  # len(field_names) == 2
+          index, coordinates = row
+          
+      if index == lastIndex:
         index_a = add_node(last_coordinates)
         index_b = add_node(coordinates)
         dist = distance(last_coordinates, coordinates)
         cost = dist / (determine_speed(way_type, max_speed) / 3.6)
         graph.add_edge(index_a, index_b, cost)
         graph.add_edge(index_b, index_a, cost)
-        arc_to_fid[(index_a, index_b)] = fid
-        arc_to_fid[(index_b, index_a)] = fid
+        arc_to_fid[(index_a, index_b)] = index
+        arc_to_fid[(index_b, index_a)] = index
       else:
         count += 1
         p.progress(count)
-      last_fid = fid
+      lastIndex = index
       last_coordinates = coordinates
   return graph, coord_to_node, arc_to_fid
 
