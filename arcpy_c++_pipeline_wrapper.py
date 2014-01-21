@@ -1,6 +1,6 @@
 """This is an Python/ArcPy wrapper to the C++ module.
 
-Important note: Keep all input data in the same directoy. 
+Important note: Keep all input data in the same directoy.
 """
 import arcpy
 import os
@@ -56,6 +56,10 @@ def shape_to_polygons(lines, idKeyword):
         next(b, None)
         return izip(a, b)
     polygons = [[tuple(lines[0]['shape'])]]  ############ TODO JONAS  ########
+    inhabitants = [lines[0]['population']]
+    msg(lines)
+    msg(lines[0])
+    msg(lines.dtype)
     for a, b in pairwise(lines):             # Go on here: Add empty field for
                                              # population, fill it afterwards
                                              # with a dummy (if unknown) or
@@ -63,8 +67,11 @@ def shape_to_polygons(lines, idKeyword):
                                              # the 'population' field.
         if a[idKeyword] != b[idKeyword]:
             polygons.append([])
+            inhabitants.append(b['population'])
         polygons[-1].append(tuple(b['shape']))
-    return polygons
+    assert len(polygons) == len(inhabitants)
+    msg(inhabitants)
+    return polygons, inhabitants
 
 
 def create_road_graph(dataset, max_speed):
@@ -95,17 +102,18 @@ def create_population(fc, distance):
     from forestentrydetection import create_population_grid
     fields = [f.name.lower() for f in arcpy.ListFields(fc)]
     idKeyword = "fid" if "fid" in fields else "objectid"
-    array = arcpy.da.FeatureClassToNumPyArray(fc, 
-                                              [idKeyword, "shape", "FIRST_Bevo"], 
+    array = arcpy.da.FeatureClassToNumPyArray(fc,
+                                              [idKeyword, "shape", "FIRST_Bevo"],
                                               explode_to_points=True)
     if len(array.dtype.names) == 3:
         array.dtype.names = (idKeyword, 'shape', 'population')
     else:
         array.dtype.names = (idKeyword, 'shape')
-    polygons = shape_to_polygons(array, idKeyword)
-    populations = create_population_grid(polygons, [], gridPointDistance=distance)
-    msg("There are %d populations." % len(populations))
-    return populations
+    polygons, inhabitants = shape_to_polygons(array, idKeyword)
+    populations = [create_population_grid(p, [], gridPointDistance=distance)
+                   for p in polygons]
+    msg("There are %d populations groupd." % len(populations))
+    return populations, inhabitants
 
 
 def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
@@ -144,18 +152,19 @@ def parse_and_dump(env):
     t.stop_timing()
 
     t.start_timing("Creating population points...")
-    population_coords = create_population(env.paramShpSettlements, 200)
-    total_population = 230000
-    avg_population = total_population / float(len(population_coords))
+    population_groups, inhabitants = create_population(env.paramShpSettlements,
+                                                       200)
     with open(populationFile, "w") as f:
-        for coord in population_coords:
-            f.write("{0} {1} {2}\n".format(coord[0], coord[1], avg_population))
+        for coordinates, inhabs in zip(population_groups, inhabitants):
+            avg_population = inhabs / float(len(coordinates))
+            for c in coordinates:
+                f.write("{0} {1} {2}\n".format(c[0], c[1], avg_population))
     t.stop_timing()
 
     t.start_timing("Parsing forest entry locations...")
     fields = [f.name.lower() for f in arcpy.ListFields(env.paramShpEntrypoints)]
     idKeyword = "fid" if "fid" in fields else "objectid"
-    array = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntrypoints, 
+    array = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntrypoints,
                                               [idKeyword, "shape"])
     with open(entryXYFile, "w") as f:
         for east, north in array['shape']:
@@ -169,9 +178,9 @@ def call_subprocess(prog, args):
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
-        #output = subprocess.check_output(prog + " " + args, 
+        #output = subprocess.check_output(prog + " " + args,
         #                                 stderr=subprocess.STDOUT)  # shell=False
-        p = subprocess.Popen(prog + " " + args, 
+        p = subprocess.Popen(prog + " " + args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE)
         output = ""
@@ -330,14 +339,14 @@ def main():
             roadGraphFile + " " + forestGraphFile + " " + entryXYFile + " " +
             entryXYRFFile)
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
-            roadGraphFile + " " + entryXYRFFile + " " + 
+            roadGraphFile + " " + entryXYRFFile + " " +
             populationFile + " " + ttfFile + " " + entryPopularityFile)
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
-            forestGraphFile + " " + entryXYRFFile + " " + 
-            entryPopularityFile + " " + tifFile + 
+            forestGraphFile + " " + entryXYRFFile + " " +
+            entryPopularityFile + " " + tifFile +
             " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
 
-    add_column(env.paramShpForestRoads, columnName, forestGraphFile, 
+    add_column(env.paramShpForestRoads, columnName, forestGraphFile,
             forestArcToFID, edgeWeightFile)
 
     if env.paramValRasterize:
