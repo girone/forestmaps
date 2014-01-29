@@ -12,8 +12,10 @@ from graph import Graph
 from arcutil import msg, Progress
 
 
-ATKIS_HIGHWAY_VALUE_RANGE = set(range(164001, 164012) + range(87001, 87005) +
-                                range(89001, 89003) + range(90001, 90019))
+ATKIS_LARGE_ROAD_CLASSES = set(range(164001, 164012))
+ATKIS_SMALL_ROAD_CLASSES = set(range(87001, 87005) + range(89001, 89003) + 
+                               range(90001, 90019))
+ATKIS_HIGHWAY_VALUE_RANGE = ATKIS_LARGE_ROAD_CLASSES | ATKIS_SMALL_ROAD_CLASSES 
 
 
 ATKISSpeedTable = {164001 : 110,
@@ -73,13 +75,22 @@ def pairwise(iterable):
 
 
 def distance(p1, p2):
-  """ Euclid. """
+  """ Euclid. 
+  
+  ATKIS Graph has Gauss-Kruger coordinates which are planar.
+  """
   return sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 
 def determine_speed(way_type, max_speed):
   """ Get the speed in km/h on a specific way type. """
-  speed = ATKISSpeedTable[way_type]
+  try:
+      speed = ATKISSpeedTable[way_type]
+  except KeyError as e:
+      from arcutil import msg
+      msg("Unknown way class " + str(way_type))
+      msg(str(e))
+      raise e
   return max_speed if speed > max_speed else speed
 
 
@@ -134,56 +145,72 @@ def create_graph_via_numpy_array(dataset, max_speed=5):
 
 
 def create_from_feature_class(fc, max_speed=5):
-  """ Reads a feature class from disk, creates a graph from its Polylines. """
-  import arcpy
-  def add_node(coordinate):
-    """ Adds a node for a coordinate (if none exists yet). Returns its id. """
-    if coordinate not in coord_to_node:
-      coord_to_node[coordinate] = len(coord_to_node)
-    return coord_to_node[coordinate]
-  # In file-geodatabases the id has another name than in plain feature classes
-  fields = [field.name.lower() for field in arcpy.ListFields(fc)]
-  idKeyword = "fid" if "fid" in fields else "objectid"
+    """ Reads a feature class from disk, creates a graph from its Polylines. """
+    import arcpy
+    def add_node(coordinate):
+        """ Adds a node for a coordinate (if none exists yet). Returns its id. """
+        if coordinate not in coord_to_node:
+            coord_to_node[coordinate] = len(coord_to_node)
+        return coord_to_node[coordinate]
+    # In file-geodatabases the id has another name than in plain feature classes
+    fields = [field.name.lower() for field in arcpy.ListFields(fc)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
 
-  # The forest road graph does not contain a column 'klasse'. In case this is
-  # not present, assume a constant speed.
-  field_names = [idKeyword, "SHAPE@XY"]
-  clsKeyword = "klasse"
-  if clsKeyword in fields:
-      field_names.append(clsKeyword)
-  else:
-      way_type = 87003
+    # The forest road graph does not contain a column 'klasse'. In case this is
+    # not present, assume the constant speed.
+    field_names = [idKeyword, "SHAPE@XY"]
+    clsKeyword = "klasse"
+    if clsKeyword in fields:
+        field_names.append(clsKeyword)
+    else:
+        way_type = 87003  # "Fussgaengerzone" == pedestrian area
+    # Read edge weights if present
+    weightKeyword = "wert"
+    if weightKeyword in fields:
+        field_names.append(weightKeyword)
+    else:
+        weightKeyword = None
 
-  graph = Graph()
-  coord_to_node = {}
-  arc_to_fid = {}
-  lastIndex = None
-  total = int(arcpy.management.GetCount(fc).getOutput(0))
-  count = 0
-  p = Progress("Building graph from FeatureClass.", total, 100)
-  with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
-    for row in rows:
-      #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
-      if len(field_names) == 3:
-          index, coordinates, way_type = row
-      else:  # len(field_names) == 2
-          index, coordinates = row
-          
-      if index == lastIndex:
-        index_a = add_node(last_coordinates)
-        index_b = add_node(coordinates)
-        dist = distance(last_coordinates, coordinates)
-        cost = dist / (determine_speed(way_type, max_speed) / 3.6)
-        graph.add_edge(index_a, index_b, cost)
-        graph.add_edge(index_b, index_a, cost)
-        arc_to_fid[(index_a, index_b)] = index
-        arc_to_fid[(index_b, index_a)] = index
-      else:
-        count += 1
-        p.progress(count)
-      lastIndex = index
-      last_coordinates = coordinates
-  return graph, coord_to_node, arc_to_fid
+    graph = Graph()
+    coord_to_node = {}
+    arc_to_fid = {}
+    lastIndex = None
+    total = int(arcpy.management.GetCount(fc).getOutput(0))
+    count = 0
+    p = Progress("Building graph from FeatureClass.", total, 100)
+    with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
+        for row in rows:
+            #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
+            if len(field_names) == 3:
+                index, coordinates, way_type = row
+            elif weightKeyword:
+                index, coordinates, way_type, weight = row
+            else:  # len(field_names) == 2
+                index, coordinates = row
+
+            # ignore large roads when walking
+            if max_speed == 5 and way_type in ATKIS_LARGE_ROAD_CLASSES:
+                count += 1
+                continue
+                
+            if index == lastIndex:
+                index_a = add_node(last_coordinates)
+                index_b = add_node(coordinates)
+                dist = distance(last_coordinates, coordinates)
+                time = dist / (determine_speed(way_type, max_speed) / 3.6)
+                cost = [time]
+                if weightKeyword:
+                    cost.append(int(weight))
+                graph.add_edge(index_a, index_b, cost)
+                graph.add_edge(index_b, index_a, cost)
+                arc_to_fid[(index_a, index_b)] = index
+                arc_to_fid[(index_b, index_a)] = index
+            else:
+                count += 1
+                p.progress(count)
+            lastIndex = index
+            last_coordinates = coordinates
+    return graph, coord_to_node, arc_to_fid
 
 
 import unittest

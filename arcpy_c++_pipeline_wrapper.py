@@ -19,6 +19,8 @@ entryXYFile         = "forest_entries_xy.tmp.txt"
 populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
+carPopulationFile   = "car_population.tmp.txt"  # population available for car
+parkingLotsFile     = "parking_lot_positions.tmp.txt"
 edgeWeightFile      = "edge_weights.tmp.txt"
 ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
@@ -32,7 +34,7 @@ def set_paths(argv, env):
     msg("############# scriptDir is " + scriptDir)
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
-    global ttfFile, tifFile
+    global ttfFile, tifFile, carPopulationFile, parkingLotsFile
     # converted inputs are created at the input data's location
     tmpDir = env.path + "\\"
     roadGraphFile       = tmpDir + roadGraphFile
@@ -46,6 +48,8 @@ def set_paths(argv, env):
     entryXYRFFile       = tmpDir + entryXYRFFile
     entryPopularityFile = tmpDir + entryPopularityFile
     edgeWeightFile      = tmpDir + edgeWeightFile
+    carPopublationFile  = tmpDir + carPopulationFile
+    parkingLotsFile     = tmpDir + parkingLotsFile
 
 
 def shape_to_polygons(lines, idKeyword):
@@ -55,22 +59,14 @@ def shape_to_polygons(lines, idKeyword):
         a,b = tee(iterable)
         next(b, None)
         return izip(a, b)
-    polygons = [[tuple(lines[0]['shape'])]]  ############ TODO JONAS  ########
+    polygons = [[tuple(lines[0]['shape'])]]
     inhabitants = [lines[0]['population']]
-    msg(lines)
-    msg(lines[0])
-    msg(lines.dtype)
-    for a, b in pairwise(lines):             # Go on here: Add empty field for
-                                             # population, fill it afterwards
-                                             # with a dummy (if unknown) or
-                                             # extract and use the value from
-                                             # the 'population' field.
+    for a, b in pairwise(lines):
         if a[idKeyword] != b[idKeyword]:
             polygons.append([])
             inhabitants.append(b['population'])
         polygons[-1].append(tuple(b['shape']))
     assert len(polygons) == len(inhabitants)
-    msg(inhabitants)
     return polygons, inhabitants
 
 
@@ -112,7 +108,7 @@ def create_population(fc, distance):
     polygons, inhabitants = shape_to_polygons(array, idKeyword)
     populations = [create_population_grid(p, [], gridPointDistance=distance)
                    for p in polygons]
-    msg("There are %d populations groupd." % len(populations))
+    msg("There are %d populations groups." % len(populations))
     return populations, inhabitants
 
 
@@ -130,8 +126,26 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
             f.write("{0} {1}\n".format(x, y))
         for source, targets in graph.edges.items():
             for target, edge in targets.items():
-                f.write("{0} {1} {2}\n".format(source, target, edge.cost))
+                f.write("{0} {1}".format(source, target))
+                if hasattr(edge.cost, '__iter__'):  
+                # TODO(Jonas): Check this using a shp file
+                  for elem in edge.cost:  
+                    f.write(" {0}".format(elem))
+                else:
+                  f.write(" {0}".format(edge.cost))
+                f.write("\n")
     return arcToFID
+
+
+def read_and_dump_parking(parkingShp):
+    """Parses and dumps the parking lot locations."""
+    fields = [f.name.lower() for f in arcpy.ListFields(parkingShp)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    array = arcpy.da.FeatureClassToNumPyArray(
+            parkingShp, [idKeyword, "shape"], explode_to_points=True)
+    with open(parkingLotsFile, "w") as f:
+        for entry in array:
+            f.write("{0} {1}\n".format(entry[1][0], entry[1][1]))
 
 
 def parse_and_dump(env):
@@ -171,10 +185,20 @@ def parse_and_dump(env):
             f.write("{0} {1}\n".format(east, north))
     t.stop_timing()
 
+    t.start_timing("Parsing parking lot locations...")
+    read_and_dump_parking(env.paramShpParking)
+    t.stop_timing()
+
     return forestArcToFID
 
 
 def call_subprocess(prog, args):
+    """Calls an external program and waits for it it finish.
+
+    The return code and output cannot be fetched at the same time. So we
+    require a successfull program to have a newline with "OK" at the end
+    of its output.
+    """
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
@@ -197,15 +221,22 @@ def call_subprocess(prog, args):
         msg("Error occured.")
         msg(e.output)
         raise
+    if "OK" in [s.strip() for s in output.split("\n")[-2:]]:
+        returnCode = 0
+    else:
+        returnCode = 1
     msg("=====================")
-    msg("Subprocess has finished, its output was:")
+    msg("Subprocess has finished {0}, its output was:".format(
+        "successfully" if returnCode == 0 else "with an error"))
     msg(output)
     timer.stop_timing()
     msg("=====================")
+    if returnCode != 0:
+        exit(1)
     return output
 
 
-def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
+def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
     """Adds a column to the dataset in shp and inserts the values.
 
     Needs graph file as input to map from arcs to FIDs.
@@ -220,7 +251,7 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 break
         for line in f:
             components = line.strip().split(" ")
-            assert len(components) == 3
+            assert len(components) >= 2
             edges.append((int(components[0]), int(components[1])))
     msg(str(numArcs) + " " + str(len(edges)))
     assert numArcs == len(edges)
@@ -249,7 +280,11 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 row[1] = FIDtoWeight[row[0]]
                 cursor.updateRow(row)
             else:
-                msg("{0} not contained".format(row[0]))
+                #msg("{0} not contained".format(row[0]))
+                count += 1
+    msg(("Warning: {0} of {1} FIDs could not be matched. Probably their road " +
+         "type has been ignored.").format(
+         count, arcpy.management.GetCount(shp).getOutput(0)))
 
 class AlgorithmEnvironment(object):
     def __init__(self):
@@ -257,8 +292,6 @@ class AlgorithmEnvironment(object):
         self.paramShpRoads = arcpy.GetParameterAsText(0)
         self.paramShpForestRoads = arcpy.GetParameterAsText(1)
         self.paramShpEntrypoints = arcpy.GetParameterAsText(2)
-        ## TODO(jonas): Generate population nodes from polygons. ##
-        #shpPopulationNodes = arcpy.GetParameterAsText(3)
         self.paramShpSettlements = arcpy.GetParameterAsText(3)
 
         self.paramShpParking = arcpy.GetParameterAsText(4)
@@ -274,6 +307,7 @@ class AlgorithmEnvironment(object):
                 self.paramShpForestRoads and
                 self.paramShpSettlements and
                 self.paramShpEntrypoints and
+                self.paramShpParking and 
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
@@ -322,6 +356,18 @@ def create_raster(env, columnName, rasterPixelSize=20):
     arcpy.mapping.AddLayer(dataframe, layer, "TOP")
 
 
+def add_column(data, fieldname, outputShp):
+    """Add a new column with values from a list."""
+    assert len(data) == int(arcpy.management.GetCount(outputShp).getOutput(0))
+    index = 0
+    arcpy.management.AddField(outputShp, fieldname, "FLOAT")
+    with arcpy.da.UpdateCursor(outputShp, [fieldname]) as cursor:
+        for entry in cursor:
+            entry[0] = data[index]
+            cursor.updateRow(entry)
+            index += 1
+
+
 def main():
     """Prepares data from the ArcGIS/ArcPy side.
 
@@ -335,18 +381,29 @@ def main():
     forestArcToFID = parse_and_dump(env)
     msg("scriptDir = " + scriptDir)
     s = scriptDir
+
     call_subprocess(scriptDir + "MatchForestEntriesMain.exe",
             roadGraphFile + " " + forestGraphFile + " " + entryXYFile + " " +
             entryXYRFFile)
+
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
             roadGraphFile + " " + entryXYRFFile + " " +
-            populationFile + " " + ttfFile + " " + entryPopularityFile)
+            populationFile + " " + ttfFile + " " + parkingLotsFile + " "+ 
+            entryPopularityFile)
+    # debug
+    with open(entryPopularityFile) as f:
+        entrypointPopulation = []
+        for line in f:
+            s = line.strip()
+            entrypointPopulation.append(float(s))
+        add_column(entrypointPopulation, "populati", env.paramShpEntrypoints)
+
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryXYRFFile + " " +
             entryPopularityFile + " " + tifFile +
             " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
 
-    add_column(env.paramShpForestRoads, columnName, forestGraphFile,
+    add_edgeweight_column(env.paramShpForestRoads, columnName, forestGraphFile,
             forestArcToFID, edgeWeightFile)
 
     if env.paramValRasterize:
