@@ -8,6 +8,7 @@ import webbrowser
 import BaseHTTPServer
 import SimpleHTTPServer
 import urlparse
+import pickle
 from collections import defaultdict
 from heatmap import Heatmap, HeatmapFactory, compute_longitude_stepsize
 from timer import Timer
@@ -18,7 +19,7 @@ FILE = 'index.html'
 PORT = 8080
 
 
-datasetShortNameToIndex = {"ro" : 0, "ch" : 1, "at" : 2, "de" : 3}
+shortNameToIndex = {"ro" : 0, "ch" : 1, "at" : 2, "de" : 3}
 
 def normalize_zoomlvl(lvl):
     if lvl < 6:
@@ -28,18 +29,41 @@ def normalize_zoomlvl(lvl):
     else:
         return lvl - 6
 
+def dd():  # module-level definition required for pickle
+    return defaultdict(Heatmap)
 
 class HeatmapDatabase(object):
     """Stores the heatmap data."""
-    def __init__(self):
-        self.rasterHeatmaps = defaultdict(lambda : defaultdict(lambda : Heatmap))
+    def __init__(self, path=None):
+        """Constructor."""
+        self.rasterHeatmaps = defaultdict(dd)
         self.initialized = False
 
     def initialize_all_rasters(self, levelsAndBBoxes, localYResolution=48):
         """Computes the rasters for each dataset."""
-        for i in sorted(datasetShortNameToIndex.values())[:len(graphFilenames)]:
+        num = len(graphFilenames)
+        for i in sorted(shortNameToIndex.values())[:num]:
             self.initialize_dataset_rasters(i, levelsAndBBoxes, localYResolution)
         self.initialized = True
+        initials = [k for v,k in
+                    sorted([(v,k) for k,v in shortNameToIndex.items()])][:num]
+        self.save_heatmap_rasters("+".join(initials) + ".db.pickled")
+
+    def load_heatmap_rasters(self, path):
+        print "Loading db from path ", path
+        global gLocalBounds
+        global gLeftBottomRightTop
+        with open(path) as f:
+            [self.rasterHeatmaps, gLeftBottomRightTop, gLocalBounds] = pickle.load(f)
+        self.initialized = True
+        print " --> Done."
+
+    def save_heatmap_rasters(self, filename):
+        filename = "data/" + filename
+        print "Saving db to ", filename
+        with open(filename, 'w') as f:
+            pickle.dump([self.rasterHeatmaps, gLeftBottomRightTop, gLocalBounds],
+                        f)
 
     def initialize_dataset_rasters(self, i, levelsAndBBoxes, localYResolution):
         """Computes the raster for each zoomlevel."""
@@ -72,9 +96,7 @@ class HeatmapDatabase(object):
             hm.latFraction = latFrac
             self.rasterHeatmaps[i][normalize_zoomlvl(level)] = hm
 
-
 gHeatmapDB = HeatmapDatabase()
-
 
 class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     """A handler that processes requests from the heatmap web UI."""
@@ -141,7 +163,7 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def datasetBoundsRequest(self, dataset):
         """Requests the bounds of a dataset. Returns JSON."""
         print "datasetBoundsRequest() called with dataset=", dataset
-        bounds = gLocalBounds[datasetShortNameToIndex[dataset]]
+        bounds = gLocalBounds[shortNameToIndex[dataset]]
         (minLon, minLat, maxLon, maxLat) = bounds
         return ('{\n' +
                 '   "minLon" : ' + str(minLon) + ',\n' +
@@ -197,7 +219,7 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             print "Initializing the server: Requesting initialization from user."
             return self.format_initialize_request()
         opt = dict(opt)
-        index = 0 if not opt else datasetShortNameToIndex[opt['dataset']]
+        index = 0 if not opt else shortNameToIndex[opt['dataset']]
         zoomlvl = int(opt["zoomlevel"]) if "zoomlevel" in opt else 14
         lvl = normalize_zoomlvl(zoomlvl)
         hm = gHeatmapDB.rasterHeatmaps[index][lvl]
@@ -336,23 +358,29 @@ def determine_bounds(graphFileNames):
 
 def main():
     import sys
-    if len(sys.argv) < 3 or len(sys.argv) % 2 == 0:
-        print "Usage: python heatmap_server.py [<GRAPH_FILE> <EDGE_HEAT_FILE>]"
+    if ((len(sys.argv) < 3 or len(sys.argv) % 2 == 0)
+        and not len(sys.argv) == 2 and sys.argv[1].contains("db.pickled")):
+        print "Usage: python heatmap_server.py [<GRAPH_FILE> <EDGE_HEAT_FILE>] || [<HEATMAP PICKLED>]"
         print "The argument is a list of alternating graph and heat file names."
+        print "  -- OR -- "
+        print "The argument is a path to a pickled heatmap db."
         exit(1)
-    global gInitialized
-    gInitialized = False
     global graphFilenames
-    graphFilenames = []
     global edgeHeatFilenames
-    edgeHeatFilenames = []
-    for i in range(1, len(sys.argv), 2):
-        graphFilenames.append(sys.argv[i])
-        edgeHeatFilenames.append(sys.argv[i+1])
     global gLeftBottomRightTop
     global gLocalBounds
-    gLeftBottomRightTop, gLocalBounds = determine_bounds(graphFilenames)
     global gHeatmapDB
+    if len(sys.argv) > 2:
+        graphFilenames = []
+        edgeHeatFilenames = []
+        for i in range(1, len(sys.argv), 2):
+            graphFilenames.append(sys.argv[i])
+            edgeHeatFilenames.append(sys.argv[i+1])
+        gLeftBottomRightTop, gLocalBounds = determine_bounds(graphFilenames)
+    else:
+        path = sys.argv[1]
+        gHeatmapDB.load_heatmap_rasters(path)
+
 
 
     #open_browser()
