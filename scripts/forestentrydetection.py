@@ -28,8 +28,8 @@ import convexhull
 import osm_parse
 
 # find Polygon library on machines without admin rights
-# libpath = os.path.abspath("/home/sternis/code/forst/scripts/lib/python2.7/site-packages")
-# sys.path.append(libpath)
+libpath = os.path.abspath("/home/sternis/code/forst/scripts/lib/python2.7/site-packages")
+sys.path.append(libpath)
 
 visualize = True
 
@@ -251,16 +251,22 @@ def label_nodes_in_polygons_with_value(nodes, polygons, value, labels):
         while leftPointer < len(sortedNodes) and lat < minPolygonLatitude:
             leftPointer += 1
             lat = sortedNodes[leftPointer][0][0]
+        try:
+            polygon = Polygon(polygons[polygonIndex])
+            nodePointer = leftPointer
+            while nodePointer < len(sortedNodes) and lat <= maxPolygonLatitude:
+                ((lat, lon, _), index) = sortedNodes[nodePointer]
+                if lon >= minPolygonLongitude and lon <= maxPolygonLongitude:
+                    if polygon.isInside(lat, lon):
+                        labels[index] = value
+                nodePointer += 1
+            lat = sortedNodes[leftPointer][0][0]
+        except:
+            e = sys.exc_info()[0]
+            print e
+            polygons[polygonIndex]
+            print lat, lon
 
-        polygon = Polygon(polygons[polygonIndex])
-        nodePointer = leftPointer
-        while nodePointer < len(sortedNodes) and lat <= maxPolygonLatitude:
-            ((lat, lon, _), index) = sortedNodes[nodePointer]
-            if lon >= minPolygonLongitude and lon <= maxPolygonLongitude:
-                if polygon.isInside(lat, lon):
-                    labels[index] = value
-            nodePointer += 1
-        lat = sortedNodes[leftPointer][0][0]
 
 
 def classify_forest_nodes(nodes, forestPolygons, innerPolygons):
@@ -291,6 +297,10 @@ def classify_nodes(nodes, edges, forestPolygons, innerPolygons):
     nodeFlags = classify_forest_entries(nodes, edges, nodeFlags)
     return nodeFlags
 
+def restrict_to_forest(poiCategory, flags):
+    """Restricts the poiCategory mapping to POIs with non-zero forest flag."""
+    return {i:(osm,cat) for i, (osm,cat) in poiCategory.items() if flags[i]}
+
 
 def usage_information():
     return "Usage: python script.py <osm_file> <max_speed>"
@@ -316,15 +326,17 @@ def main():
     maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
     print "Reading nodes, ways and polygons from OSM and creating the graph..."
-    iterpreter = (osm_parse.OSMWayTagInterpreter if standardOSM
-                  else osm_parse.ATKISWayTagInterpreter)
     parser = OSMParser(maxspeed)
-    (nodes, edges, forestPolys, innerPolys) = parser.read_osm_file(osmfile)
+    data = parser.read_osm_file(osmfile)
+    (nodes, edges, (forestPolys, innerPolys), adminPolys, pois) = data
 
     print "Classifying the nodes..."
     forestFlags = classify_nodes(nodes, edges, forestPolys, innerPolys)
+    pois = restrict_to_forest(pois, forestFlags)
+    print "...done."
 
     dump_graph(nodes, edges, filename, forestFlags)
+    osm_parse.dump_pois(pois, filename)
     with open(filename + ".forest.txt", "w") as polyFile:
         for poly in forestPolys:
             polyFile.write("{0}\n".format(poly))
@@ -332,6 +344,8 @@ def main():
         for poly in innerPolys:
             polyFile.write("{0}\n".format(poly))
 
+    #iterpreter = (osm_parse.OSMWayTagInterpreter if standardOSM
+    #              else osm_parse.ATKISWayTagInterpreter)
     #tmp = osm_parse.read_file(osmfile, maxspeed, iterpreter)
     #(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId) = tmp
 
