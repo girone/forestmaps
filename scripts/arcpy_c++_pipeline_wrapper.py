@@ -6,6 +6,7 @@ import arcpy
 import os
 import subprocess
 import random
+from collections import defaultdict
 import atkis_graph
 from arcutil import msg, Timer
 
@@ -77,8 +78,8 @@ def create_road_graph(dataset, max_speed):
     #msg("Contracting binary nodes...")
     #contraction_list = graph.contract_binary_nodes()
     contraction_list = []
-    msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
-      sum([len(edge_set) for edge_set in graph.edges.values()])))
+    #msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+    #  sum([len(edge_set) for edge_set in graph.edges.values()])))
     #lcc = graph.lcc()
     #msg("The largest connected component has %d nodes and %d edges." %
     #    (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
@@ -173,7 +174,7 @@ def call_subprocess(prog, args):
             if line.startswith("Progress: "):
                 msg(line.strip())
             else:
-                msg("Reading data...")
+                msg("Read from pipe.")
                 output += line
     except subprocess.CalledProcessError as e:
         msg("Error occured.")
@@ -202,7 +203,8 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 break
         for line in f:
             components = line.strip().split(" ")
-            edges.append((float(components[0]), float(components[1])))
+            assert len(components) == 3
+            edges.append((int(components[0]), int(components[1])))
     msg(str(numArcs) + " " + str(len(edges)))
     assert numArcs == len(edges)
 
@@ -212,7 +214,12 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
             weights.append(float(line.strip()))
     assert len(weights) == len(edges)
 
-    FIDtoWeight = {arcToFID[e] : w for e, w in zip(edges, weights)}
+    # TODO(Jonas): Fix the mapping of edge weights to multi-edge shapes.
+    # Workaround / HACK:
+    FIDtoWeight = defaultdict(list)
+    for e, w in zip(edges, weights):
+        FIDtoWeight[arcToFID[e]].append(w)
+    FIDtoWeight = {fid: max(weights) for fid, weights in FIDtoWeight.items()}
 
     arcpy.management.AddField(shp, columnName, "FLOAT")
     fields = [f.name.lower() for f in arcpy.ListFields(shp)]
