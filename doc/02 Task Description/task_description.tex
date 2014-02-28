@@ -24,9 +24,9 @@ Geoinformationssystem (GIS) als Arbeitsziel, welches die Simulation der
 Benutzung vom Waldwegen zu Erholungszwecken in annehmbarer Zeit ermöglicht.
 Dieses Hauptziel wird anschließend in teilweise aufeinander aufbauende
 Meilensteine untergliedert.
-% Warum ist das notwenig? --> Verwirrung durch unpräzise Problembeschreibung
+% Warum ist das notwendig? --> Verwirrung durch unpräzise Problembeschreibung
 % Nutzen des Dokuments
-Dieser Text soll etwaige Mißverständnisse in der Kommunikation zwischen FVA
+Dieser Text soll etwaige Missverständnisse in der Kommunikation zwischen FVA
 (Forstwissenschaftler) und AD (Informatiker) aufdecken und verhindern helfen.
 Gleichzeitig dient er als Arbeitsgrundlage für die Algorithmenentwicklung.
   \end{abstract}
@@ -60,7 +60,7 @@ Als \emph{Siedlungsfläche} bezeichnen wir grob gesagt alle Areale, in denen sic
 eine hinreichend große Anzahl von Wohnhäusern oder Unterkünften (Hotels,
 Pensionen etc.) befindet. Die Siedlungsfläche muss nicht unbedingt mit der
 Gemeindefläche übereinstimmen. So ist es vorstellbar, dass man für eine
-Verfeierung des Models zum Beispiel Wohngegenden von Gewerbegebieten
+Verfeinerung des Modells zum Beispiel Wohngegenden von Gewerbegebieten
 anhand von OSM-Daten unterscheidet.
 
 Als \emph{Waldeinstiegspunkte} (WEP) bezeichnen wir Orte, an denen Wege den
@@ -76,13 +76,13 @@ verschiedenen) WEPs. Wie viele Menschen an einem WEP den Wald betreten (oder
 wieder verlassen) hängt von dessen Lage gegenüber der umgebenden
 Siedlungsgebieten und der Mobilität der dortigen Bevölkerung ab. Durch
 Bevölkerungsstatistiken ist die Populationsverteilung bekannt und die Umfragen
-seitens der FVA geben Aufschluss über die \emph{Erhohlungsmobilität} zu Fuss,
+seitens der FVA geben Aufschluss über die \emph{Erhohlungsmobilität} zu Fuß,
 mit dem Fahrrad oder mit dem Auto.
 
 Ausgehend von den durch die FVA bereit gestellten Daten über
 Bevölkerungsverteilung in den Siedlungsgebieten und deren Erholungsmobilität
 wird in einem ersten Schritt die Frequentierung der WEPs berechnet. Das heißt,
-welcher Anteil der Bevölkerungauf jeden WEP entfällt.
+welcher Anteil der Bevölkerung auf jeden WEP entfällt.
 
 Algorithmisch könnte man dies durch die Berechnung des minimalen Spannbaums
 von jedem WEP auf dem Straßennetz umsetzen (für verschiedene
@@ -95,7 +95,7 @@ Parzelle.
 
 \subsection*{Simulation von Touren im Wald}
 Im Wald zu Erholungszwecken zurückgelegte Strecken haben verschiedene
-Charackteristika. Es werden in der Regel Touren bevorzugt, die nahe an
+Charakteristika. Es werden in der Regel Touren bevorzugt, die nahe an
 verschiedenen Attraktoren (Aussichtspunkte, Gasthöfe, Gewässer, \dots)
 verlaufen und bei denen keine Orte mehrmals besucht werden.
 Die Länge der Touren und das Steigungsprofil hängt von den Präferenzen der
@@ -109,8 +109,8 @@ Ort im Wald gibt es nur wenige weiterführende Wege), könnte dies schon eine
 ausreichend schnelle Lösung des Problems darstellen. Andernfalls müsste hierfür
 eine geeignete Beschleunigungsmethode gefunden oder neu entwickelt werden. 
 Die so ermittelten Touren werden anhand ihres Profils gewertet (Kriterien
-siehe oben). Zusammen mit dem Gewicht des WEP ergibt sich ein Model, wie häufig
-diese Tour benutzt wird. Ein Model für alle Waldwege ergibt sich durch
+siehe oben). Zusammen mit dem Gewicht des WEP ergibt sich ein Modell, wie häufig
+diese Tour benutzt wird. Ein Modell für alle Waldwege ergibt sich durch
 Summierung über die einzelnen Teilstrecken aller Touren von allen WEPs.
 
 \subsection*{Vereinfachungen}
@@ -118,12 +118,12 @@ Um die Rechenzeit der Simulation in einem sinnvollen Rahmen zu halten, werden
 verschiedene Vereinfachungen vorgenommen. Im bestehenden GIS-Modul wurde die
 Simulation zum Beispiel auf einzelne Landkreise beschränkt und die
 Siedlungsfläche auf Punkte in einem gleichmäßigen Gitter mit 500\,m Auflösung
-heruntergebrochen. Weil oftmals auch Ziele außerhalb des eigenen Landkreises
+herunter gebrochen. Weil oftmals auch Ziele außerhalb des eigenen Landkreises
 besucht werden, ist dies eine sehr starke Vereinfachung. Wir sind zum jetzigen
 Zeitpunkt optimistisch, dass durch geeignete Algorithmen die Simulation auch auf
 Landesebene mit einer feineren Auflösung in sinnvoller Zeit möglich wird. 
 
-% Geschwindigkeit im Wald (bei Steigung, Wegetyp, ...)
+% Geschwindigkeit im Wald (bei Steigung, Wegtyp, ...)
 Weitere mögliche Vereinfachungen, welche die Rechenzeit reduzieren, ohne dass
 das Modell zu einfach wird, sind zum Beispiel die Annahme konstanter
 Laufgeschwindigkeiten auf Waldwegen unabhängig von der Steigung und ...
@@ -136,7 +136,7 @@ Laufgeschwindigkeiten auf Waldwegen unabhängig von der Steigung und ...
 \section{GIS-Modul}
 Ziel des Projekts ist ein Modul für das von der FVA eingesetzte Programm ArcGIS.
 Dieses verfügt über eine Python-Programmierschnittstelle (ArcPy). Die
-Implementierung seitens AD erfolgt in C++, denn diese Programmiersprache is am
+Implementierung seitens AD erfolgt in C++, denn diese Programmiersprache ist am
 besten geeignet, Geschwindigkeit und Speicherverbrauch der Simulation zu
 optimieren. 
 
@@ -153,7 +153,7 @@ Extension-Modul ruft den C++-Code auf.
   \caption{Zu entwickelnde Komponenten}
 \end{figure}
 
-\subsection*{Eingabe}
+\subsection*{Input}
      Graph information
      \begin{itemize}
       \item Roadnetwork including forest tracks (separated?)
@@ -176,7 +176,7 @@ slope, ...)
 
 
     
-\subsection*{Ausgabe}
+\subsection*{Output}
      \begin{itemize}
       \item Liste mit Paaren aus Waldweg-ID und berechnetem Gewicht
      \end{itemize}
@@ -185,7 +185,7 @@ slope, ...)
     
 \subsection*{Parameter}
 \begin{itemize}
- \item Auflösung Gitter
+ \item Grid resolution
  \item ...
 \end{itemize}
       
