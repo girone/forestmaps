@@ -27,14 +27,21 @@ vector<float> reachability_analysis(
     const vector<int>& fepIndices,
     const vector<float>& population,
     const vector<int>& populationIndices,
+    const vector<vector<float> >& preferences,
     const int costLimit) {
   assert(population.size() == populationIndices.size());
   Dijkstra<RoadGraph> dijkstra(graph);
   dijkstra.set_cost_limit(costLimit);
 
+  // Get the buckets from the user preferences.
+  const vector<float>& upperBounds = preferences[0];
+  const vector<float>& shares = preferences[1];
+//   vector<int> bucketCostBounds = {5*60, 10*60, 15*60, 20*60, 25*60};
+  vector<int> bucketCostBounds;
+  for (float bound: upperBounds) { bucketCostBounds.push_back(60 * bound); }
+
   // First round of Dijkstras: Analyse reachability and determine frequency of
   // forest distances categories for each population point.
-  vector<int> bucketCostBounds = {5*60, 10*60, 15*60, 20*60, 25*60};
   vector<vector<float>> buckets(
       population.size(), vector<float>(bucketCostBounds.size() + 1, 0.f));
   for (int index: fepIndices) {
@@ -58,7 +65,7 @@ vector<float> reachability_analysis(
       sumOfCosts += buckets[i][b] * bucketCostBounds[b];
     }
     for (size_t b = 0; b < buckets[i].size(); ++b) {
-      buckets[i][b] = 1. - bucketCostBounds[b] / sumOfCosts;
+      buckets[i][b] = 1.f - bucketCostBounds[b] / sumOfCosts;
     }
   }
 
@@ -75,7 +82,7 @@ vector<float> reachability_analysis(
       int cost = costs[popIndex];
       if (cost != Dijkstra<RoadGraph>::infinity) {
         uint b = determine_bucket_index(cost, bucketCostBounds);
-        fepPop[i] = fepPop[i] + buckets[i][b] * population[j];
+        fepPop[i] = fepPop[i] + buckets[i][b] * shares[b] * population[j];
       }
     }
   }
@@ -92,7 +99,12 @@ vector<float> reachability_analysis(
 
 
 void print_usage() {
-  std::cout << "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes>"
+  std::cout <<
+  "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes> <Preferences>\n"
+  "  GraphFile -- ...\n"
+  "  ForestEntries -- ...\n"
+  "  PopulationNodes -- ...\n"
+  "  Preferences -- User study data as 2-column text file. First column contains upper bounds (in minutes), its last value denotes the cost limit for searches. The second column contains shares in [0,1].\n"
             << std::endl;
 }
 
@@ -105,6 +117,7 @@ int main(int argc, char** argv) {
   string graphFile = argv[1];
   string fepFile = argv[2];
   string popFile = argv[3];
+  string prefFile = argv[4];
 
   // Read the graph. The file has the graph format
   //  #nodes
@@ -139,12 +152,15 @@ int main(int argc, char** argv) {
 
   vector<int> populationNodeIndices = map_xy_locations_to_closest_node(x, y, graph);
 
-  const int costLimit = 30 * 60;
+
+  vector<vector<float>> preferences = util::read_column_file<float>(prefFile);
+  // TODO(Jonas): Do sanity checks with the code from the other Main.cpp
+  const int costLimit = 30 * 60;  // TODO(Jonas): Adapt cost limit tio user preference data.
 
 
   // Reachability analysis
   vector<float> fepPopulations = reachability_analysis(
-      graph, fepNodeIndices, population, populationNodeIndices, costLimit);
+      graph, fepNodeIndices, population, populationNodeIndices, preferences, costLimit);
   string filename = "forest_entries_popularity.tmp.txt";
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(fepPopulations, filename);

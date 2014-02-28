@@ -3,12 +3,14 @@
 #ifndef SRC_EDGEATTRACTIVENESSMODEL_H_
 #define SRC_EDGEATTRACTIVENESSMODEL_H_
 
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 #include "./Dijkstra.h"
 #include "./DirectedGraph.h"
 #include "Util.h"
 
+using std::upper_bound;
 using std::unordered_map;
 using std::vector;
 
@@ -19,15 +21,20 @@ class EdgeAttractivenessModel {
   EdgeAttractivenessModel(const RoadGraph& g,
                           const vector<int>& feps,
                           const vector<float>& popularities,
+                          const vector<vector<float>>& preferences,
                           const int maxCost)
     : _graph(g)
     , _forestEntries(feps)
+    , _preferences(preferences)
     , _maxCost(maxCost)
     , _aggregatedEdgeAttractivenesses(g.num_arcs(), 0.f) {
     assert(feps.size() == popularities.size());
     for (size_t i = 0; i < feps.size(); ++i) {
       _popularities[feps[i]] = popularities[i];
     }
+    assert(_preferences.size() == 2);
+    assert(_preferences[0].size() > 0);
+    assert(_preferences[0].size() == _preferences[1].size());
   }
   // D'tor.
   virtual ~EdgeAttractivenessModel() { };
@@ -39,9 +46,13 @@ class EdgeAttractivenessModel {
  protected:
   const RoadGraph& _graph;
   const vector<int>& _forestEntries;
+  const vector<vector<float>>& _preferences;  // User preferences for time in forest (tif)
   unordered_map<int, float> _popularities;
   const int _maxCost;
   vector<float> _aggregatedEdgeAttractivenesses;
+
+  // Returns the share of users preferring a specific TIF.
+  float user_share(const float tif) const;
 };
 
 
@@ -51,6 +62,7 @@ class FloodingModel : public EdgeAttractivenessModel {
   FloodingModel(const RoadGraph& g,
                 const vector<int>& feps,
                 const vector<float>& popularities,
+                const vector<vector<float>>& preferences,
                 const int maxCost);
   // Computes the model.
   virtual vector<float> compute_edge_attractiveness();
@@ -64,6 +76,7 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
   ViaEdgeApproach(const RoadGraph& g,
                   const vector<int>& feps,
                   const vector<float>& popularities,
+                  const vector<vector<float>>& preferences,
                   const int maxCost);
   // Computes the model.
   virtual vector<float> compute_edge_attractiveness();
@@ -78,7 +91,7 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
 
  private:
   // Stores pairwise distances between forest entries.
-  unordered_map<int, unordered_map<int, int> > _distances;
+  unordered_map<int, unordered_map<int, float> > _distances;
 };
 
 
@@ -87,12 +100,13 @@ FloodingModel::FloodingModel(
     const RoadGraph& g,
     const vector<int>& feps,
     const vector<float>& popularities,
+    const vector<vector<float>>& preferences,
     const int maxCost)
-  : EdgeAttractivenessModel(g, feps, popularities, maxCost) {
+  : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
 }
 
 // _____________________________________________________________________________
-std::vector< float > FloodingModel::compute_edge_attractiveness() {
+vector<float> FloodingModel::compute_edge_attractiveness() {
   // Collect node attractivenesses.
   vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
   Dijkstra<RoadGraph> dijkstra(_graph);
@@ -107,7 +121,10 @@ std::vector< float > FloodingModel::compute_edge_attractiveness() {
       int cost = costs[node];
       assert(cost != Dijkstra<RoadGraph>::infinity);
       if (cost < 1) { cost = 1; }
-      float gain = popularity / cost;  // TODO(Jonas): Some scaling or prefactor could/should be added.
+      // Map cost * 2 with the preferences, adjust popularity share accordingly.
+      float share = user_share(2.f * cost);
+      // TODO(Jonas): Some scaling factor could/should be added below:
+      float gain = popularity * share / cost;
       nodeAttractiveness[node] += gain;
     }
   }
@@ -120,14 +137,24 @@ std::vector< float > FloodingModel::compute_edge_attractiveness() {
   return result();
 }
 
+// _____________________________________________________________________________
+float EdgeAttractivenessModel::user_share(const float tif) const {
+  assert(tif < _preferences[0].back());
+  // Do a binary search in the user preferences.
+  auto it = upper_bound(_preferences[0].begin(), _preferences[0].end(), tif);
+  // if (it == _preferences[0].end()) { --it; }  <-- checked by the assert
+  size_t offset = it - _preferences[0].begin();
+  return _preferences[1][offset];
+}
 
 // _____________________________________________________________________________
 ViaEdgeApproach::ViaEdgeApproach(
     const RoadGraph& g,
     const vector<int>& feps,
     const vector<float>& popularities,
+    const vector<vector<float>>& preferences,
     const int maxCost)
-  : EdgeAttractivenessModel(g, feps, popularities, maxCost) {
+  : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
   // Compute pairwise distances between forest entries.
   Dijkstra<RoadGraph> dijkstra(g);
   dijkstra.set_cost_limit(maxCost);
@@ -194,13 +221,14 @@ void ViaEdgeApproach::evaluate(
       const int totalCost = costsFep1 + c + costsFep2;
       if (totalCost > _maxCost) { continue; }
       float gain;
+      const float share = user_share(totalCost);
       if (fep1 == fep2) {
-        gain = _popularities[fep1] / costsFep2;
+        gain = share * _popularities[fep1] / costsFep2;
       } else {
         const float popularity = std::min(_popularities[fep1], _popularities[fep2]);
-        const int distance = _distances[fep1][fep2];
+        const float distance = _distances[fep1][fep2];
         assert(totalCost > 0);
-        gain = popularity * distance / totalCost;
+        gain = distance / totalCost * (share * popularity);
       }
       _aggregatedEdgeAttractivenesses[edgeIndex] += gain;
     }

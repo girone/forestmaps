@@ -59,7 +59,7 @@ class Dijkstra {
   void setHopLimit(const size_t maxHops);
 
   // Get the costs to each node settled by Dijkstra. If a node was not settled,
-  // the costs equal numeric_limits<float>::max().
+  // the costs equal Dijkstra::infinity.
   const vector<int>& get_costs() const;
   // Get the parent node of every settled node.
   const vector<uint>& getOrigins() const;
@@ -252,7 +252,7 @@ int Dijkstra<G>::shortestPath(const vector<uint>& S, uint t) {
     // Get the node with the lowest tentative distance.
     pq_elem x = pq.top();
     const uint xIndex   = x.second;
-    const float xCosts = x.first;
+    const int xCosts = x.first;
     pq.pop();
     // Quit search, if the cost limit is reached.
     if (xCosts > _costLimit) { break; }
