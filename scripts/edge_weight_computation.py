@@ -1,12 +1,11 @@
-'''
-File: edge_weight_computation.py
+""" edge_weight_computation.py -- computes the weight of edges
+
+Computes the edge weight for e=(s,t) by conducting one Dijkstra from s and t
+respectively.
+
 Author: Jonas Sternisko
-Description:
-This file contains code which computes the weight of edges e=(s,t) in the graph
-by conducting one Dijkstra from s and t respectively.
 
-'''
-
+"""
 from collections import defaultdict
 from dijkstra import Dijkstra
 from arcutil import Progress
@@ -96,7 +95,7 @@ class TestModule(unittest.TestCase):
 
 
 def main():
-  ''' Run unit tests. '''
+  """ Run unit tests. """
   unittest.main()
 
 if __name__ == '__main__':

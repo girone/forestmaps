@@ -1,5 +1,7 @@
 """This is an Python/ArcPy wrapper to the C++ module.
 
+Note: Keep all input data in the same directoy.
+
 """
 import arcpy
 import os
@@ -8,17 +10,34 @@ import random
 import atkis_graph
 from arcutil import msg, Timer
 
+scriptDir = ""
 
 # Some general names
-roadGraphFile = "road_graph.tmp.txt"
-forestGraphFile = "forest_road_graph.tmp.txt"
-entryXYFile = "forest_entries_xy.tmp.txt"
-populationFile = "populations.tmp.txt"
-entryXYRFFile = "forest_entries_xyrf.tmp.txt"
+roadGraphFile       = "road_graph.tmp.txt"
+forestGraphFile     = "forest_road_graph.tmp.txt"
+entryXYFile         = "forest_entries_xy.tmp.txt"
+populationFile      = "populations.tmp.txt"
+entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
-edgeWeightFile = "edge_weights.tmp.txt"
+edgeWeightFile      = "edge_weights.tmp.txt"
 
 columnName = "EdgeWeight"
+
+def set_paths(argv):
+    """  """
+    global scriptDir
+    scriptDir = os.path.split(argv[0])[0] + "\\\\"
+    msg("############# Path is " + scriptDir)
+    global roadGraphFile, forestGraphFile, entryXYFile, populationFile
+    global entryXYRFFile, entryPopularityFile, edgeWeightFile
+    tmpDir = ""
+    roadGraphFile       = tmpDir + roadGraphFile
+    forestGraphFile     = tmpDir + forestGraphFile
+    entryXYFile         = tmpDir + entryXYFile
+    populationFile      = tmpDir + populationFile
+    entryXYRFFile       = tmpDir + entryXYRFFile
+    entryPopularityFile = tmpDir + entryPopularityFile
+    edgeWeightFile      = tmpDir + edgeWeightFile
 
 
 def shape_to_polygons(lines):
@@ -89,7 +108,8 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
     res = create_road_graph(shpFile, max_speed=maxSpeed)
     graph, coordinateMap, arcToFID, contractionList = res
     nodeToCoords = {node : coords for coords, node in coordinateMap.items()}
-    with open(filename, "w") as f:
+    global scriptDir
+    with open(scriptDir + filename, "w") as f:
         f.write("{0}\n".format(graph.size()))
         f.write("{0}\n".format(
                 sum([len(edges) for edges in graph.edges.values()])))
@@ -123,14 +143,15 @@ def parse_and_dump(env):
                                           point_distance=200)
     total_population = 230000
     avg_population = total_population / float(len(population_coords))
-    with open(populationFile, "w") as f:
+    global scriptDir
+    with open(scriptDir + populationFile, "w") as f:
         for coord in population_coords:
             f.write("{0} {1} {2}\n".format(coord[0], coord[1], avg_population))
     t.stop_timing()
 
     t.start_timing("Parsing forest entry locations...")
     arr4 = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntryLocations, ["fid", "shape"])
-    with open(entryXYFile, "w") as f:
+    with open(scriptDir + entryXYFile, "w") as f:
         for east, north in arr4['shape']:
             f.write("{0} {1}\n".format(east, north))
     t.stop_timing()
@@ -266,6 +287,7 @@ def main():
     4. If selected, visualize the result in ArcGIS.
 
     """
+    set_paths(sys.argv)
     env = AlgorithmEnvironment()
     forestArcToFID = parse_and_dump(env)
 

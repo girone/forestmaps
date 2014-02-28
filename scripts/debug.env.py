@@ -1,4 +1,4 @@
-''' Loads everything needed for debugging with saarland. '''
+""" Loads everything needed for debugging with saarland. """
 import pickle
 import graph
 import visual_grid

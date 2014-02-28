@@ -1,14 +1,14 @@
-''' 
+""" Shifts osm ids of entities in an OSM file by a certain number.
+
 For the input OSM file this remembers all node ids and shifts them by a certain
 number, translating them to another range.
 
 Usage:
   python SELF.py <OSM_FILE> <INDEX_SHIFT>
 
-'''
+"""
 import sys
 import re
-
 
 node_id_map = {}
 way_id_map = {}
@@ -48,7 +48,7 @@ def main():
   with file(sys.argv[1]) as f:
     for line in f:
       line = line.strip()
-      line = p_node.sub(replace_node_id, line) 
+      line = p_node.sub(replace_node_id, line)
       line = p_noderef.sub(replace_node_id, line)
       line = p_way.sub(replace_way_id, line)
       if line == '<tag k="Objektname" v="Wald" />':

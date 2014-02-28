@@ -1,10 +1,11 @@
-''' dijkstra.py
+""" dijkstra.py
 
-    Implementation of Dijkstra's algorithm for shortest paths in graphs. 
+Implementation of Dijkstra's algorithm for shortest paths in graphs.
 
-    Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
-    Copyright 2013: Jonas Sternisko
-'''
+Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+Copyright 2013: Jonas Sternisko
+
+"""
 import sys
 from Queue import PriorityQueue
 
@@ -16,17 +17,18 @@ class Dijkstra:
     self.forbidden_edges = None
 
   def set_cost_limit(self, cost):
-    ''' Sets an optional cost limit. Algorithm will stop when current pq-elem
+    """ Sets an optional cost limit. Algorithm will stop when current pq-elem
         has higher costs.
-    '''
+
+    """
     self.cost_limit = cost
 
   def set_forbidden_edges(self, edges):
-    ''' Sets an optional set of edges which must not be used by the search. '''
+    """ Sets an optional set of edges which must not be used by the search. """
     self.forbidden_edges = edges
 
   def run(self, start_node):
-    ''' Runs Dijkstra's algorithm from @start_node. '''
+    """ Runs Dijkstra's algorithm from @start_node. """
     def relax_arc(target, new_cost):
       if new_cost < self.tentative_costs[target]:
         self.tentative_costs[target] = new_cost
@@ -51,7 +53,7 @@ class Dijkstra:
     return self.final_costs
 
 
-import unittest 
+import unittest
 class TestDijkstra(unittest.TestCase):
   def test_dijkstra(self):
     from graph import Graph
@@ -65,7 +67,7 @@ class TestDijkstra(unittest.TestCase):
     d1 = Dijkstra(g)
     sp = d1.run(A)
     print sp == [0, 4, 2, 3, 5]
-    
+
     d2 = Dijkstra(g)
     d2.set_cost_limit(4)
     sp = d2.run(A)
@@ -73,7 +75,7 @@ class TestDijkstra(unittest.TestCase):
 
 
 def main():
-  ''' Tests this module. '''
+  """ Tests this module. """
   unittest.main()
 
 if __name__ == '__main__':

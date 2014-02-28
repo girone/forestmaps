@@ -1,11 +1,12 @@
-''' convexhull.py
+""" convexhull.py
 
-    Computes the convex hull of an osm dataset and stores its nodes in a
-    textfile.
+Computes the convex hull of an osm dataset and stores its nodes in a
+textfile.
 
-    Copyright 2013:
-    Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
-'''
+Copyright 2013:
+Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+
+"""
 import pickle
 import scipy
 from scipy.spatial import qhull
@@ -14,9 +15,10 @@ import sys
 
 
 def sort_hull(hull, points):
-  ''' Sorts the indices of a convex hull by their node's angle to the center
+  """ Sorts the indices of a convex hull by their node's angle to the center
       point.
-  '''
+
+  """
   ps = set()
   for x, y in hull:
     ps.add(x)
@@ -28,7 +30,7 @@ def sort_hull(hull, points):
 
 
 def compute(points):
-  ''' Computes the convex hull of a point set. '''
+  """ Computes the convex hull of a point set. """
   hull = scipy.spatial.qhull.Delaunay(points).convex_hull
   return sort_hull(hull, np.array(points))
 

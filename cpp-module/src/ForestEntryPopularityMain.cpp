@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
   // Reachability analysis
   vector<float> fepPopulations = reachability_analysis(
       graph, fepNodeIndices, population, populationNodeIndices, costLimit);
-  string filename = "forest_entries_popularity.txt";
+  string filename = "forest_entries_popularity.tmp.txt";
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(fepPopulations, filename);
   std::cout << util::join(", ", fepPopulations) << std::endl;

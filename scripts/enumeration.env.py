@@ -1,3 +1,4 @@
+""" Loads everything needed for debugging with saarland. """
 import pickle
 import graph
 from enumerate_walkways import enumerate_walkways

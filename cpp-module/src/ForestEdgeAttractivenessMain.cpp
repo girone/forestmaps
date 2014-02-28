@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 
 
   const vector<float> result = algorithm->compute_edge_attractiveness();
-  string filename = "edge_weights.txt";
+  string filename = "edge_weights.tmp.txt";
   std::cout << "Writing the attractivenesses to " << filename << std::endl;
   util::dump_vector(result, filename);
   delete algorithm;

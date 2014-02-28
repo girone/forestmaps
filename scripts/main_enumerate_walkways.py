@@ -1,15 +1,12 @@
-'''
-    Entry point.
+""" Entry point.
 
-    For every WEP, this enumerates walkways in the forest which fulfill a set of
-    conditions.
+For every WEP, this enumerates walkways in the forest which fulfill a set of
+conditions.
 
-    Usage:
-'''
+"""
 USAGE = \
     'enumerate_forest_walkways.py <WEPS> <OSM_ID_MAP> <FOREST_NODE_IDS> ' \
     '<GRAPH> <NODEINFO> [<LIMIT>]'
-
 import pickle
 import sys
 import os.path
@@ -18,7 +15,7 @@ import matplotlib.pyplot as plt
 from scipy import signal
 from enumerate_walkways import WayTree, WayGenerator, enumerate_walkways
 import visual_grid
-import edgedistance
+import forest_edge_distance
 from contraction import SimpleContractionAlgorithm, ClusterContractionAlgorithm
 
 
@@ -32,7 +29,7 @@ def main():
   g = pickle.load(open(sys.argv[4]))
   nodeinfo = pickle.load(open(sys.argv[5]))
 
-  ''' Set parameters '''
+  """ Set parameters """
   if len(sys.argv) > 6:
     limit = int(sys.argv[-1]) * 60.
   else:
@@ -42,30 +39,30 @@ def main():
   wep_nodes = [osm_id_map[osm_id] for osm_id in weps]
   wep_nodes_set = set(wep_nodes)
 
-  print ''' Concentrate way generation on forests '''
+  print """ Concentrate way generation on forests """
   n = len(g.nodes)
   outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
   outside_nodes -= wep_nodes_set
   g.remove_partition(outside_nodes)
   print n, len(g.nodes)
 
-  print ''' Contract binary nodes except WEPs. '''
+  print """ Contract binary nodes except WEPs. """
   n = len(g.nodes)
   g.contract_binary_nodes(exclude=wep_nodes)
   print n, len(g.nodes)
 
-  #1 print ''' Simplify the graph by contraction of nodes with only short arcs. '''
+  #1 print """ Simplify the graph by contraction of nodes with only short arcs. """
   #1 n = len(g.nodes)
   #1 c = SimpleContractionAlgorithm(g, 20.0)  # 10.0 seconds @ 5 km/h ~= 14m
   #1 c.contract_graph(exclude_nodes=wep_nodes)
   #1 print n, len(g.nodes)
-  print ''' Simplify the graph (solves the maze-problem). '''
+  print """ Simplify the graph (solves the maze-problem). """
   n = len(g.nodes)
   c = ClusterContractionAlgorithm(g, [nodeinfo[id].pos for id in g.nodes])
   c.contract_graph(exclude_nodes=set(wep_nodes))
   print n, len(g.nodes)
 
-  ''' Compute the distance to the edge of the woods (or load it) '''
+  """ Compute the distance to the edge of the woods (or load it) """
   print 'Computing edge distance...'
   name = os.path.splitext(os.path.splitext(sys.argv[1])[0])[0] + '.' + \
       str(int(limit/60)) + '.edge_distance.out'
@@ -73,7 +70,7 @@ def main():
   if os.path.exists(name):
     d_edge = pickle.load(open(name))
   else:
-    d_edge = edgedistance.compute_edge_distance(g, wep_nodes, limit/2)
+    d_edge = forest_edge_distance.compute_edge_distance(g, wep_nodes, limit/2)
     try:
       pickle.dump(d_edge, open(name, 'w'))
     except:
@@ -82,15 +79,15 @@ def main():
   print 'Done!'
 
 
-  print ''' Generate the walkways from every wep...'''
+  print """ Generate the walkways from every wep..."""
   count = 0
   import time
   t0 = time.clock()
   total_walkways = 0
   for node in wep_nodes[0:3]:
     count += 1
-    walkways_and_distances = enumerate_walkways(g, node, 
-        target_nodes=wep_nodes_set, cost_limit=limit, local_cycle_depth=5, 
+    walkways_and_distances = enumerate_walkways(g, node,
+        target_nodes=wep_nodes_set, cost_limit=limit, local_cycle_depth=5,
         edge_distance=d_edge)
     print "%d of %d ways generated" % (count, len(wep_nodes))
     #print walkways
@@ -100,14 +97,14 @@ def main():
     if len(walkways_and_distances) < 2:
       continue
 
-    ''' Evaluate the walkways (compute attractiveness), sort by distance. '''
+    """ Evaluate the walkways (compute attractiveness), sort by distance. """
     walkways = walkways_and_distances
     walkways = [(w,d) for (d,w) in sorted([(d,w) for (w,d) in walkways])]
     ma = walkways[0][1]
     mi = walkways[-1][1]
     su = sum([d for (w,d) in walkways])
 
-    ''' Distribute the population weight over the paths. '''
+    """ Distribute the population weight over the paths. """
     n_bins = 50
     bin_size = (ma - mi) / float(n_bins - 1.0)
     distance_distr = np.zeros(n_bins)
@@ -117,7 +114,7 @@ def main():
     #plt.bar(np.arange(n_bins), distance_distr)
     #plt.show()
     #spread = signal.gaussian(n_bins, std=5)  #  TODO(Jonas): Use sth. senseful.
-    #spread[0:-1] *= 1. / sum(spread)  # normalize 
+    #spread[0:-1] *= 1. / sum(spread)  # normalize
     #result = distance_distr * spread
     #normalizer = float(len(walkways)) / sum(result)  # normalize the joint distribution
     #result[0:-1] *= normalizer

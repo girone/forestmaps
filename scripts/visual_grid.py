@@ -1,8 +1,8 @@
-''' Visual Grid - visualization of nodes, edges and so on '''
+""" Visual Grid - visualization of nodes, edges and so on """
 import grid
 
 def visualize_nodes(graph, nodeinfo, node_ids=set(), inset=1.0, forest=[]):
-  ''' Draws a part of @graph denoted by @node_ids to the screen. '''
+  """ Draws a part of @graph denoted by @node_ids to the screen. """
   nodes_to_draw = node_ids if node_ids else range(len(graph.nodes))
   bbox = grid.bounding_box([nodeinfo[id].pos for id in nodes_to_draw])
   w, h = bbox[1][0] - bbox[0][0], bbox[1][1] - bbox[0][1]

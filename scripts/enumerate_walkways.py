@@ -1,23 +1,25 @@
-''' enumerate_forest_walkways
+""" enumerate_walkways -- Code for enumeration of tours through forests.
 
-    Copyright 2013:
-    Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
-'''
+Copyright 2013:
+Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+
+"""
 import Queue
 
 
-''' test_funcs go below '''
+""" test_funcs go below """
 def true(*args):
   return True
 
 def arc_repetition(arcs_so_far, next_arc):
-  ''' TODO(Jonas): Allow a less strict variant. E.g., allow 5% of arcs along a
+  """ TODO(Jonas): Allow a less strict variant. E.g., allow 5% of arcs along a
       path to have duplicates within the same path.
-  '''
+
+  """
   return next_arc in arcs_so_far
 
 
-''' action_funcs go below '''
+""" action_funcs go below """
 def noop(*args):
   pass
 
@@ -28,7 +30,7 @@ def prune(tree_node):
 
 
 class WayTreeNode(object):
-  ''' Has one parent, a cost on the way so far and 0...many successors. '''
+  """ Has one parent, a cost on the way so far and 0...many successors. """
   def __init__(self, node, parent=None, cost=0):
     self.node = node
     self.parent = parent  # WayTreeNode
@@ -40,7 +42,7 @@ class WayTreeNode(object):
     return WayTreeNode(successor, self, self.cost + cost)
 
   def traverse(self, collect, result):
-    ''' Recursively descends the tree, collecting things and testing. '''
+    """ Recursively descends the tree, collecting things and testing. """
     if not self.successors:
       result.append((self, collect)) # save the collection for the next traverse
       pass
@@ -57,14 +59,14 @@ class WayTreeNode(object):
 
 
 class WayTree(object):
-  ''' A tree structure representing a set of ways. '''
+  """ A tree structure representing a set of ways. """
   def __init__(self, node_idx):
     self.root = WayTreeNode(node_idx)
     self.nodes = [self.root]
     self.prune_state = None
 
   def detect_cycle(self, start_tree_node, node_id, depth):
-    ''' Returns true, if @node_id is among the ids of the @depth last nodes. '''
+    """ Returns true, if @node_id is among the ids of the @depth last nodes. """
     tree_node = start_tree_node
     contains_cycle = False
     while tree_node and depth > 0 and not contains_cycle:
@@ -74,7 +76,7 @@ class WayTree(object):
     return contains_cycle
 
   def expand(self, tree_node, edges, depth):
-    ''' @depth: Local sequences without repetitions of the same node_id '''
+    """ @depth: Local sequences without repetitions of the same node_id """
     ext = []
     for succ, edge in edges.items():
       if self.detect_cycle(tree_node, succ, depth):
@@ -86,12 +88,12 @@ class WayTree(object):
     return ext
 
   def prune_cycle_subgraphs(self, max_arc_repeat=0):
-    ''' Traverses the graph and removes subgraphs which repeat an arc for more
+    """ Traverses the graph and removes subgraphs which repeat an arc for more
         than @max_arc_repeat times.
         TODO(Jonas): Implement the parameter.
         Returns the 'prune_state', information which can be reused in the next
         pruning operation.
-    '''
+    """
     new_prune_state = []
     if not self.prune_state:
       traversed_edges = set()
@@ -104,7 +106,7 @@ class WayTree(object):
 
 
 class WayGenerator(object):
-  ''' The enumeration algorithm. '''
+  """ The enumeration algorithm. """
   def __init__(self, way_tree, graph):
     self.tree = way_tree
     self.graph = graph
@@ -116,9 +118,9 @@ class WayGenerator(object):
 
   def run(self, start_node, cost_limit=10, local_cycle_depth=2,  \
       prune_after=None):
-    ''' Generates ways until all open ways exceed the @cost_limit. 
-        @local_cycle_depth : 
-    '''
+    """ Generates ways until all open ways exceed the @cost_limit.
+        @local_cycle_depth :
+    """
     assert self.tree.root.node == start_node
     q = Queue.Queue()
     q.put(0)  # index of tree root
@@ -146,7 +148,7 @@ class WayGenerator(object):
     #print 'Expanded %d tree nodes.' % count
 
   def backtrack_path(self, leaf_node):
-    ''' Backtracks a path from a node to the root, returns a node sequence. '''
+    """ Backtracks a path from a node to the root, returns a node sequence. """
     parent = leaf_node.parent
     path = [leaf_node.node]
     while parent:
@@ -155,12 +157,12 @@ class WayGenerator(object):
       parent = node.parent
     path.reverse()
     return path, leaf_node.cost
-    
+
   def trace(self, targets=None):
-    ''' Backtracks paths from leaves of the generated WayTree back to the root.
-    '''
+    """ Backtracks paths from leaves of the generated WayTree back to the root.
+    """
     if targets:
-      leaves = [node for node in self.tree.nodes if node.node in targets] 
+      leaves = [node for node in self.tree.nodes if node.node in targets]
     else:
       leaves = [node for node in self.tree.nodes if node.successors == []]
     leaves = [leaf for leaf in leaves if not leaf.pruned]
@@ -170,21 +172,23 @@ class WayGenerator(object):
 
 def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
     local_cycle_depth=2, edge_distance=None):
-  ''' Enumerates walkways beginning at @start_node. Returns walkways and their
-      lengths.
-     
-      Admissible walkways start at a WEP and end at a WEP. Start and end may
-      equal. Walkways are required to have a total cost within [cmin, cmax]. 
+  """ Enumerates walkways beginning at @start_node.
 
-      TODO(Jonas): Restrict to real walkways by osm tag.
-      TODO(Jonas): Remove ways which have bad cycles.
-      TODO(Jonas): Use some tree structure to represent the walkways.
-      TODO(Jonas): Add online-filtering.
+  Returns walkways and their lengths.
 
-      @edge_distance : If the minimum distance of the edge of the forest is
-                      known for every node, this is used to speed up the
-                      computation.
-  '''
+  Admissible walkways start at a WEP and end at a WEP. Start and end may
+  equal. Walkways are required to have a total cost within [cmin, cmax].
+
+  TODO(Jonas): Restrict to real walkways by osm tag.
+  TODO(Jonas): Remove ways which have bad cycles.
+  TODO(Jonas): Use some tree structure to represent the walkways.
+  TODO(Jonas): Add online-filtering.
+
+  @edge_distance : If the minimum distance of the edge of the forest is
+                  known for every node, this is used to speed up the
+                  computation.
+
+  """
   # create the tree node until limit cmax
   tree = WayTree(start_node)
   gen = WayGenerator(tree, graph)
@@ -205,12 +209,12 @@ def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
 #   osm_id_map = {}
 #   weps = []
 #   forest_nodes_osm_ids = []
-# 
-#   ''' concentrate on the inner forests '''
+#
+#   """ concentrate on the inner forests """
 #   outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
 #   g.remove_partition(outside_nodes)
-# 
-#   ''' '''
+#
+#   """ """
 #   for osm_id in weps:
 #     node = osm_id_map[osm_id]
 #     walkways = enumerate_walkways(g, node)
@@ -252,9 +256,9 @@ class WalkwayEnumerationTest(TestCase):
     gen = WayGenerator(tree, self.g)
     gen.run(A, cost_limit=50, local_cycle_depth=5)
     ways1 = gen.trace()
-    ''' Prune subtrees with cycles from the tree. This removes two large
-        repetitions. 
-    '''
+    """ Prune subtrees with cycles from the tree. This removes two large
+        repetitions.
+    """
     collect = set()
     tree.root.traverse(collect, arc_repetition, prune)
     ways2 = gen.trace()
@@ -267,7 +271,7 @@ class WalkwayEnumerationTest(TestCase):
     gen.run(A, cost_limit=50, local_cycle_depth=5)
     # collect ways which end at an WEP and have cost >= cmin
     ways = gen.trace()
-    # NEW: prune 
+    # NEW: prune
     tree.prune_cycle_subgraphs(max_arc_repeat=0)
     # collect ways which end at an WEP and have cost >= cmin
     ways2 = gen.trace()

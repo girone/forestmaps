@@ -1,10 +1,9 @@
-''' graph.py
+""" graph.py -- Contains classes for Graphs, Edges and Nodes.
 
-    Contains classes for Graphs, Edges and Nodes.
+Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+Copyright 2013: Jonas Sternisko
 
-    Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
-    Copyright 2013: Jonas Sternisko
-'''
+"""
 from collections import defaultdict
 
 class Edge(object):
@@ -52,7 +51,7 @@ class Graph(object):
     return max(self.nodes) + 1
 
   def add_edge(self, s, t, c):
-    ''' Adds an edge from s to t with cost c. '''
+    """ Adds an edge from s to t with cost c. """
     self.nodes.add(s)
     self.nodes.add(t)
     try:
@@ -62,7 +61,7 @@ class Graph(object):
       self.edges[s][t] = Edge(c)
 
   def remove_partition(self, node_ids):
-    ''' Removes nodes in @node_ids and incident arcs from the graph. '''
+    """ Removes nodes in @node_ids and incident arcs from the graph. """
     node_ids = set(node_ids)
     self.nodes -= node_ids
     for id in node_ids:
@@ -76,9 +75,9 @@ class Graph(object):
         edges.pop(elem, None)
 
   def connected_component(self, node, nodes):
-    ''' Determines the component (set of connected nodes) of @node such that
+    """ Determines the component (set of connected nodes) of @node such that
         every node of the component is contained in @nodes.
-    '''
+    """
     component = set()
     queue = [node]
     while len(queue):
@@ -91,9 +90,9 @@ class Graph(object):
     return component
 
   def filter_components(self, nodes, threshold):
-    ''' Filters the @nodes such that only those which form a connected component
+    """ Filters the @nodes such that only those which form a connected component
         in the @graph of size larger than @threshold remain.
-    '''
+    """
     node_set = set(nodes)
     remaining = []
     removed = []
@@ -109,7 +108,7 @@ class Graph(object):
     return set(remaining), removed
 
   def lcc(self):
-    ''' Returns the largest connected component of @self. '''
+    """ Returns the largest connected component of @self. """
     node_set = set(range(self.size()))
     largest_component = set()
     while len(node_set):
@@ -152,9 +151,9 @@ class Graph(object):
     return contraction_list
 
   def contract_node(self, node, remove=True):
-    """Contracts a node. 
-    
-    This removes the node from the node set and connects its neighbors. Assumes 
+    """Contracts a node.
+
+    This removes the node from the node set and connects its neighbors. Assumes
     that the graph is bidirectional.
 
     """
@@ -278,7 +277,7 @@ class TestGraph(unittest.TestCase):
 
 
 def main():
-  ''' Test this module. '''
+  """ Test this module. """
   unittest.main()
 
 if __name__ == '__main__':

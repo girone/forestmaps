@@ -31,7 +31,7 @@ struct XYRF {
 };
 
 ostream& operator<<(std::ostream& os, const XYRF& a) {
-  os << a.X << " " << a.Y << " " << a.R << " " << a.F << std::endl;
+  os << a.X << " " << a.Y << " " << a.R << " " << a.F;
   return os;
 }
 
@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < xx.size(); ++i) {
     combined.push_back(XYRF(xx[i], yy[i], indexR[i], indexF[i]));
   }
-  string filename = "forest_entries_xyrf.txt";
+  string filename = "forest_entries_xyrf.tmp.txt";
   std::cout << "Writing forest entry locations and r/f graph indices to "
             << filename << std::endl;
   util::dump_vector(combined, filename);
