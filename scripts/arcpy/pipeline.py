@@ -9,15 +9,111 @@ from util import msg, Timer
 libpath = os.path.abspath(os.path.split(sys.argv[0])[0] + "\\..\\")
 sys.path.append(libpath)
 import atkis_graph
+from fep_weight_computation import connect_population_to_graph, reachability_analysis
 
+
+def create_road_graph(road_dataset):
+  ''' Creates a graph from ATKIS data stored as FeatureClass in a shapefile. '''
+  lines_threshold = 1e6
+  msg(str(arcpy.management.GetCount(road_dataset)) + " <?> " + str(lines_threshold))
+  if arcpy.management.GetCount(road_dataset) < lines_threshold:
+    ''' For faster performance and reliable field order, it is recommended that
+        the list of fields be narrowed to only those that are actually needed.
+        NOTE(Jonas): That is indeed much faster (factor 10)!
+    '''
+    sr = arcpy.Describe(road_dataset).spatialReference
+    # Convention: Field names are lowercase.
+    road_points_array = arcpy.da.FeatureClassToNumPyArray(
+        road_dataset, ["fid", "shape", "klasse", "wanderweg", "shape_leng"],
+        spatial_reference=sr, explode_to_points=True)
+    #_, index = np.unique(road_points_array['fid'], return_index=True)
+    #road_features_array = road_points_array[index]
+
+    graph, coord_map = atkis_graph.create_graph_from_numpy_array(road_points_array)
+  else:
+    graph, coord_map = atkis_graph.create_from_feature_class(road_dataset)
+  msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+      sum([len(edge_set) for edge_set in graph.edges.values()])))
+
+  msg("Contracting binary nodes...")
+  graph.contract_binary_nodes()
+  msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+      sum([len(edge_set) for edge_set in graph.edges.values()])))
+  lcc = graph.lcc()
+  msg("The largest connected component has %d nodes and %d edges." %
+      (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
+  return graph, coord_map
+
+
+def shape_to_polygons(lines):
+  ''' Parses polygons from the points represented by lines in a numpy 
+  RecordArray created by arcpy.FeatureClassToNumPyArray(explode_to_points=True).
+  '''
+  from itertools import tee, izip
+  def pairwise(iterable):
+    a,b = tee(iterable)
+    next(b, None)
+    return izip(a, b)
+  polygons = [[tuple(lines[0]['shape'])]]
+  for a, b in pairwise(lines):
+    if a['fid'] != b['fid']:
+      polygons.append([])
+    polygons[-1].append(tuple(b['shape']))
+  return polygons
+  
+
+def create_populations_from_settlement_fc(lines, point_distance):
+  ''' Creates population points from the 'Ortslage' feature class. The
+  point_distance parameter influences the density of the grid.
+  '''
+  polygons = shape_to_polygons(lines)
+  from forestentrydetection import create_population_grid
+  return create_population_grid(polygons, [], grid_point_distance=point_distance)
+
+
+def create_population(settlement_dataset, 
+                      coordinate_to_graph_node, 
+                      graph,
+                      point_distance):
+  ''' Creates the population representatives and connects them to the graph. '''
+  arr2 = arcpy.da.FeatureClassToNumPyArray(settlement_dataset, ["fid", "shape"], 
+                                           explode_to_points=True)
+  population_coords = create_populations_from_settlement_fc(
+      arr2, point_distance)
+  coord_map_inv = {v:k for k,v in coordinate_to_graph_node.items()}
+  population_nodes = connect_population_to_graph(
+      population_coords, graph, [coord_map_inv[node] for node in graph.nodes], 
+      lambda x: x)
+  if arcpy.GetParameterAsText(0):
+    '''Showing output layer in ArcMap...'''
+    population_array = np.array(
+        [zip(range(len(population_coords)), population_coords)], 
+        np.dtype([('idfield', np.int32), ('XY', '<f8', 2)]))
+    population_fc = path + "population.shp"
+    arcpy.management.Delete(population_fc)
+    arcpy.da.NumPyArrayToFeatureClass(
+        population_array, population_fc, ['XY'], 
+        arcpy.Describe(settlement_dataset).spatialReference)
+
+    mxd = arcpy.mapping.MapDocument("CURRENT")
+    dataframe = arcpy.mapping.ListDataFrames(mxd, "*")[0]
+    layer = arcpy.management.MakeFeatureLayer(population_fc, 'population_layer1')
+    try:
+      arcpy.management.SaveToLayerFile(layer, "pp_layer.lyr")
+    except:
+      pass
+    layer = arcpy.mapping.Layer(path + "pp_layer.lyr")
+    arcpy.mapping.AddLayer(dataframe, layer, "TOP")
+  msg("There are %d populations." % len(population_nodes))
+
+
+path = "C:\\Data\\freiburg_city_clipped\\"
 
 def main():
-  @np.vectorize
-  def selected(ele): return ele in forest_fids
+  global path
   
   t = Timer()
 
-  path = "C:\\Data\\freiburg_city_clipped\\"
   arcpy.env.workspace = path
   arcpy.env.scratchWorkspace = path + "scratchoutput.gdb"
   mem = "in_memory\\"
@@ -45,46 +141,38 @@ def main():
   except:
     pass
 
-  t.start_timing("Copying the tables into memory...")
-  ''' For faster performance and reliable field order, it is recommended that
-      the list of fields be narrowed to only those that are actually needed.
-      NOTE(Jonas): That is indeed much faster (factor 10)!
-  '''
-  sr = arcpy.Describe(road_dataset).spatialReference
-  ''' Convention: Field names are lowercase. '''
-  road_points_array = arcpy.da.FeatureClassToNumPyArray(
-      road_dataset, ["fid", "shape", "klasse", "wanderweg", "shape_leng"],
-      spatial_reference=sr, explode_to_points=True)
-  _, index = np.unique(road_points_array['fid'], return_index=True)
-  road_features_array = road_points_array[index]
-  arr2 = arcpy.da.FeatureClassToNumPyArray(settlement_dataset, ["fid", "shape"], 
-                                           explode_to_points=True)
+  t.start_timing("Creating graph from the data...") 
+  graph, coord_map = create_road_graph(road_dataset)
+  t.stop_timing()
+
+  t.start_timing("Creating population points...")
+  create_population(settlement_dataset, coord_map, graph, point_distance=200)
+  t.stop_timing()
+
   arr4 = arcpy.da.FeatureClassToNumPyArray(entrypoint_dataset, ["fid", "shape"])
+  #fep_node_ids = [coord_map[tuple(coord)] for coord in arr4["shape"]]
+  fep_node_ids = []
+  for east, north in arr4['shape']:
+    if (east, north) in coord_map:
+      fep_node_ids.append(coord_map[(east, north)])
+  msg("There are {0} FEPs, {1} could not be found.".format(
+      len(fep_node_ids), len(arr4['shape']) - len(fep_node_ids)))
+
+  t.start_timing("Reachability analysis...")
+  reachability_analysis(graph, fep_node_ids, population_nodes)
   t.stop_timing()
 
-  t.start_timing("Creating graph from the data, contracting binary nodes...")
-  graph = atkis_graph.create_graph(road_points_array)
-  msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
-      sum([len(edge_set) for edge_set in graph.edges.values()])))
-  graph.contract_binary_nodes()
-  msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
-      sum([len(edge_set) for edge_set in graph.edges.values()])))
-  lcc = graph.lcc()
-  msg("The largest connection component has %d nodes and %d edges." %
-      (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
-  t.stop_timing()
+#  t.start_timing("Computing distance to nearest forest entry...")
+#  arcpy.analysis.Near(forest_roads, entrypoint_dataset)
+#  t.stop_timing()
 
-  t.start_timing("Computing distance to nearest forest entry...")
-  arcpy.analysis.Near(forest_roads, entrypoint_dataset)
-  t.stop_timing()
-
-  t.start_timing("Rasterizing the forest roads...")
-  raster = path + "out_raster_" + str(random.randint(0,999)) + ".tif"
-  if os.path.exists(raster):
-    arcpy.management.Delete(raster)
-  arcpy.conversion.PolylineToRaster(forest_roads, "NEAR_DIST",
-                                    raster, cellsize=20)
-  t.stop_timing()
+#  t.start_timing("Rasterizing the forest roads...")
+#  raster = path + "out_raster_" + str(random.randint(0,999)) + ".tif"
+#  if os.path.exists(raster):
+#    arcpy.management.Delete(raster)
+#  arcpy.conversion.PolylineToRaster(forest_roads, "NEAR_DIST",
+#                                    raster, cellsize=20)
+#  t.stop_timing()
 
   if arcpy.GetParameterAsText(0):
     '''Showing output layer in ArcMap...'''
