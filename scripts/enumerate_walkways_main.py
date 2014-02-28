@@ -24,8 +24,12 @@ def main():
   g = pickle.load(open(sys.argv[4]))
 
   ''' concentrate on the inner forests '''
-  # outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
-  # g.remove_partition(outside_nodes)
+  n = len(g.nodes)
+  outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
+  outside_nodes -= set([osm_id_map[wep] for wep in weps])
+  g.remove_partition(outside_nodes)
+  print n, len(g.nodes)
+
 
   ''' generate the walkways from every wep to all weps (within distance) '''
   wep_nodes = [osm_id_map[osm_id] for osm_id in weps]
@@ -34,6 +38,7 @@ def main():
     walkways = enumerate_walkways(g, node, target_nodes=wep_nodes_set, \
         cost_limit=5*60, local_cycle_depth=5)
     print walkways
+    print str(len(walkways)) + " many ways found with cost limit 5min."
     s = raw_input("Press ENTER for next cycle.")
 
 if __name__ == '__main__':
