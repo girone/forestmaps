@@ -16,7 +16,8 @@ def hom(point):
 
 
 def bounding_box(points):
-  assert len(points) > 1
+  points = points[0] if len(points) == 1 else points
+  #assert len(points) > 1
   chained = chain(*points) if len(points[0]) != 2 else points
   xmax = ymax = float(-sys.maxint)
   xmin = ymin = float(sys.maxint)

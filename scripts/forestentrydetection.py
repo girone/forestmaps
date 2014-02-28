@@ -14,6 +14,8 @@ import pickle
 from grid import Grid, bounding_box
 from graph import Graph, Edge, NodeInfo
 
+from arcutil import msg
+
 # find Polygon library on machines without admin rights
 libpath = os.path.abspath(
         "/home/sternis/code/forst/external/python2.7/site-packages")
@@ -66,7 +68,8 @@ def create_population_grid(boundaryPolygons, forestPolygons, resolution=None,
     """
     bbox = bounding_box(boundaryPolygons)
     gridPoints = create_grid_points(bbox, resolution, gridPointDistance)
-    if len(boundaryPolygons) == 1:
+    if (len(boundaryPolygons) == 1 or 
+        (len(boundaryPolygons) > 1 and len(boundaryPolygons[0]) == 2)):
         polys = [boundaryPolygons]
     else:
         polys = boundaryPolygons
