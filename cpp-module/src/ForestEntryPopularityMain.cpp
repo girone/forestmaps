@@ -13,10 +13,9 @@
 #define SQR(x) ((x)*(x))
 
 // The user studies revealed these numbers:
-const float kUserShareBicycle = 20 / 124.f;  // TODO(Jonas): Update these values.
-const float kUserShareWalking = 71 / 124.f;  // using the study.
-const float kUnmappedPeople = (124.f - kUserShareWalking - kUserShareBicycle) /
-                               124.f;
+const float kUserShareBicycle = 13 / 124.f;
+const float kUserShareWalking = 71 / 124.f;
+const float kUnmappedPeople = 1.f - (kUserShareWalking - kUserShareBicycle);
 
 // We combined the extraction of travel costs for bike and walking by assuming
 // the average bike speed being at a constant factor from the walking speed:
@@ -159,7 +158,7 @@ vector<float> reachability_analysis(
         // walking
         if (cost < costLimitWalking) {
           uint bb = determine_bucket_index(cost, bucketCostBounds);
-          fepPop[i] += buckets[i][bb] * shares[bb] * populations[j];  // TODO(Jonas): Users which accept long distances to forests will also use entries in the vicinity. Rewrite the preferences in the main().
+          fepPop[i] += buckets[i][bb] * shares[bb] * populations[j];
           reachesForestByWalking[j] = true;
         }
       }
@@ -243,7 +242,7 @@ void print_usage() {
   "  GraphFile -- ...\n"
   "  ForestEntries -- ...\n"
   "  PopulationNodes -- ...\n"
-  "  Preferences -- User study data as 2-column text file. First column contains upper bounds (in minutes), its last value denotes the cost limit for searches. The second column contains shares in [0,1].\n"
+  "  Preferences -- User study data as 2-column text file. First column contains upper bounds (in minutes), its last value denotes the cost limit for searches. The second column contains shares in [0,1], which sum up to at most 1.\n"
   "  OutputFile -- Path and name of the ouput file.\n"
             << std::endl;
 }
@@ -294,9 +293,20 @@ int main(int argc, char** argv) {
 
   vector<int> populationNodeIndices = map_xy_locations_to_closest_node(x, y, graph);
 
-
+  // Read in the user preferences and convert them. The resulting shares
+  // consider users which accept longer times to get to the forest also for
+  // nearby forest entries. For example, 40% of the users accept 1h traveling
+  // to reach the forest and 60% accept at most 30 min. Then 100% of users will
+  // be considered for forest entries within 30 min, and 40% for those within
+  // between 0.5h and 1h.
   vector<vector<float>> preferences = util::read_column_file<float>(prefFile);
   assert(EdgeAttractivenessModel::check_preferences(preferences));
+  float cumsum = 0;
+  for (auto it = preferences[1].rbegin(); it != preferences[1].rend(); ++it) {
+    cumsum += *it;
+    *it = cumsum;
+  }
+  assert(cumsum <= 1.f);
 
 
   // Reachability analysis
