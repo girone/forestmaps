@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ForestsMaps</title>
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="bootstrap/css/jumbotron-narrow.css" />
+    <style>
+      #heatmapArea {
+        position:relative;
+        width: 100%;
+        height: 60ex;
+        border:1px dashed black;
+      }
+    </style>
+    <script src="http://openlayers.org/api/OpenLayers.js"></script>
+    <script type="text/javascript" src="heatmapjs/heatmap.js"></script>
+    <script type="text/javascript" src="heatmapjs/heatmap-openlayers.js"></script>
+    <script type="text/javascript" src="jquery-2.0.3.min.js"></script>
+    <script type="text/javascript" src="ui.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+      <div class="header">
+        <ul class="nav nav-pills pull-right">
+          <li id="nav-home" class="active"><a>Home</a></li>
+          <li id="nav-about" ><a>About</a></li>
+        </ul>
+        <h3 class="text-muted">Modelling Route Distribution in Forests</h3>
+      </div>
+
+
+<!-- map widget -->
+  <div id="main">
+    <div id="heatmapArea"></div>
+  </div>
+
+
+<!-- content -->
+  <div id="home" class="row marketing">
+    <div class="col-lg-12">
+      <h4>A Model for Forest Trail Utilization</h4>
+      <p>This project models utilization of forests based on publicly
+      available data about population, road networks and route planning techniques.
+      On this website we present the outcome of our computations as colorful map layers.
+      This webpage will be regularily updated with new data.</p>
+      <p>The map above shows such a model for the Freiburg area. The colors encode the utilization
+       of the underlying ways. Areas with more intesive colors are more
+       frequented that those blue or no color.</p>
+
+      <h4>The role of forest</h4>
+      <p>Nowadays mankind uses the forests in its surroundings not only for
+       leisure activities and lumbering. The woods also fulfill an important
+       part of keeping the worlds ecosystem in balance and must therefore
+       be conserved. These three major functions conflict each other. Ongoing
+       logging naturally inhibits the ability
+       of the forests to provide for a basis of biodiversity. Also steady
+       presence of humans scares off animals and takes a heavy toll on nature's health.</p>
+
+      <h4>Who cares?</h4>
+      <p>Governments aim to divide the forestal areas into parts fulfilling
+      the functions explained above. A model of forest utilization
+      serves as a basis for this regulation. Unfortunately, statistics about
+      people's activity inside the forest are hard to obtain. Other than
+      in road networks, the frequency along hiking trails is too low and
+      varies strongly between sunny and rainy days, so counting of visitors using
+      humans or computers does not pay off.</p>
+
+    </div>
+
+  </div>
+
+  <div id="about" class="row marketing">
+    <div class="col-lg-6">
+      <h4>This website is built using</h4>
+      <ul>
+        <li><a href="http://openlayers.org/">OpenLayers.js with OpenStreetMap Layer</a></li>
+        <li><a href="http://www.patrick-wied.at/static/heatmapjs/">heatmap.js</a></li>
+        <li><a href="http://jquery.com/">jQuery</a></li>
+        <li><a href="http://getbootstrap.com/">Bootstrap 3</a></li>
+      </ul>
+
+<!--
+      <h4>Subheading1</h4>
+      <p>Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Cras mattis consectetur purus sit amet fermentum.</p>
+
+      <h4>Subheading2</h4>
+      <p>Maecenas sed diam eget risus varius blandit sit amet non magna.</p>
+-->
+    </div>
+
+    <div class="col-lg-6">
+      <h4>About us</h4>
+      <p>We are a team of researchers from the university of Freiburg. You can find further information about our work at our <a href="http://ad.informatik.uni-freiburg.de/front-page-en?set_language=en">group's website</a>.</p>
+
+<!--
+      <h4>Subheading4</h4>
+      <p>Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Cras mattis consectetur purus sit amet fermentum.</p>
+
+      <h4>Subheading5</h4>
+      <p>Maecenas sed diam eget risus varius blandit sit amet non magna.</p>
+-->
+    </div>
+
+      </div>
+
+      <div class="footer">
+        <p>&copy; University of Freiburg 2013</p>
+      </div>
+
+    </div> <!-- /container -->
+
+</body>
+</html>

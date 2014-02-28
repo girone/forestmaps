@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ForestsMaps</title>
-    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="bootstrap/css/jumbotron-narrow.css" />
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+<!--
+    <link rel="shortcut icon" href="bootstrap/favicon.png">
+-->
     <style>
       #heatmapArea {
         position:relative;
@@ -15,100 +17,423 @@
         border:1px dashed black;
       }
     </style>
+
+    <title>ForestsMaps</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="bootstrap/css/bootstrap.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="bootstrap/css/navbar-fixed-top.css" rel="stylesheet">
+
+    <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+    <![endif]-->
+  </head>
+
+  <body>
+
+    <!-- Fixed navbar -->
+    <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container">
+
+        <div class="navbar-collapse collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="#overview" data-toggle="tab">Overview</a></li>
+            <li><a href="#components" data-toggle="tab">Components</a></li>
+            <li><a href="#results" data-toggle="tab">Results</a></li>
+            <li><a href="#downloads" data-toggle="tab">Downloads</a></li>
+            <li><a href="#contact" data-toggle="tab">About</a></li>
+          </ul>
+
+          <div class="navbar-header pull-right">
+            <ul class="nav navbar-nav">
+             <li class="dropdown">
+              <a href="#" class="navbar-brand dropdown-toggle" data-toggle="dropdown">ForestMaps <b class="caret"></b></a>
+              <ul class="dropdown-menu">
+                <li class="dropdown-header">Select a dataset:</li>
+                <li><a href="#data-ger" data-toggle="tab">Germany</a></li>
+                <li><a href="#data-at" data-toggle="tab">Austria</a></li>
+                <li><a href="#data-ch" data-toggle="tab">Switzerland</a></li>
+                <li class="divider"></li>
+              </ul>
+            </li>
+           </ul>
+          </div>
+        </div><!--/.nav-collapse -->
+
+
+      </div>
+    </div>
+
+    <div class="container">
+
+<!-- map widget -->
+      <div class="row" id="main">
+        <div id="heatmapArea"></div>
+      </div>
+
+      <div class="row">
+        <div id="myTabContent" class="tab-content">
+
+<!-- OVERVIEW -->
+          <div class="tab-pane fade in active" id="overview">
+
+
+<h1>Overview</h1>
+<h3>ForestMaps – Modeling Utilization of Forests</h3>
+<p>This project seeks to compute utilization information for public spaces, in particular forests: which parts of the forest are used by how many people.</p>
+<p>
+    We developed a sound model for computing this information from publicly available data such as road maps and population counts.
+    This website is an interactive web application, that visualizes our result as a heat-map layer on top of OpenStreetMap data in the widget above.
+    The colors encode the utilization of the underlying ways. Areas with more intesive colors are more frequented that those blue or no color.
+    Use the mouse to navigate and zoom in the map. You can switch between different datasets using the drop-down on the top right corner of the page.
+</p>
+<p>
+    The desired utilization information of our model is computed using efficient algorithms, which are presented in the <a href="#components" data-toggle="tab">Components</a> section of this page.
+    We provide an experimental evaluation of different variations of our algorithms, which we compare with respect to efficiency and quality in the <a href="#results" data-toggle="tab">Results</a> section.
+    Our source code and the data sets used to conduct the experiments can be accessed in the <a href="#downloads" data-toggle="tab">Downloads</a> section.
+    The functioning of this webapp is explained in <a href="#about" data-toggle="tab">About</a>.
+</p>
+
+<h3>Motivation – The Role of the Forests</h3>
+<p>Nowadays mankind uses the forests in its surroundings not only for
+leisure activities and lumbering. The woods also fulfill an important
+part of keeping the worlds ecosystem in balance and must therefore
+be conserved. These three major functions conflict each other. Ongoing
+logging naturally inhibits the ability
+of the forests to provide for a basis of biodiversity. Also steady
+presence of humans scares off animals and takes a heavy toll on nature's health.</p>
+<p>Governments aim to divide the forestal areas into parts fulfilling
+the functions explained above. A model of forest utilization
+serves as a basis for this regulation. Unfortunately, statistics about
+people's activity inside the forest are hard to obtain. Other than
+in road networks, the frequency along hiking trails is too low and
+varies strongly between sunny and rainy days, so counting of visitors using
+humans or computers does not pay off.</p>
+
+          </div>
+
+<!-- COMPONENTS -->
+          <div class="tab-pane fade" id="components">
+<h1>Components</h1>
+
+<h3>Pipeline</h3>
+<p>The image below summarizes the pipeline of algorithms we use to compute the utilization distribution.
+We extract road graphs and the borders of forest areas from OpenStreetMaps data (note that the approach can easily be extended to ESRI shape files, for example).
+We then compute positions where roads or paths enter the woods.
+For each such place we compute the number of peoples who are likely to use it to enter the forest based on the number of people living in the surrounding.
+The latter information is computed from OpenStreetMaps and ontologies like Wikipedia or GeoNames.
+Next, we determine practical (round) trips between forest entries.
+Finally, the intermediate results from the beforehand steps are joined to a utilization map of the forest.
+</p>
+<div class="well">
+    <img src="img/pipeline.png" class="img-responsive"/>
+</div>
+
+<h3>Data extraction</h3>
+<p><a href="http://openstreetmap.org">OpenStreetMap.org</a> provides geographic information described by XML-markup for nodes (geographic locations with latitude and longitude), polygonal paths (so called ``ways'', referencing previously defined nodes) and compositions thereof (``relations'', referencing sets of nodes, ways or relations).
+Each entity can have several attached tags, which are tuples of the form <em>key:value</em>.
+We parse all nodes, ways, and relations from the relevant OSM files and translate relations and ways to sequences of coordinates.
+We then build the road network from ways with a <em>highway:*</em> tag.
+We generate the forest areas from entities with tags <em>landuse:forest</em> and <em>natural:wood</em>.
+Polygons with tag <em>boundary:administrative</em> are retrieved as boundaries of municipalities.
+Furthermore, we select nodes whose tags match certain combinations of tags as points of interest (POIs).
+For example, places with the tags <em>man_made:tower</em> and <em>tourism:viewpoint</em> are considered as POI.
+</p>
+<p>Population data for countries and cities can be obtained from Wikipedia's infoboxes. For example, see <a href="http://en.wikipedia.org/wiki/Freiburg">Freiburg</a>.</p>
+
+<h3>Forest entry point detection</h3>
+<p>We have to find all edges from the road graph that intersect one of the forest polygons.
+We check for each node of the network if it falls inside a forest polygon or not using a <em>canvas approach</em>:
+To handle the large numbers of nodes for which the membership test has to be done, we rasterize the polygon to a bit array.
+Consider this as image, where the forest areas are painted in green and the remaining parts are white.
+Using this classification, we iterate over all nodes in the graph and check for nodes outside the forest if they have an adjacent edge towards a node inside the forest.
+</p>
+
+<h3>Population distribution estimation</h3>
+<p>We need to know the population distribution in the area surrounding the forests.
+Specifically, we need an estimate of the number of people that live near each street segment of the road network.
+We assume that the population density and the density of local streets coincide.
+This allows to use a Voronoi-diagram of the road network to assign a population share to each street.
+</p>
+
+<h3>Popularity of forest entries</h3>
+<p>We use Dijkstra's famous algorithm to compute the forest entries reachable below some timelimit (say 1 hour) for every place on the map.
+Depening on the previously computed population of the streets, on the number of available forests and their distance every forest entry the popularity of each forest entry can be calculated.
+</p>
+
+<h3>Attractiveness of forest trails</h3>
+<p>We implemented two approaches for computing the attractiveness of trails in the forest.
+The first one can be considered as <em>flooding</em> the entry points' popularity into the nearby forest.
+The second, more elaborate approach computes the attractiveness by taking into account every way segment's position in relation to shortest paths paths between entry points.
+The Result part of this website compares the results of these two methods.
+</p>
+
+<h3>Putting things together</h3>
+<p>Combining the entry points' popularities with attractiveness of single edges in the forest, we get a utilization estimate for every part of the forest.
+Painting these values as an overlay to the original map results in a heatmap, like the one you have seen above.
+Our model gives pretty good estimates for the data sets we have evaluated so far. You can find some details in the <a href="#results" data-toggle="tab">Results</a> section.
+</p>
+          </div>
+
+<!-- RESULTS -->
+          <div class="tab-pane fade" id="results">
+<h1>Results</h1>
+<p>This page shows the results of an experimental evaluation of our model on different OSM data sets.</p>
+
+<h3>Computation time</h3>
+<p>The table below shows the measured the running time for each step of our pipeline excluding the data extraction from OSM.
+</p>
+<div class="table-responsive">
+    <table class="table table-condensed table-striped table-hover">
+      <thead>
+       <tr>
+         <th rowspan="2">Graph</th>  <th colspan="4">Runtime (in seconds)</th> <th></th>
+       </tr>
+       <tr>
+                                     <th>population <br>mapping</th>    <th>entry point <br>extraction</th>   <th>entry point <br>popularity</th>  <th>path <br>attractiveness</th>   <th>total</th>
+       </tr>
+      </thead>
+      <tr>
+          <td>Saarland</td> <td>0.01</td> <td>1.92</td> <td>63.53</td> <td>40.65</td> <td>2min</td>
+      </tr>
+      <tr>
+          <td>Switzerland</td> <td>0.38</td> <td>11.95</td> <td>51.20</td> <td>211.34</td> <td>5min</td>
+      </tr>
+      <tr>
+          <td>Baden-W&uuml;rttemberg</td> <td>0.43</td> <td>20.78</td> <td>584.65</td> <td>1223.43</td> <td>31min</td>
+      </tr>
+      <tr>
+          <td>Austria</td> <td>0.79</td> <td>24.15</td> <td>56.78</td> <td>912.55</td> <td>17min</td>
+      </tr>
+      <tr>
+          <td>Germany</td> <td>2.86</td> <td>181.25</td> <td>512.29</td> <td>6958.33</td> <td>135min</td>
+      </tr>
+    </table>
+</div>
+
+<p>We observed that the fraction of time spent on the population mapping is negligible.
+It is just a few seconds even for our largest data set (Germany).
+This is easy to understand, since the computation of the street Voronoi-diagram requires only a single sweep over all edges.
+The fraction of time spent on the FEP extraction is also relative small.
+This is due the efficient rasterization approach.
+The two remaining steps, the computation of the FEP popularity values and of the forest path attractiveness values are the most time-consuming of our whole pipeline.
+This is because both steps require a large number of Dijkstra computations. The simple flooding approach is about 40 times faster than the via-edge approach.
+</p>
+
+
+<h3>Quality of the population distribution estimation</h3>
+
+<p>As an example for its quality, the table below shows the results of our population distribution estimation.
+The algorithm gets the total population of the German federal state Saarland and administrative boundaries of its districts as input.
+It distributes the population according to the street Voronoi diagram and the edge density clustering.
+We sum up the streetwise population for each district on the next lower administrative level and compare them to value reported on Wikipedia.
+</p>
+
+<div class="col-md-6">
+<div class="table-responsive">
+    <table class="table table-hover table-condensed table-striped">
+        <thead>
+        <tr>
+            <th rowspan="2">district</th>   <th colspan="2">population</th>   <th></th>
+        </tr>
+        <tr>
+                                        <th>actual</th> <th>estimated</th> <th>relative <br>deviation</th>
+        </tr>
+        </thead>
+        <tr>
+            <td>1 Merzig-Wadern</td>   <td>103,520</td>   <td>96,903</td>   <td>-7%</td>
+        </tr>
+        <tr>
+            <td>2 Neunkirchen</td>   <td>134,099</td>   <td>118,628</td>   <td>-12%</td>
+        </tr>
+        <tr>
+            <td>3 Saarbr&uuml;cken</td>   <td>326,638</td>   <td>315,866</td>   <td>-3%</td>
+        </tr>
+        <tr>
+            <td>4 Saarlouis</td>   <td>196,611</td>   <td>175,705</td>   <td>-11%</td>
+        </tr>
+        <tr>
+            <td>5 Saarpfalz-Kreis</td>   <td>144,291</td>   <td>157,316</td>   <td>+9%</td>
+        </tr>
+        <tr>
+            <td>6 St. Wendel</td>   <td>89,128</td>   <td>107,452</td>   <td>+21%</td>
+        </tr>
+
+    </table>
+</div>
+</div>
+
+<div class="col-md-6">
+    <img src="img/saLK.jpg" class="img-rounded img-responsive" alt="Responsive image">
+</div>
+
+<hr>
+<h3>Quality of the utilization model</h3>
+<p>Measuring the quality of our model was quite hard, since there is no ground truth available.
+OpenStreetMap maintains a huge collections of user-submitted GPS traces. You can get these via <a href="http://www.openstreetmap.org/traces">the project's main page</a> or excerpts thereof from this <a href="http://zverik.osm.rambler.ru/gps/files/extracts/index.html">page</a>.
+We filtered this data for traces in the data sets on which we computed our utilization distribution.
+The following images show the overlaid GPS traces (middle) and the utilization heat maps computed by the <em>flooding</em> approach (left) and the <em>via-edge</em> approach (right) for the Baden-W&uuml;rttemberg data set.
+</p>
+<div class="well">
+    <div class="row">
+        <div class="col-md-4">
+          <a href="img/heat_b1.jpg">
+              <img src="img/heat_b1.jpg" class="img-responsive"/>
+          </a>
+        </div>
+        <div class="col-md-4">
+          <a href="img/heat_osm.jpg">
+            <img src="img/heat_osm.jpg" class="img-responsive"/>
+          </a>
+        </div>
+        <div class="col-md-4">
+          <a href="img/heat_b2.jpg">
+            <img src="img/heat_b2.jpg" class="img-responsive"/>
+          </a>
+        </div>
+    </div>
+</div>
+
+<p>
+Then we detected the top-50 hot spots of the data by discretizing is to a 1000x1000 grid.
+After calculating our model, we detected its hot spots in the same way.
+The following table show the results.
+</p>
+<div class="table-responsive">
+    <table class="table table-condensed table-striped table-hover">
+      <thead>
+       <tr>
+         <th rowspan="2">Graph</th>  <th colspan="3">Edge Coverage</th>  <th colspan="2">Hot Spot Detection</th>
+       </tr>
+       <tr>
+                                     <th>OSM</th>    <th>flooding</th>   <th>via-edge</th>  <th>flooding</th>   <th>via-edge</th>
+       </tr>
+      </thead>
+      <tr>
+          <td>Saarland</td> <td>37</td> <td>99</td> <td>100</td> <td>27</td> <td>38</td>
+      </tr>
+      <tr>
+          <td>Switzerland</td> <td>28</td> <td>97</td> <td>100</td> <td>20</td> <td>24</td>
+      </tr>
+      <tr>
+          <td>Baden-W&uuml;rttemberg</td> <td>29</td> <td>95</td> <td>100</td> <td>22</td> <td>31</td>
+      </tr>
+      <tr>
+          <td>Austria</td> <td>22</td> <td>93</td> <td>100</td> <td>18</td> <td>23</td>
+      </tr>
+      <tr>
+          <td>Germany</td> <td>26</td> <td>91</td> <td>100</td> <td>17</td> <td>24</td>
+      </tr>
+    </table>
+</div>
+
+<p>These quantitative results show an advantage for the via-edge approach over the flooding approach.
+However, that advantage is smaller than one might expect from the visual comparison of the pictures above.
+This is because the grid discretization and the top-50 approach over-emphasizes the (easy to find) top hot spots, while it does not take the more subtle differences between flooding and via-edge into account.
+But these regions below the top-50 form the majority of the model.
+</p>
+
+
+          </div>
+
+
+<!-- SOURCE CODE -->
+<div class="tab-pane fade" id="downloads">
+<h1>Downloads</h1>
+
+<h3>Data sets</h3>
+<ul>
+  <li><a href="data/saarland.tar.gz">Saarland</a></li>
+  <li><a href="data/bawue.tar.gz">Baden-W&uuml;rttemberg</a></li>
+  <li><a href="data/germany.tar.gz">Germany (2.1 GB)</a></li>
+  <li><a href="data/austria.tar.gz">Austria</a></li>
+  <li><a href="data/switzerland.tar.gz">Switzerland</a></li>
+</ul>
+
+
+<h3>Source code</h3>
+<ul>
+  <li><a href="code/osm_parse.tar.gz">OSM Parser</a></li>
+  <li><a href="code/drawing.tar.gz">Graph Drawer</a></li>
+  <li><a href="code/pipeline.tar.gz">Utilization Weight Pipeline</a></li>
+  <li><a href="code/website.tar.gz">This Website and the Heatmap Server</a></li>
+</ul>
+
+
+<h3>Prerequisities</h3>
+<p>The steps to reproduce the experiments have been tested on an Ubuntu 13.04 installation.
+In order to compile and execute the code you need to have GCC, Java 7, Python 2.7.x and some side packages installed.
+The following should do the trick:
+<pre>sudo apt-get install build-essentials openjdk-7 python python-numpy</pre>
+</p>
+
+<h3>Instructions</h3>
+<p>After downloading the diverse components, extract the tar balls to some directory.</p>
+<h4>OSM Parser</h4>
+<p>Run the parser with this command:
+<pre>python forestentrydetection.py &lt;OSM_FILE&gt;</pre>
+It will produce the graph files with a label marking nodes inside the forest and forest entries.
+</p>
+
+<h4>Population distribution estimation, forest edge attractiveness.</h4>
+<p>First, compile the C++ code using the Makefile
+<pre>cd DEMOGRAPH/
+make</pre>
+<p>The execute the program with the graph from the parser and the population estimate as input.
+<pre>./demo-graph &lt;GRAPH&gt; &lt;POPULATION&gt;</pre>
+This creates the edge labels file.
+</p>
+
+<h4>Heatmap Server</h4>
+<p>The Python server can be started
+<pre>python heatmap_server.py &lt;LABELED_GRAPH&gt;</pre>
+</p>
+
+
+</div>
+
+<!-- CONTACT -->
+          <div class="tab-pane fade" id="contact">
+<h1>Background information</h1>
+<h3>This website is built using</h3>
+<ul>
+    <li><a href="http://openlayers.org/">OpenLayers.js with OpenStreetMap Layer</a></li>
+    <li><a href="http://www.patrick-wied.at/static/heatmapjs/">heatmap.js</a></li>
+    <li><a href="http://jquery.com/">jQuery</a></li>
+    <li><a href="http://getbootstrap.com/">Bootstrap 3</a></li>
+</ul>
+
+<h3>About us</h3>
+<p>The authors of this project are Hannah Bast, Jonas Sternisko and Sabine Storandt. We are researchers at the university of Freiburg, Germany.
+You can find further information about our work at <a href="http://ad.informatik.uni-freiburg.de/front-page-en?set_language=en">our group's website</a>.
+If you have any questions regarding this project, how to reproduce our results or suggestions for improvement, you can find our email addresses there.</p>
+          </div>
+
+        </div>
+        <hr>
+        <footer>
+            <p>&copy;  University Freiburg</p>
+        </footer>
+      </div>
+    </div> <!-- /container -->
+
+
+
+
+
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+    <script type="text/javascript" src="ui.js"></script>
     <script src="http://openlayers.org/api/OpenLayers.js"></script>
     <script type="text/javascript" src="heatmapjs/heatmap.js"></script>
     <script type="text/javascript" src="heatmapjs/heatmap-openlayers.js"></script>
-    <script type="text/javascript" src="jquery-2.0.3.min.js"></script>
-    <script type="text/javascript" src="ui.js"></script>
-</head>
-
-<body>
-
-    <div class="container">
-      <div class="header">
-        <ul class="nav nav-pills pull-right">
-          <li id="nav-home" class="active"><a>Home</a></li>
-          <li id="nav-about" ><a>About</a></li>
-        </ul>
-        <h3 class="text-muted">Modelling Route Distribution in Forests</h3>
-      </div>
-
-
-    <div id="main">
-        <div id="heatmapArea"></div>
-    </div>
-
-      <div id="home" class="row marketing">
-        <div class="col-lg-12">
-          <h4>A Model for Forest Trail Utilization</h4>
-          <p>This project models utilization of forests based on publicly
-          available data about population, road networks and route planning techniques.
-          On this website we present the outcome of our computations as colorful map layers.
-          This webpage will be regularily updated with new data.</p>
-          <p>The map above shows such a model for the Freiburg area. The colors encode the utilization
-           of the underlying ways. Areas with more intesive colors are more
-           frequented that those blue or no color.</p>
-
-          <h4>The role of forest</h4>
-          <p>Nowadays mankind uses the forests in its surroundings not only for
-           leisure activities and lumbering. The woods also fulfill an important
-           part of keeping the worlds ecosystem in balance and must therefore
-           be conserved. These three major functions conflict each other. Ongoing
-           logging naturally inhibits the ability
-           of the forests to provide for a basis of biodiversity. Also steady
-           presence of humans scares off animals and takes a heavy toll on nature's health.</p>
-
-          <h4>Who cares?</h4>
-          <p>Governments aim to divide the forestal areas into parts fulfilling
-          the functions explained above. A model of forest utilization
-          serves as a basis for this regulation. Unfortunately, statistics about
-          people's activity inside the forest are hard to obtain. Other than
-          in road networks, the frequency along hiking trails is too low and
-          varies strongly between sunny and rainy days, so counting of visitors using
-          humans or computers does not pay off.</p>
-
-        </div>
-
-      </div>
-
-      <div id="about" class="row marketing">
-        <div class="col-lg-6">
-          <h4>This website is built using</h4>
-          <ul>
-            <li><a href="http://openlayers.org/">OpenLayers.js with OpenStreetMap Layer</a></li>
-            <li><a href="http://www.patrick-wied.at/static/heatmapjs/">heatmap.js</a></li>
-            <li><a href="http://jquery.com/">jQuery</a></li>
-            <li><a href="http://getbootstrap.com/">Bootstrap 3</a></li>
-          </ul>
-
 <!--
-          <h4>Subheading1</h4>
-          <p>Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Cras mattis consectetur purus sit amet fermentum.</p>
-
-          <h4>Subheading2</h4>
-          <p>Maecenas sed diam eget risus varius blandit sit amet non magna.</p>
+    <script src="bootstrap/js/bootstrap.min.js"></script>
 -->
-        </div>
-
-        <div class="col-lg-6">
-          <h4>About us</h4>
-          <p>We are a team of researchers from the university of Freiburg. You can find further information about our work at our <a href="http://ad.informatik.uni-freiburg.de/front-page-en?set_language=en">group's website</a>.</p>
-
-<!--
-          <h4>Subheading4</h4>
-          <p>Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Cras mattis consectetur purus sit amet fermentum.</p>
-
-          <h4>Subheading5</h4>
-          <p>Maecenas sed diam eget risus varius blandit sit amet non magna.</p>
--->
-        </div>
-      </div>
-
-      <div class="footer">
-        <p>&copy; University of Freiburg 2013</p>
-      </div>
-
-    </div> <!-- /container -->
-
-</body>
+    <script src="bootstrap/js/bootstrap.js"></script>
+  </body>
 </html>

@@ -3,6 +3,7 @@
 Contains the Heatmap class.
 
 """
+import numpy as np
 
 class Heatmap(object):
     def __init__(self, nodes, edges, weights=None, nodeFlags=None):
@@ -11,7 +12,7 @@ class Heatmap(object):
         The heatmap will be a set of coordinates and labels, one for each node.
 
         """
-        nodes = [(lat, lon) for (lat, lon, _) in nodes]
+        nodes = np.array([(lat, lon) for (lat, lon, _) in nodes])
         lat, lon = zip(*nodes)
         self.leftBottomRightTop = [min(lon), min(lat), max(lon), max(lat)]
         assert len(edges) == len(weights)
@@ -44,10 +45,13 @@ class Heatmap(object):
                 # ENDOF WORKAROUND
                 heat[nodeIndex] += count
         self.maximum = max(heat)
+        # Test: Maybe scaling is better with this:
+        intensities = np.array(sorted(heat))
+        intensities = intensities[intensities[:]>0]
+        self.maximum = intensities[len(intensities)/2]
         # Sort by latitude and throw away zero entries.
-        self.heatmap = sorted(zip(lat, lon, heat))
-        self.heatmap = [(lat, lon, heat) for (lat, lon, heat) in self.heatmap
-                        if heat != 0.]
+        nodeHeat = sorted(zip(lat, lon, heat))
+        self.heatmap = np.array([node for node in nodeHeat if node[2] != 0.])
 
     def extract(self, bbox):
         """Returns the part of the heat map data inside the bounding box."""
@@ -55,13 +59,51 @@ class Heatmap(object):
         if [minLon, minLat, maxLon, maxLat] == self.leftBottomRightTop:
             return self.heatmap
         else:
-            filtered = []
             i = 0
             while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
                 i += 1
-            while i < len(self.heatmap) and self.heatmap[i][0] <= maxLat:
-                lat, lon, heat = self.heatmap[i]
+            filtered = np.zeros([len(self.heatmap) - i, 3])
+            j = i
+            while j < len(self.heatmap) and self.heatmap[j][0] <= maxLat:
+                lat, lon, heat = self.heatmap[j]
                 if lon >= minLon and lon <= maxLon:
-                    filtered.append((lat, lon, heat))
-                i += 1
+                    filtered[j-i] = self.heatmap[j]
+                j += 1
+            filtered = np.resize(filtered, [j-i,3])
             return filtered
+
+    def rasterize(self, bbox, (xres,yres)=(180,120)):  #=(640,480)
+        """Returns a raster discretizing the intensities inside the bbox."""
+        minLon, minLat, maxLon, maxLat = bbox
+        latFraction = (maxLat - minLat) / (yres - 1.)
+        lonFraction = (maxLon - minLon) / (xres - 1.)
+        i = 0
+        while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
+            i += 1
+
+        coords = np.zeros([yres,xres,2])
+        lat = minLat
+        y = 0
+        while lat <= maxLat:
+            lon = minLon
+            x = 0
+            while lon <= maxLon:
+                coords[y,x] = (lat,lon)
+                lon += lonFraction
+                x += 1
+            lat += latFraction
+            y += 1
+
+        raster = np.zeros([yres,xres])
+        while i < len(self.heatmap) and self.heatmap[i][0] <= maxLat:
+            lat, lon, heat = self.heatmap[i]
+            if lon >= minLon and lon <= maxLon:
+                ly = (lat - minLat) / latFraction
+                lx = (lon - minLon) / lonFraction
+                raster[ly,lx] += heat
+            i += 1
+        #print np.dstack([coords, raster])[raster[:] > 0]
+        return np.dstack([coords, raster])[raster[:] > 0]
+
+
+

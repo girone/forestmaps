@@ -45,6 +45,9 @@ function init(){
         projection: new OpenLayers.Projection("EPSG:4326"),
         displayProjection: new OpenLayers.Projection("EPSG:4326")
     });
+    permalink = new OpenLayers.Control.Permalink();
+    map.addControl(permalink);
+
     layer = new OpenLayers.Layer.OSM();
 
     // create heatmap layer
@@ -141,34 +144,55 @@ function get_heatmap_extract(bbox) {
     }
 }
 
+function get_heatmap_raster(bbox) {
+    var timestamp = milliseconds();
+    if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
+        $.ajax({
+            url: url + "?heatmapRasterRequest=" + bbox,
+            dataType: "jsonp"
+        });
+        lastRequestTimeStamp = timestamp;
+        paramOfLastRequest = bbox;
+        lastRequestExtent = map.getExtent();
+        console.log("Requesting raster data inside " + lastRequestExtent.transform(layer.projection,map.projection).toBBOX())
+    }
+}
 
-// Parses the datastring "lat0,lon0,count0,lat1,lon1,count1,..."
+
+// Parses the JSON data which come in the following format:
+// json = {
+//    datacount : int,
+//    max       : int,
+//    data      : [lat0,lon0,count0,lat1,lon1,count1,...]
+// }
 function parse_datastring(json) {
     var length = json.datacount;
-    var dataStringArray = json.datapoints.split(",");
     var result = { max: 0 , data: [] };
     var maxi = 0;
     var heats = []
     for (var i = 0; i < length; i++) {
-        var heat = parseFloat(dataStringArray[3*i+2]);
+        var heat = parseFloat(json.datapoints[3*i+2]);
         maxi = Math.max(maxi, heat);
         heats.push(heat);
         result.data.push({
-            lat :   parseFloat(dataStringArray[3*i]),
-            lon :   parseFloat(dataStringArray[3*i+1]),
+            lat :   parseFloat(json.datapoints[3*i]),
+            lon :   parseFloat(json.datapoints[3*i+1]),
             count : heat
         });
     }
     result.max = maxi;
     // Fix: Use median as max for better display.
     var median = heats.sort()[Math.floor(heats.length/2)];
-    result.max = median * 2.5;
+    result.max = median / 2.5;
+    result.max = json.max;
+    console.log("Maximum of all data is " + result.max);
     return result;
 }
 
 var allowCentering = true
 function heatmap_request_callback(json) {
     console.log("Received JSONP with " + json.datacount + " elements.")
+    console.log(json)
     if (json.datacount > 1) {
         var data = parse_datastring(json);
         update_heatmap(data);
@@ -188,15 +212,19 @@ window.onload = function() {
     // register event handlers
     map.events.register("zoomend", map, function(){
         if (!lastRequestExtent.containsBounds(get_current_map_extent())) {
-            get_heatmap_extract(get_current_map_extent().toBBOX());
+            //get_heatmap_extract(get_current_map_extent().toBBOX());
+
         }
+        get_heatmap_raster(get_current_map_extent().toBBOX());
         set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
+        console.log("Zoom level " + map.zoom);
     });
 
     map.events.register("moveend", map, function(){
         if (!lastRequestExtent.containsBounds(get_current_map_extent())) {
-            get_heatmap_extract(get_current_map_extent().toBBOX());
+            //get_heatmap_extract(get_current_map_extent().toBBOX());
         }
+        get_heatmap_raster(get_current_map_extent().toBBOX());
         set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
     });
 };
@@ -225,4 +253,5 @@ $(document).ready(function(){
         $('#home').hide();
         $('#nav-home').removeClass('active');
     });
+    //$('img.simzoom').addpowerzoom(); //add zoom effect to images with CSS class "simzoom"
 });

@@ -4,6 +4,7 @@ import BaseHTTPServer
 import SimpleHTTPServer
 import urlparse
 from heatmap import Heatmap
+from timer import Timer
 
 
 FILE = 'index.html'
@@ -13,15 +14,15 @@ PORT = 8080
 class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     """A handler that processes requests from the heatmap web UI."""
 
-    def do_POST(self):
-        """Handle a post request by returning the square of the number."""
-        length = int(self.headers.getheader('content-length'))
-        data_string = self.rfile.read(length)
-        try:
-            result = int(data_string) ** 2
-        except:
-            result = 'error'
-        self.wfile.write(result)
+    #def do_POST(self):
+        #"""Handle a post request by returning the square of the number."""
+        #length = int(self.headers.getheader('content-length'))
+        #data_string = self.rfile.read(length)
+        #try:
+            #result = int(data_string) ** 2
+        #except:
+            #result = 'error'
+        #self.wfile.write(result)
 
     def do_GET(self):
         """Handles a GET request."""
@@ -57,7 +58,9 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         try:
             method_call = getattr(self, q)
             try:
-                result = method_call(args)
+                with Timer() as t:
+                    result = method_call(args)
+                print " --> This took %s seconds." % t.secs
             except TypeError as e:
                 print e
             print "Succeeded!"
@@ -78,18 +81,34 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         jsonp = self.format_heatmap_answer(heatmapExtract)
         return jsonp
 
+    def heatmapRasterRequest(self, leftBottomRightTop):
+        """Answers a request for the heatmap in a certain bounding box."""
+        if not leftBottomRightTop or leftBottomRightTop == '':
+            bbox = heatmap.leftBottomRightTop
+        else:
+            bbox = [float(s) for s in leftBottomRightTop.split(",")]
+        print "self.heatmapRasterRequest called, argument " + str(leftBottomRightTop)
+        heatmapExtract = heatmap.rasterize(bbox)
+        print "returning heatmap json for ", len(heatmapExtract), " points"
+        jsonp = self.format_heatmap_answer(heatmapExtract)
+        return jsonp
+
     def generate_heatmap_extract(self, bbox):
         """Returns an extract of the heatmap in a certain bounding box."""
-        return heatmap.extract(bbox)  # global variable
+        return heatmap.extract(bbox)  # full extact
+        #return heatmap.rasterize(bbox)  # discretized
 
     def format_heatmap_answer(self, heatmapData):
         """Formats a heatmap request answer as JSONP."""
         jsonp  = "heatmap_request_callback({\r\n"
         jsonp += "    datacount: {0},\r\n".format(len(heatmapData))
-        jsonp += "    datapoints: \""
+        jsonp += "    max : {0},\r\n".format(heatmap.maximum)
+        jsonp += "    datapoints: ["
+        points = []
         for lat, lon, count in heatmapData:
-            jsonp += "{0:.7f},{1:.7f},{2:.1f},".format(lat, lon, count)
-        jsonp +=                  "\"\r\n"
+            points.append("{0:.7f},{1:.7f},{2:.1f}".format(lat, lon, count))
+        jsonp += ",".join(points)
+        jsonp +=                  "]\r\n"
         jsonp += "})"
         return jsonp
 
@@ -107,6 +126,7 @@ def start_server():
     """Start the server."""
     server_address = ("", PORT)
     server = BaseHTTPServer.HTTPServer(server_address, HeatmapRequestHandler)
+    print "Server starts running now..."
     server.serve_forever()
 
 
@@ -171,13 +191,12 @@ def main():
 
     global heatmap
     if len(sys.argv) > 3:
-        print "###########LOADING WEIGHTS##############"
         weights = read_weights(sys.argv[3])
         heatmap = Heatmap(nodes, edges, weights, nodeFlags)
     else:
         heatmap = Heatmap(nodes, edges)
 
-    open_browser()
+    #open_browser()
     start_server()
 
 
