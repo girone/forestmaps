@@ -135,7 +135,7 @@ int main(int argc, char** argv) {
   const vector<float>& y = popColumns[1];
   const vector<float>& population = popColumns[2];
 
-  vector<int> populationNodeIndices = map_population_to_closest_node(x, y, graph);
+  vector<int> populationNodeIndices = map_xy_locations_to_closest_node(x, y, graph);
 
 
   // Reachability analysis

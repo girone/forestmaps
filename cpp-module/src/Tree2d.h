@@ -43,10 +43,11 @@ Tree2D build_kdtree(const RoadGraph& graph) {
 
 // _____________________________________________________________________________
 // Maps (x,y) coordinates to the closest node referenced by the kdtree.
-vector<int> map_population_to_closest_node(const vector<float>& x,
+// Returns the index of the closest node for every row of x and y.
+vector<int> map_xy_locations_to_closest_node(const vector<float>& x,
     const vector<float>& y, const RoadGraph& graph) {
   Tree2D tree = build_kdtree(graph);
-  vector<int> populationNodeIndices(x.size(), -1);
+  vector<int> closestNodeIndices(x.size(), -1);
   assert(x.size() == y.size());
   for (size_t i = 0; i < x.size(); ++i) {
     RoadGraph::Node_t dummy;
@@ -55,9 +56,9 @@ vector<int> map_population_to_closest_node(const vector<float>& x,
     TreeNode pos(dummy, -1);
     std::pair<Tree2D::const_iterator, float> res = tree.find_nearest(pos);
     assert(res.first != tree.end());
-    populationNodeIndices[i] = res.first->refNodeIndex;
+    closestNodeIndices[i] = res.first->refNodeIndex;
   }
-  return populationNodeIndices;
+  return closestNodeIndices;
 }
 
 #endif  // SRC_TREE2D_H_
