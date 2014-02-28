@@ -68,11 +68,11 @@ class Heatmap(object):
                 if nodes[nodeIndex][2] == 0:
                     continue
                 heat[nodeIndex] += count
-        self.maximum = max(heat)
-        # Test: Maybe scaling is better with this:
+        #self.maximum = max(heat)
+        # Visualization scales better with this: Choose median of non-zero.
         intensities = np.array(sorted(heat))
         intensities = intensities[intensities[:]>0]
-        self.maximum = intensities[len(intensities)/2] * 2.5
+        self.maximum = intensities[len(intensities)/2]
         # Sort by latitude and throw away zero entries.
         nodeHeat = sorted(zip(lats, lons, heat))
         self.heatmap = np.array([node for node in nodeHeat if node[2] != 0.])
@@ -96,7 +96,7 @@ class Heatmap(object):
             filtered = np.resize(filtered, [j-i,3])
             return filtered
 
-    def rasterize(self, bbox, (xres,yres)=(18,12)):  #=(640,)
+    def rasterize(self, bbox, (xres,yres)=(18,48)):  #=(640,)
         """Returns a raster discretizing the intensities inside the bbox.
 
         The yres is important, xres is computed from it.
@@ -106,8 +106,8 @@ class Heatmap(object):
         latFraction = (maxLat - minLat) / (yres - 1.)
         lonFraction = compute_longitude_stepsize(bbox, latFraction)
 
-        latStart = math.floor(minLat / latFraction) * latFraction - latFraction
-        lonStart = math.floor(minLon / lonFraction) * lonFraction - lonFraction
+        latStart = (math.floor(minLat / latFraction) - 0.5) * latFraction
+        lonStart = (math.floor(minLon / lonFraction) - 0.5) * lonFraction
         xres = math.ceil((maxLon + 0.5 * lonFraction - lonStart) / lonFraction)
         coords = np.zeros([yres+2, xres+2, 2])
 

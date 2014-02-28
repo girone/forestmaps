@@ -113,7 +113,13 @@ function set_heatmap_point_scale(targetRadius) {
     console.log("deltaLat = " + deltaLatitudeOfMap)
     pixelHeightOfMap = $('#heatmapArea').height();
     point_radius = targetRadius / deltaLatitudeOfMap * pixelHeightOfMap;
-    point_radius = Math.ceil(point_radius) + 1
+    // Scale the radius to get more stable colors on distant zoom levels.
+    var scaleR = 16 - map.zoom;
+    if (scaleR < 0) { scaleR = 0; }
+    if (scaleR > 7) { scaleR = 7; }
+    if (map.zoom < 6) { scaleR = map.zoom - 1; }
+    console.log("scale r = " + scaleR);
+    point_radius = Math.ceil(point_radius) + scaleR
     heatmap.heatmap.set("radius", point_radius)
     //console.log("setting point scale to " + point_radius)
 };
@@ -198,24 +204,23 @@ function parse_datastring(json) {
     var length = json.datacount;
     var result = { max: 0 , data: [] };
     var maxi = 0;
-    var heats = []
     for (var i = 0; i < length; i++) {
         var heat = parseFloat(json.datapoints[3*i+2]);
         maxi = Math.max(maxi, heat);
-        heats.push(heat);
         result.data.push({
             lat :   parseFloat(json.datapoints[3*i]),
             lon :   parseFloat(json.datapoints[3*i+1]),
             count : heat
         });
     }
-    result.max = maxi;
-    result.max = json.max;
-    console.log("heats.length: " + heats.length)
-    var median = heats.sort()[Math.floor(heats.length/2)];
-    //result.max = median;
+    // Scale the maximum to get more stable colors when zooming.
+    //result.max = maxi;
+    var factor = (map.zoom - 11);
+    if (!factor || factor < 1) { factor = 1; }
+    factor = Math.sqrt(factor);
+    result.max = json.max * factor;
+
     result.radius = json.radius;
-    console.log("Maximum of all data is " + result.max);
     return result;
 }
 

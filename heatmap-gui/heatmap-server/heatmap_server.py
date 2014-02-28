@@ -108,7 +108,8 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         print "returning heatmap json for ", len(heatmapExtract), " points"
         jsonp = self.format_heatmap_answer(heatmapExtract,
                                            heatmaps[index].maximum,
-                                           radius=latStepSize / 2.)
+                                           radius=latStepSize / 2.
+                                           )
         return jsonp
 
     def generate_heatmap_extract(self, bbox):
