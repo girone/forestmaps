@@ -154,7 +154,7 @@ class ClusterContractionAlgorithm(object):
     for cluster in self.cluster(self.graph, self.node_positions):
       nodes = cluster.nodes
       border_nodes = cluster.determine_border_nodes(self.graph)
-      if exclude_nodes: border_nodes += exclude_nodes
+      if exclude_nodes: border_nodes = border_nodes.union(exclude_nodes)
       for node in nodes - border_nodes:
         self.graph.contract_node(node)
 
