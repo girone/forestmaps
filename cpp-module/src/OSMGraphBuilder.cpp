@@ -103,6 +103,7 @@ OSMGraphBuilder OSMGraphBuilder::RoadGraphBuilder(OSMGraph* g) {
     roadTypeToSpeed["unsurfaced"]     = 30;
     roadTypeToSpeed["cycleway"]       = 25;
     roadTypeToSpeed["living_street"]  = 10;
+    roadTypeToSpeed["bridleway"]      = 5;
     roadTypeToSpeed["service"]        = 5;
     roadTypeToSpeed["OTHER"]          = 0;
     roadTypeToSpeed["track"]          = 5;

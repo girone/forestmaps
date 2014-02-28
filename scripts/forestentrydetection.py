@@ -39,6 +39,7 @@ speed_table = {"motorway"       : 110, \
                "unsurfaced"     : 30, \
                "cycleway"       : 25, \
                "living_street"  : 10, \
+               "bridleway"      : 5, \
                "service"        : 5, \
                "OTHER"          : 0, \
                "track"          : 5, \
