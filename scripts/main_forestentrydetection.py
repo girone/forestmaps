@@ -16,6 +16,7 @@ Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 
 """
 from forestentrydetection import *
+import osm_parse
 
 def usage_information():
     return "Usage: python script.py <osm_file> [<max_speed>] ['ATKIS']"
@@ -23,8 +24,6 @@ def usage_information():
 
 def main():
     """Parse an OSM file, classify forest nodes and dump graph and polygons."""
-    from osm_parse import OSMParser, dump_graph
-
     if len(sys.argv) < 2:
         print usage_information()
         exit(1)
@@ -40,7 +39,7 @@ def main():
     maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
     print "Reading nodes, ways and polygons from OSM and creating the graph..."
-    parser = OSMParser(maxspeed)
+    parser = osm_parse.OSMParser(maxspeed)
     data = parser.read_osm_file(osmfile)
     (nodes, edges, (forestPolys, innerPolys), adminPolys, pois) = data
 
@@ -49,7 +48,7 @@ def main():
     pois = restrict_to_forest(pois, forestFlags)
     print "...done."
 
-    dump_graph(nodes, edges, filename, forestFlags)
+    osm_parse.dump_graph(nodes, edges, filename, forestFlags)
     osm_parse.dump_pois(pois, filename)
     with open(filename + ".forest.txt", "w") as polyFile:
         for poly in forestPolys:

@@ -13,7 +13,7 @@ Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 
 """
 import sys
-from osm_parse import OSMParser
+import osm_parse
 
 # Deprecated method.
 #def read_file(filename, maxspeed, interpret=OSMWayTagInterpreter):
@@ -109,37 +109,6 @@ from osm_parse import OSMParser
     #return way_nodes, ways_by_type, graph, nodes, osm_id_map
 
 
-def dump_graph(nodes, edges, filename=None, nodeFlags=None):
-    from itertools import izip
-    """Writes output to some target, stdout by default."""
-    if filename:
-        with open(filename + ".graph.txt", "w") as f:
-            f.write(str(len(nodes)) + "\n")
-            f.write(str(len(edges)) + "\n")
-            if not nodeFlags:
-                for node in nodes:
-                    (lat, lon, osm_id) = node
-                    f.write("{0} {1} {2}\n".format(lat, lon, osm_id))
-            else:
-                for node, flag in izip(nodes, nodeFlags):
-                    (lat, lon, osm_id) = node
-                    f.write("{0} {1} {2} {3}\n".format(lat, lon, osm_id, flag))
-            for edge in edges:
-                s, t, labels = edge
-                labelsAsString = " ".join([str(l) for l in labels])
-                f.write("{0} {1} {2}\n".format(s, t, labelsAsString))
-    else:
-        print len(nodes)
-        print len(edges)
-        for node in nodes:
-            (lat, lon, osm_id) = node
-            print lat, lon#, osm_id
-        for edge in edges:
-            s, t, labels = edge
-            labelsAsString = " ".join([str(l) for l in labels])
-            print "{0} {1} {2}\n".format(s, t, labelsAsString)
-
-
 def dump_json(nodes, edges, filename="dummy.json"):
     def format_json_datapoint(lat, lon, count):
         s = """{{"lat": {0}, "lon": {1}, "count": {2}}}""".format(lat, lon, count)
@@ -195,25 +164,16 @@ def dump_communities(towns, fileprefix=None):
                         format_osm_link(tags['id'])))
 
 
-def dump_pois(pois, fileprefix=None):
-    """Dumps POIs, a mapping from index to osmId and category."""
-    if not fileprefix:
-        fileprefix = "output"
-    with open(fileprefix + ".pois.txt", "w") as f:
-        for index, (osmId, category) in sorted(list(pois.items())):
-            f.write("{0} {1} {2}\n".format(index, osmId, category))
-
-
 def main():
     """Reads an osm file and dumps the resulting nodes, arcs and polygons."""
     if len(sys.argv) < 2:
         print "Usage: ./script.py <osm_file>"
         exit(1)
-    parser = OSMParser(maxSpeed=50)
+    parser = osm_parse.OSMParser(maxSpeed=50)
     nodes, edges, (forest, glades), towns, pois = parser.read_osm_file(sys.argv[1])
 
-    dump_graph(nodes, edges, filename="output")
-    dump_pois(pois)
+    osm_parse.dump_graph(nodes, edges, filename="output")
+    osm_parse.dump_pois(pois)
 
     #dump_json(nodes, edges)
 

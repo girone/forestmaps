@@ -14,7 +14,6 @@ import pickle
 from grid import Grid, bounding_box
 from graph import Graph, Edge, NodeInfo
 import convexhull
-import osm_parse
 
 # find Polygon library on machines without admin rights
 libpath = os.path.abspath(

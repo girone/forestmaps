@@ -754,3 +754,44 @@ class OSMParser(object):
         """Replaces osm node ids with coordinates."""
         tmp = [map(self.osm_id_to_node, poly) for poly in osmNodeIdPolygons]
         return [[(lat,lon) for lat,lon,_ in poly] for poly in tmp]
+
+
+def dump_graph(nodes, edges, filename=None, nodeFlags=None):
+    """Writes graph to some output target, stdout by default."""
+    from itertools import izip
+    if filename:
+        with open(filename + ".graph.txt", "w") as f:
+            f.write(str(len(nodes)) + "\n")
+            f.write(str(len(edges)) + "\n")
+            if not nodeFlags:
+                for node in nodes:
+                    (lat, lon, osm_id) = node
+                    f.write("{0} {1} {2}\n".format(lat, lon, osm_id))
+            else:
+                for node, flag in izip(nodes, nodeFlags):
+                    (lat, lon, osm_id) = node
+                    f.write("{0} {1} {2} {3}\n".format(lat, lon, osm_id, flag))
+            for edge in edges:
+                s, t, labels = edge
+                labelsAsString = " ".join([str(l) for l in labels])
+                f.write("{0} {1} {2}\n".format(s, t, labelsAsString))
+    else:
+        print len(nodes)
+        print len(edges)
+        for node in nodes:
+            (lat, lon, osm_id) = node
+            print lat, lon#, osm_id
+        for edge in edges:
+            s, t, labels = edge
+            labelsAsString = " ".join([str(l) for l in labels])
+            print "{0} {1} {2}\n".format(s, t, labelsAsString)
+
+
+def dump_pois(pois, fileprefix=None):
+    """Dumps POIs, a mapping from index to osmId and category."""
+    if not fileprefix:
+        fileprefix = "output"
+    with open(fileprefix + ".pois.txt", "w") as f:
+        for index, (osmId, category) in sorted(list(pois.items())):
+            f.write("{0} {1} {2}\n".format(index, osmId, category))
+
