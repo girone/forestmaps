@@ -24,6 +24,7 @@
 
 
 var map, layer, heatmap;
+var lastRequestExtent;
 var point_radius = 50;  // px
 var kPOINT_RADIUS_METERS = 50.;
 var kPOINT_RADIUS_DEGREE = kPOINT_RADIUS_METERS / 111694.;
@@ -89,6 +90,7 @@ function init(){
 
     map.zoomToMaxExtent();
     map.zoomIn();
+    lastRequestExtent = map.getExtent();
 
     // Load initial data from server
     get_heatmap_extract("");
@@ -145,17 +147,18 @@ function milliseconds() {
 }
 
 
-function get_heatmap_extract(extent) {
+function get_heatmap_extract(bbox) {
     if (allowNewHeatmapRequest) {
         var timestamp = milliseconds();
-        if (paramOfLastRequest != extent) {
-            paramOfLastRequest = extent;
+        if (paramOfLastRequest != bbox) {
             if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
                 $.ajax({
-                    url: url + "?heatmapRequest=" + extent,
+                    url: url + "?heatmapRequest=" + bbox,
                     dataType: "jsonp"
                 });
                 lastRequestTimeStamp = timestamp;
+                paramOfLastRequest = bbox;
+                lastRequestExtent = map.getExtent();
             }
         }
     }
@@ -203,18 +206,25 @@ window.onload = function() {
 
     // register event handlers
     map.events.register("zoomend", map, function(){
-        get_heatmap_extract(get_current_map_extent());
+        if (!lastRequestExtent.containsBounds(map.getExtent())) {
+            get_heatmap_extract(get_current_map_extent());
+        }
         set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
     });
 
     map.events.register("moveend", map, function(){
-        get_heatmap_extract(get_current_map_extent());
+        if (!lastRequestExtent.containsBounds(map.getExtent())) {
+            get_heatmap_extract(get_current_map_extent());
+        }
+        set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
     });
 };
 
 
 $(document).ready(function(){
-    // pass
+    allowCentering = true
+    lastRequestTimeStamp = 0;
+    paramOfLastRequest = "none"
 });
 
 

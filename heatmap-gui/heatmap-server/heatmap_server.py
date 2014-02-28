@@ -13,7 +13,6 @@ class TestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """Handle a post request by returning the square of the number."""
-        print "do_POST()"
         length = int(self.headers.getheader('content-length'))
         data_string = self.rfile.read(length)
         try:
@@ -24,46 +23,17 @@ class TestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         """Handles a GET request."""
-        print "do_GET()"
-
-
-
         parsed_path = urlparse.urlparse(self.path)
         message = ""
         if parsed_path.query == "":
-            print "Site lookup"
+            # Site lookup, view index.html
             f = self.send_head()
             if f:
                 self.copyfile(f, self.wfile)
                 f.close()
                 return
         else:
-            print "query"
             message = self.process_query(parsed_path.query)
-
-        #message_parts = [
-                #'CLIENT VALUES:',
-                #'client_address=%s (%s)' % (self.client_address,
-                                            #self.address_string()),
-                #'command=%s' % self.command,
-                #'path=%s' % self.path,
-                #'real path=%s' % parsed_path.path,
-                #'query=%s' % parsed_path.query,
-                #'request_version=%s' % self.request_version,
-                #'',
-                #'SERVER VALUES:',
-                #'server_version=%s' % self.server_version,
-                #'sys_version=%s' % self.sys_version,
-                #'protocol_version=%s' % self.protocol_version,
-                #'',
-                #'HEADERS RECEIVED:',
-                #]
-        #for name, value in sorted(self.headers.items()):
-            #message_parts.append('%s=%s' % (name, value.rstrip()))
-        #message_parts.append('')
-        #message = '<br>\r\n'.join(message_parts)
-        #print "Message: ", message
-
         self.send_response(200)
         self.end_headers()
         self.wfile.write(message)
@@ -169,10 +139,8 @@ class Heatmap(object):
         """Returns the part of the heat map data inside the bounding box."""
         minLon, minLat, maxLon, maxLat = bbox
         if [minLon, minLat, maxLon, maxLat] == self.leftBottomRightTop:
-            print "bla"
             return self.heatmap
         else:
-            print "blub", len(self.heatmap)
             filtered = []
             i = 0
             while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
@@ -197,7 +165,7 @@ def main():
         edges = pickle.load(f)
     global heatmap
     heatmap = Heatmap(nodes, edges)
-    #open_browser()
+    open_browser()
     start_server()
 
 
