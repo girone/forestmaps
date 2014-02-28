@@ -2,7 +2,7 @@
 var map, layer, heatmap;
 var lastRequestExtent;
 var point_radius = 50;  // px
-var kPOINT_RADIUS_METERS = 50.;
+var kPOINT_RADIUS_METERS = 30.;
 var kPOINT_RADIUS_DEGREE = kPOINT_RADIUS_METERS / 111694.;
 
 
@@ -94,8 +94,8 @@ function update_heatmap(data) {
         allowNewHeatmapRequest = false;
         //map.zoomToExtent(data_bounds(data.data).transform(map.projection, layer.projection));
         allowNewHeatmapRequest = true;
-        set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
     }
+    set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
 }
 
 
@@ -148,9 +148,11 @@ function parse_datastring(json) {
     var dataStringArray = json.datapoints.split(",");
     var result = { max: 0 , data: [] };
     var maxi = 0;
+    var heats = []
     for (var i = 0; i < length; i++) {
         var heat = parseFloat(dataStringArray[3*i+2]);
         maxi = Math.max(maxi, heat);
+        heats.push(heat);
         result.data.push({
             lat :   parseFloat(dataStringArray[3*i]),
             lon :   parseFloat(dataStringArray[3*i+1]),
@@ -158,6 +160,9 @@ function parse_datastring(json) {
         });
     }
     result.max = maxi;
+    // Fix: Use median as max for better display.
+    var median = heats.sort()[Math.floor(heats.length/2)];
+    result.max = median * 2.5;
     return result;
 }
 
