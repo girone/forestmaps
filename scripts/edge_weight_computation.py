@@ -1,7 +1,7 @@
 '''
 File: edge_weight_computation.py
 Author: Jonas Sternisko
-Description: 
+Description:
 This file contains code which computes the weight of edges e=(s,t) in the graph
 by conducting one Dijkstra from s and t respectively.
 
@@ -13,11 +13,11 @@ from util import Progress
 
 MAX_COST = 60*60  # 1 hour
 
-def find_feasible_entrypoints_for_each_edge(edges, graph, fep_nodes, 
+def find_feasible_entrypoints_for_each_edge(edges, graph, fep_nodes,
                                             cost_limit):
   """Determines shortest paths from entry to exit via edge.
 
-  For each edge, this finds all pairs of forest entry/exit between which a 
+  For each edge, this finds all pairs of forest entry/exit between which a
   shortest path via the edge with costs less than some limit exists.
 
   """
@@ -49,7 +49,7 @@ def find_feasible_entrypoints_for_each_edge(edges, graph, fep_nodes,
   return entrypoints_to_edges
 
 
-def distribute_entrypoint_weight(fep_nodes, fep_population, 
+def distribute_entrypoint_weight(fep_nodes, fep_population,
                                  entrypoints_to_edges):
   """Distribute entry point weight to edges on feasible round trips."""
   edge_population = defaultdict(float)
@@ -64,10 +64,11 @@ def distribute_entrypoint_weight(fep_nodes, fep_population,
     else:
       no_paths_found += 1
   print "For {0} entries no trips have been found.".format(no_paths_found)
-  return dict(edge_population)
+  return edge_population
+  #return dict(edge_population)
 
 
-def compute_edge_weight(graph, fep_nodes, fep_population, cost_limit=MAX_COST): 
+def compute_edge_weight(graph, fep_nodes, fep_population, cost_limit=MAX_COST):
   """ """
   edges = set([(s,t) for s in graph.edges.keys() for t in graph.edges[s].keys()])
   entrypoints_to_edges = find_feasible_entrypoints_for_each_edge(

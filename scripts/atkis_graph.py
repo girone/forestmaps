@@ -10,7 +10,7 @@ from itertools import tee, izip
 import numpy as np
 from graph import Graph
 from util import msg, Progress
-from osm_parse import atkis_speed_table
+from osm_parse import ATKISSpeedTable
 
 def pairwise(iterable):
   ''' Example: [w, x, y, z]  --> [(w, x), (x, y), (y, z)]. '''
@@ -26,7 +26,7 @@ def distance(p1, p2):
 
 def determine_speed(way_type, max_speed):
   ''' Get the speed in km/h on a specific way type. '''
-  speed = atkis_speed_table[way_type]
+  speed = ATKISSpeedTable[way_type]
   return max_speed if speed > max_speed else speed
 
 

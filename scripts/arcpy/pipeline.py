@@ -1,3 +1,6 @@
+""" DOCU TODO
+
+"""
 import arcpy
 import random
 import os
@@ -44,9 +47,9 @@ def create_road_graph(dataset, max_speed):
 
 
 def shape_to_polygons(lines):
-  ''' Parses polygons from the points represented by lines in a numpy
+  """ Parses polygons from the points represented by lines in a numpy
   RecordArray created by arcpy.FeatureClassToNumPyArray(explode_to_points=True).
-  '''
+  """
   from itertools import tee, izip
   def pairwise(iterable):
     a,b = tee(iterable)
@@ -66,7 +69,7 @@ def create_populations_from_settlement_fc(lines, point_distance):
   '''
   polygons = shape_to_polygons(lines)
   from forestentrydetection import create_population_grid
-  return create_population_grid(polygons, [], grid_point_distance=point_distance)
+  return create_population_grid(polygons, [], gridPointDistance=point_distance)
 
 
 def create_population(settlement_dataset,
@@ -95,7 +98,7 @@ def create_population(settlement_dataset,
 
     mxd = arcpy.mapping.MapDocument("CURRENT")
     dataframe = arcpy.mapping.ListDataFrames(mxd, "*")[0]
-    
+
     layer = arcpy.management.MakeFeatureLayer(population_fc,
                                                 'population_layer1')
     #except:
@@ -241,7 +244,6 @@ def main():
   t.start_timing("Mapping edge weights back to FIDs...")
   weightedGraph = Graph()
   weightedGraph.nodes = forest_graph.nodes.copy()
-  new_weights = defaultdict(dict)
   for s, targets in forest_graph.edges.items():
     for tt in targets.keys():
       weightedGraph.add_edge(s, tt, edge_weights[(s,tt)])
