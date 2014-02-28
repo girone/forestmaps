@@ -1,7 +1,7 @@
 """ forestentrydetection.py
 
 This script performs a set of tasks:
-- classify forest entry points 'WEP'
+- classify forest entry points "fep"
 - classify arcs which are inside the forest
 - generate population grid points
 
@@ -47,18 +47,18 @@ def classify(highwayNodes, nodes, grid):
     return forestHighwayNodes, openHighwayNodes
 
 
-def select_wep(openHighwayNodes, forestHighwayNodes, graph, osmIdMap):
+def select_fep(openHighwayNodes, forestHighwayNodes, graph, nodeIndexToOsmId):
     """Selects nodes as FEP which are outside the forest and point into."""
-    weps = set()
-    inverseIdMap = {value : key for (key, value) in osmIdMap.items()}
+    feps = set()
+    inverseIdMap = {value : key for (key, value) in nodeIndexToOsmId.items()}
     for osmId in openHighwayNodes:
-        nodeId = osmIdMap[osmId]
+        nodeId = nodeIndexToOsmId[osmId]
         for otherNodeId in graph.edges[nodeId].keys():
             otherOsmId = inverseIdMap[otherNodeId]
             if otherOsmId in forestHighwayNodes:
-                weps.add(osmId)
+                feps.add(osmId)
                 break
-    return weps
+    return feps
 
 
 def create_population_grid(boundaryPolygons, forestPolygons, resolution=None,
@@ -137,7 +137,7 @@ def filter_point_grid(points, regions, operation='intersect'):
         exit(1)
 
 
-def classify_forest(nodeIds, waysByType, graph, nodes, osmIdMap, filenameBase):
+def classify_forest(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId, filenameBase):
     """Creates forest polygons and detects forest entries WE in the data."""
     forestDelim = waysByType['forest_delim']
     bbox = bounding_box(nodes.values())
@@ -171,18 +171,18 @@ def classify_forest(nodeIds, waysByType, graph, nodes, osmIdMap, filenameBase):
 
     print "Restrict forests to large connected components..."
     # turn this off, when fast results are needed
-    nodeIdx = [osmIdMap[e] for e in forestHighwayNodes]
+    nodeIdx = [nodeIndexToOsmId[e] for e in forestHighwayNodes]
     nodeIdx, removed = graph.filter_components(nodeIdx, 500)
-    inverseIdMap = {value : key for (key, value) in osmIdMap.items()}
+    inverseIdMap = {value : key for (key, value) in nodeIndexToOsmId.items()}
     forestHighwayNodes = set([inverseIdMap[e] for e in nodeIdx])
     openHighwayNodes.union(set([inverseIdMap[e] for e in removed]))
 
-    nodeinfo = {osmIdMap[osmId] : NodeInfo(osmId, nodes[osmId])
+    nodeinfo = {nodeIndexToOsmId[osmId] : NodeInfo(osmId, nodes[osmId])
                 for osmId in highwayNodeIds}
 
-    print "Select WEPs..."
-    weps = select_wep(openHighwayNodes, forestHighwayNodes, graph, osmIdMap)
-    print str(len(weps)) + ' WEPs'
+    print "Select feps..."
+    feps = select_fep(openHighwayNodes, forestHighwayNodes, graph, nodeIndexToOsmId)
+    print str(len(feps)) + ' feps'
 
     print "Creating the population grid..."
     xmin, ymin = bbox[0]
@@ -195,7 +195,7 @@ def classify_forest(nodeIds, waysByType, graph, nodes, osmIdMap, filenameBase):
         print "Visualizing the result..."
         for poly in forestPolygons:
             visualGrid.fill_polygon(poly, fill="#00DD00")
-        for nodeId in weps:
+        for nodeId in feps:
             (x,y) = visualGrid.transform(nodes[nodeId])
             r = 10
             visualGrid.draw.ellipse((x-r,y-r,x+r,y+r), fill="#BB1111")
@@ -208,12 +208,17 @@ def classify_forest(nodeIds, waysByType, graph, nodes, osmIdMap, filenameBase):
     # restrict to used nodes
     usedOsmIds = forestHighwayNodes | openHighwayNodes
     nodes = {k:v for k,v in nodes.items() if k in usedOsmIds}
-    return weps, forestHighwayNodes, population, nodeinfo
+    return feps, forestHighwayNodes, population, nodeinfo
+
+
+def usage_information():
+    return "Usage: python script.py <osm_file> <max_speed>"
 
 
 def main():
     if len(sys.argv) < 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
         print "No osm file specified!"
+        print usage_information()
         exit(1)
     standardOSM = True
     if "ATKIS" in sys.argv:
@@ -225,23 +230,23 @@ def main():
     maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
     print "Reading nodes and ways from OSM and creating the graph..."
-    iterpreter = (osm_parse.Std_OSM_way_tag_interpreter if standardOSM
-                  else osm_parse.ATKIS_to_OSM_way_tag_interpreter)
+    iterpreter = (osm_parse.OSMWayTagInterpreter if standardOSM
+                  else osm_parse.ATKISWayTagInterpreter)
     tmp = osm_parse.read_file(osmfile, maxspeed, iterpreter)
-    (nodeIds, waysByType, graph, nodes, osmIdMap) = tmp
+    (nodeIds, waysByType, graph, nodes, nodeIndexToOsmId) = tmp
 
     print (len(graph.nodes), graph.size(),
            sum([len(edges) for edges in graph.edges.values()]))
 
     filenameBase = os.path.splitext(osmfile)[0]
-    tmp = classify_forest(nodeIds, waysByType, graph, nodes, osmIdMap,
+    tmp = classify_forest(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId,
                           filenameBase)
-    (weps, forestHighwayNodes, population, nodeinfo) = tmp
+    (feps, forestHighwayNodes, population, nodeinfo) = tmp
 
     print "Writing output..."
     filename = filenameBase + "." + str(maxspeed) + "kmh"
     zipped = zip(
-    [weps, forestHighwayNodes, population, graph, osmIdMap, nodes, nodeinfo],
+    [feps, forestHighwayNodes, population, graph, nodeIndexToOsmId, nodes, nodeinfo],
     ['Feps', 'ForestIds', 'Population', 'Graph', 'IdMap', 'Nodes', 'Nodeinfo'])
     for data, extension in zipped:
         f = open(filename + "." + extension + ".out", 'w')
