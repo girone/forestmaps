@@ -11,6 +11,9 @@
 import sys
 import os.path
 import pickle
+from scipy.spatial import KDTree
+from collections import defaultdict
+
 from graph import Graph
 from dijkstra import Dijkstra
 
@@ -20,7 +23,7 @@ def load_data(osmfile, maxspeed):
   f = open(filename + ".weps.out")
   weps = pickle.load(f)
   f.close()
-  f = open(filename + ".forestal_ids.out")
+  f = open(filename + ".forest_ids.out")
   forestal_highway_nodes = pickle.load(f)
   f.close()
   f = open(filename + ".population.out")
@@ -29,10 +32,14 @@ def load_data(osmfile, maxspeed):
   f = open(filename + ".graph.out")
   graph = pickle.load(f)
   f.close()
-  f = open(filename + ".osm_id_map.out")
+  f = open(filename + ".id_map.out")
   osm_id_map = pickle.load(f)
   f.close()
-  return weps, forestal_highway_nodes, population_points, graph, osm_id_map
+  f = open(filename + ".nodes.out")
+  nodes = pickle.load(f)
+  f.close()
+  return weps, forestal_highway_nodes, population_points, graph, osm_id_map, \
+      nodes
 
 
 def main():
@@ -43,19 +50,38 @@ def main():
   maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
   print '''Loading data...'''
-  weps, forestal_highway_nodes, population, graph, osm_id_map = \
+  weps, forestal_highway_nodes, population, graph, osm_id_map, nodes = \
       load_data(osmfile, maxspeed)
 
   print '''Restrict the graph to non-forest nodes. '''
   graph.remove_partition([osm_id_map[id] for id in forestal_highway_nodes])
 
+  print '''Adding the population points to the graph. '''
+  coords = nodes.values()
+  tree = KDTree(coords)
+  population_node_ids = []
+  for p in population:
+    (d, index) = tree.query(p)
+    print " nn-distance = " + str(d)
+    osm_id = nodes.keys()[index]  # index in tree input data
+    node_id = osm_id_map[osm_id]
+    population_node_ids.append(graph.size())
+    graph.add_edge(node_id, population_node_ids[-1], 0)
+    print " adding edge from %d to %d" % (node_id, population_node_ids[-1])
+
   print '''Compute Dijkstra from every WEP. '''
+  reachable_weps = defaultdict(list)
   avg = 0
+  weps = list(weps)
   for count, node in enumerate(weps):
     print 'Running time-restricted Dijkstra %d of %d...' % (count+1, len(weps))
     search = Dijkstra(graph)
     search.set_cost_limit(60 * 60)  # 1 hour
     res = search.run(osm_id_map[node])
+    for id in population_node_ids:
+      if res[id] != sys.maxint:
+        reachable_weps[id].append((node, res[id]))  # (wep, dist)
+
     print "Settled %d of %d nodes." % \
         (len(res) - res.count(sys.maxint), len(res))
     avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
@@ -63,6 +89,13 @@ def main():
   print 'In average, %f of %d nodes have been settled.' \
       % (avg, len(graph.nodes))
 
+  print '''Evaluating reachability analysis...'''
+  for id in reachable_weps.keys():
+    print 'From population %d there are %d reachable WEPs:' \
+        % (id, len(reachable_weps[id]))
+    for wep, dist in reachable_weps[id]:
+      print ' WEP %d can be reached within %.1f minutes' \
+          % (wep, dist / 60.)
 
 if __name__ == '__main__':
   ''' Run this module. '''
