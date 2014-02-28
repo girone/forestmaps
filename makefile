@@ -12,7 +12,7 @@ PYCODE=arcpy_c++_pipeline_wrapper.py \
 .PHONY : deploy
 deploy:
 	@echo Deploying...
-	cd cpp-module/src && make clean && make compile && cd -
+	cd cpp-module/src && make compile && cd -
 	cp -v cpp-module/build/*Main.exe deploy
 	@for i in $(PYCODE); do cp -v scripts/$$i deploy; done;
 
