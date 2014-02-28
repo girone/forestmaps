@@ -11,13 +11,13 @@
 using std::unordered_map;
 using std::vector;
 
-typedef unordered_map<int, float> Map;
 
 // Base class.
 // The algorithms count duplicates forest entries (due to mapping) twice.
 class EdgeAttractivenessModel {
  public:
-  typedef unordered_map<int, unordered_map<int, float> > MapMap;
+  typedef unordered_map<int32_t, unordered_map<int32_t, float> > MapMap;
+  typedef unordered_map<int32_t, float> Map;
   // C'tor.
   EdgeAttractivenessModel(const ForestRoadGraph& g,
                           const vector<int>& feps,

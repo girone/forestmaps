@@ -96,7 +96,8 @@ class Graph : public OffsetListGraph<A> {
 
 typedef Graph<GeoPosition, SourceTargetCostArc> RoadGraph;
 
-typedef Graph<GeoPosition, SourceTargetTwoCostsArc> ForestRoadGraph;
+typedef SourceTargetThreeLabelsArc ForestArc;
+typedef Graph<GeoPosition, ForestArc> ForestRoadGraph;
 
 // Computes the offset vector for a sorted list of arcs with source node ids.
 template<class A>
@@ -164,15 +165,6 @@ Graph<N, A>::Graph(
     const vector<A>& a, const vector<size_t>& o, const vector<N>& n)
   : OffsetListGraph<A>(a, o), _nodes(n) { }
 
-
-template<class A>
-struct CompareArcs {
-  bool operator()(const A& lhs, const A& rhs) const {
-    return lhs.source < rhs.source ||
-          (lhs.source == rhs.source && lhs.target < rhs.target);
-  }
-};
-
 // _____________________________________________________________________________
 template<class N, class A>
 void Graph<N, A>::read_in(const string& filename) {
@@ -184,7 +176,7 @@ void Graph<N, A>::read_in(const string& filename) {
 
   size_t numNodes, numArcs;
   input >> numNodes >> numArcs;
-  std::cout << numNodes << " " << numArcs << std::endl;
+  std::cout << "#nodes: " << numNodes << ", #arcs: " << numArcs << std::endl;
 
   string buffer;
   getline(input, buffer);  // finishes current line

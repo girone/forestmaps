@@ -53,9 +53,20 @@ void OffsetListGraph<SourceTargetCostArc>::from_string(string s) {
 
 // _____________________________________________________________________________
 template<>
-void OffsetListGraph<SourceTargetMultipleCostArc<N2>>::from_string(string s) {
+void OffsetListGraph<SourceTargetLabelsArc<N2>>::from_string(string s) {
   OffsetListGraph<SourceTargetCostArc> in;
   in.from_string(s);
   _arcList.assign(in.arclist().begin(), in.arclist().end());
   _offset = in.offset();
 }
+
+
+// _____________________________________________________________________________
+template<>
+void OffsetListGraph<SourceTargetLabelsArc<N3>>::from_string(string s) {
+  OffsetListGraph<SourceTargetCostArc> in;
+  in.from_string(s);
+  _arcList.assign(in.arclist().begin(), in.arclist().end());
+  _offset = in.offset();
+}
+

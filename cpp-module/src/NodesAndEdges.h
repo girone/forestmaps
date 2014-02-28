@@ -6,7 +6,6 @@
 #include <sstream>
 #include <vector>
 
-
 using std::string;
 
 // ARCS GO BELOW
@@ -42,39 +41,41 @@ class SourceTargetCostArc {
 };
 
 // An arc between to nodes index s (source) and t (target), with multiple value
-// costs. The template argument CostDescriptor is a struct with the constant
+// labels. The template argument LabelDescriptor is a struct with the constant
 // field ::count that determines the cardinality of the cost vector, a constant
 // field ::costField that determines the position of the major cost component,
 // and a constant field ::default_ with the default value for the cost vector.
 // See below for an example.
-template<class CostDescriptor>
-class SourceTargetMultipleCostArc {
+template<class LabelDescriptor>
+class SourceTargetLabelsArc {
  public:
-  SourceTargetMultipleCostArc()
-    : source(-1), target(-1), cost(CostDescriptor::default_) { }
-  SourceTargetMultipleCostArc(const SourceTargetCostArc& other)
-    : source(other.source), target(other.target), cost(CostDescriptor::default_)
-  {
-    cost[CostDescriptor::costField] = other.cost;
+  SourceTargetLabelsArc()
+    : source(-1), target(-1), labels(LabelDescriptor::default_) {
+    }
+  SourceTargetLabelsArc(const SourceTargetCostArc& other)
+    : source(other.source)
+    , target(other.target)
+    , labels(LabelDescriptor::default_) {
+    labels[LabelDescriptor::costField] = other.cost;
   }
   /*SourceTargetMultipleCostArc(int s, int t, const vector<int>& c)
-    : source(s), target(t), cost(c) { }*/
-  int get_cost() const { return cost[CostDescriptor::costField]; }
+    : source(s), target(t), labels(c) { }*/
+  int get_cost() const { return labels[LabelDescriptor::costField]; }
   void from_stream(std::istream& is) {  // TODO(Jonas): Put to template defs below.
     is >> source >> target;
-    for (size_t i = 0; i < CostDescriptor::count; ++i) {
+    for (size_t i = 0; i < LabelDescriptor::count; ++i) {
       string s;
       std::stringstream ss;
       is >> s;
       ss << s;
-      ss >> cost[i];
+      ss >> labels[i];
     }
   }
   string to_string() const {
     std::stringstream ss;
     ss << "(" << source << "," << target << "," << "[";
-    for (auto it = cost.begin(); it != cost.end(); ++it) {
-      if (it != cost.begin())
+    for (auto it = labels.begin(); it != labels.end(); ++it) {
+      if (it != labels.begin())
         ss << ",";
       ss << *it;
     }
@@ -84,20 +85,41 @@ class SourceTargetMultipleCostArc {
 
   int source;
   int target;
-  std::vector<int> cost;
+  std::vector<int> labels;
 };
 
 
 struct N2 {
- public:
   static const size_t count = 2;
   static const size_t costField = 0;
   static const std::vector<int> default_;
 };
 
+struct N3 {
+  static const size_t count = 3;
+  static const size_t costField = 0;
+  static const std::vector<int> default_;
+};
 
-// This graph has edge with (cost, weight) tuples.
-typedef SourceTargetMultipleCostArc<N2> SourceTargetTwoCostsArc;
+
+// These edges have (cost, weight) tuples.
+typedef SourceTargetLabelsArc<N2> SourceTargetTwoCostsArc;
+
+// These edges have (cost, weight, label) triples.
+typedef SourceTargetLabelsArc<N3> SourceTargetThreeLabelsArc;
+
+// Comparator
+template<class A>
+struct CompareArcs {
+  bool operator()(const A& lhs, const A& rhs) const {
+    return lhs.source < rhs.source ||
+          (lhs.source == rhs.source && lhs.target < rhs.target);
+  }
+};
+
+// Check for equality
+bool operator==(const SourceTargetThreeLabelsArc& lhs,
+                const SourceTargetThreeLabelsArc& rhs);
 
 
 // NODES GO BELOW

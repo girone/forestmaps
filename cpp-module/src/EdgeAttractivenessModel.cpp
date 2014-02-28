@@ -96,7 +96,7 @@ vector<int> FloodingModel::compute_node_from_arc_weights(
   for (const auto& arc: graph.arclist()) {
     uint s = arc.source;
     uint t = arc.target;
-    int w = arc.cost[1];
+    int w = arc.labels[1];
     assert(s < weights.size());
     assert(t < weights.size());
     weights[s] = std::max(weights[s], w);
@@ -212,8 +212,8 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
     const ForestRoadGraph::Arc_t& arc = arcs[arcIndex];
     int s = arc.source;
     int t = arc.target;
-    int c = arc.cost[0];
-    int w = arc.cost[1];
+    int c = arc.labels[0];
+    int w = arc.labels[1];
     bwd.set_cost_limit(_maxCost - c);
     fwd.set_cost_limit(_maxCost - c);
     nodesToIgnoreBwd[t] = true;

@@ -164,7 +164,8 @@ TEST(DirectedGraphTest, from_stream) {
     RoadGraph graph;
     graph.read_in("from_stream.tmp.txt");
 
-    EXPECT_EQ("[9,10,{(7,0)(8,0)(10,0)},{(3,0)(10,0)},{(4,0)(9,0)(9,0)},{},{},{(8,0)},{},{(8,0)},{}]",  // NOLINT
+    EXPECT_EQ("[9,10,{(7,0)(8,0)(10,0)},{(3,0)(10,0)},{(4,0)(9,0)(9,0)},{},{},"
+              "{(8,0)},{},{(8,0)},{}]",
               graph.to_string());
   }
 }
@@ -190,10 +191,9 @@ TEST(DirectedGraphTest, forest_graph_from_file) {
   {
     ForestRoadGraph fg;
     fg.read_in(filename);
-    EXPECT_EQ(
-     "[3,5,{(0,1,[10,1])(0,2,[4,45])},{(1,0,[5,5])(1,2,[4,0])},{(2,1,[4,10])}]",
-     fg.to_string()
-    );
+    EXPECT_EQ("[3,5,{(0,1,[10,1,-1])(0,2,[4,45,-1])},"
+              "{(1,0,[5,5,-1])(1,2,[4,0,-1])},{(2,1,[4,10,-1])}]",
+              fg.to_string());
   }
 }
 
@@ -203,7 +203,7 @@ TEST(NodesAndEdgesTest, from_stream) {
     SourceTargetTwoCostsArc arc;
     arc.source = 24;
     arc.target = 42;
-    arc.cost = {0, 12};
+    arc.labels = {0, 12};
     EXPECT_EQ("(24,42,[0,12])", arc.to_string());
   }
 
