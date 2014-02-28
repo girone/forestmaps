@@ -142,7 +142,7 @@ def create_from_feature_class(fc, max_speed=5):
       coord_to_node[coordinate] = len(coord_to_node)
     return coord_to_node[coordinate]
   # In file-geodatabases the id has another name than in plain feature classes
-  fields = [field.name for field in arcpy.ListFields(fc)]
+  fields = [field.name.lower() for field in arcpy.ListFields(fc)]
   idKeyword = "fid" if "fid" in fields else "objectid"
 
   # The forest road graph does not contain a column 'klasse'. In case this is

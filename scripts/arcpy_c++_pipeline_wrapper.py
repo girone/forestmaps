@@ -42,11 +42,8 @@ def set_paths(argv):
     edgeWeightFile      = tmpDir + edgeWeightFile
 
 
-def shape_to_polygons(lines):
-    """Parses polygons from the points represented by a numpy RecordArray
-
-    created by arcpy.FeatureClassToNumPyArray(explode_to_points=True).
-    """
+def shape_to_polygons(lines, idKeyword):
+    """Parses polygons from the points represented by a numpy RecordArray."""
     from itertools import tee, izip
     def pairwise(iterable):
         a,b = tee(iterable)
@@ -54,7 +51,7 @@ def shape_to_polygons(lines):
         return izip(a, b)
     polygons = [[tuple(lines[0]['shape'])]]
     for a, b in pairwise(lines):
-        if a['fid'] != b['fid']:
+        if a[idKeyword] != b[idKeyword]:
             polygons.append([])
         polygons[-1].append(tuple(b['shape']))
     return polygons
@@ -83,25 +80,18 @@ def create_road_graph(dataset, max_speed):
     return graph, coord_map, arc_to_fid, contraction_list
 
 
-def create_populations_from_settlement_fc(lines, point_distance):
-    """ Creates population points from the 'Ortslage' feature class.
-
-    The point_distance parameter influences the density of the grid.
-    """
-    polygons = shape_to_polygons(lines)
-    from forestentrydetection import create_population_grid
-    return create_population_grid(polygons, [], gridPointDistance=point_distance)
-
-
-def create_population(settlement_dataset,
-                      point_distance):
+def create_population(fc, distance):
     """Creates the population grid."""
-    arr2 = arcpy.da.FeatureClassToNumPyArray(settlement_dataset, ["fid", "shape"],
-                                             explode_to_points=True)
-    population_coords = create_populations_from_settlement_fc(
-        arr2, point_distance)
-    msg("There are %d populations." % len(population_coords))
-    return population_coords
+    from forestentrydetection import create_population_grid
+    fields = [f.name.lower() for f in arcpy.ListFields(fc)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    array = arcpy.da.FeatureClassToNumPyArray(fc, 
+                                              [idKeyword, "shape"], 
+                                              explode_to_points=True)
+    polygons = shape_to_polygons(array, idKeyword)
+    populations = create_population_grid(polygons, [], gridPointDistance=distance)
+    msg("There are %d populations." % len(populations))
+    return populations
 
 
 def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
@@ -141,8 +131,7 @@ def parse_and_dump(env):
     t.stop_timing()
 
     t.start_timing("Creating population points...")
-    population_coords = create_population(env.paramShpSettlements,
-                                          point_distance=200)
+    population_coords = create_population(env.paramShpSettlements, 200)
     total_population = 230000
     avg_population = total_population / float(len(population_coords))
     global scriptDir
@@ -152,9 +141,12 @@ def parse_and_dump(env):
     t.stop_timing()
 
     t.start_timing("Parsing forest entry locations...")
-    arr4 = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntryLocations, ["fid", "shape"])
+    fields = [f.name.lower() for f in arcpy.ListFields(env.paramShpEntrypoints)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    array = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntrypoints, 
+                                              [idKeyword, "shape"])
     with open(scriptDir + entryXYFile, "w") as f:
-        for east, north in arr4['shape']:
+        for east, north in array['shape']:
             f.write("{0} {1}\n".format(east, north))
     t.stop_timing()
 
@@ -165,7 +157,8 @@ def call_subprocess(prog, args):
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
-        output = subprocess.check_output(prog + " " + args, stderr=subprocess.STDOUT)  # shell=False
+        output = subprocess.check_output(prog + " " + args, 
+                                         stderr=subprocess.STDOUT)  # shell=False
     except subprocess.CalledProcessError as e:
         msg("Error occured.")
         msg(e.output)
@@ -204,7 +197,9 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
     FIDtoWeight = {arcToFID[e] : w for e, w in zip(edges, weights)}
 
     arcpy.management.AddField(shp, columnName, "FLOAT")
-    fields = ["fid", columnName]
+    fields = [f.name.lower() for f in arcpy.ListFields(shp)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    fields = [idKeyword, columnName]
     count = 0
     with arcpy.da.UpdateCursor(shp, fields) as cursor:
         for row in cursor:
@@ -219,7 +214,7 @@ class AlgorithmEnvironment(object):
         """Reads the parameters from ArcGIS."""
         self.paramShpRoads = arcpy.GetParameterAsText(0)
         self.paramShpForestRoads = arcpy.GetParameterAsText(1)
-        self.paramShpEntryLocations = arcpy.GetParameterAsText(2)
+        self.paramShpEntrypoints = arcpy.GetParameterAsText(2)
         ## TODO(jonas): Generate population nodes from polygons. ##
         #shpPopulationNodes = arcpy.GetParameterAsText(3)
         self.paramShpSettlements = arcpy.GetParameterAsText(3)
@@ -235,7 +230,7 @@ class AlgorithmEnvironment(object):
         if not (self.paramShpRoads and
                 self.paramShpForestRoads and
                 self.paramShpSettlements and
-                self.paramShpEntryLocations and
+                self.paramShpEntrypoints and
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
@@ -249,8 +244,11 @@ class AlgorithmEnvironment(object):
 
 
 def create_raster(env, columnName, rasterPixelSize=20):
-    if not arcpy.GetParameterAsText(0):
-        # we are not working in ArcMap
+    if not arcpy.GetParameterAsText(0) or env.path.endswith(".gdb\\"):
+        # Reason: We are not working in ArcMap, or
+        # raster file handling in geodatabases is one hack of inconvenience...
+        msg("NOTE: I am not creating any raster from the data. Please do that"+
+            " yourself.")
         return
     t = Timer()
     t.start_timing("Rasterizing the forest roads...")
@@ -260,6 +258,7 @@ def create_raster(env, columnName, rasterPixelSize=20):
     # delete any file named "raster_*.*" and restart the application.
     if os.path.exists(raster):
         arcpy.management.Delete(raster)
+    msg(raster)
     arcpy.conversion.PolylineToRaster(
             env.paramShpForestRoads,
             columnName,
