@@ -13,6 +13,9 @@ USAGE = \
 import pickle
 import sys
 import os.path
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import signal
 from enumerate_walkways import WayTree, WayGenerator, enumerate_walkways
 import visual_grid
 import edgedistance
@@ -70,12 +73,45 @@ def main():
   count = 0
   for node in wep_nodes:
     count += 1
-    walkways = enumerate_walkways(g, node, target_nodes=wep_nodes_set, \
+    walkways_and_distances = enumerate_walkways(g, node, target_nodes=wep_nodes_set, 
         cost_limit=limit, local_cycle_depth=5, edge_distance=d_edge)
     print "%d of %d ways generated" % (count, len(wep_nodes))
     #print walkways
-    #print " %d  ways found with cost limit %.1f min." % (len(walkways), limit/60.)
-    #s = raw_input("Press ENTER for next cycle.")
+    print " %d  ways found with cost limit %.1f min." % (len(walkways_and_distances), limit/60.)
+    if len(walkways_and_distances) == 0:
+      continue
+
+    ''' Evaluate the walkways (compute attractiveness), sort by distance. '''
+    #metric = evaluate(walkways)
+    walkways = \
+        [(w,d) for (d,w) in sorted([(d,w) for (w,d) in walkways_and_distances])]
+    ma = max([d for (w,d) in walkways])
+    mi = min([d for (w,d) in walkways])
+    su = sum([d for (w,d) in walkways])
+
+    ''' Distribute the population weight over the paths. '''
+    n_bins = 50
+    bin_size = (ma - mi) / float(n_bins - 1.0)
+    distance_distr = np.zeros(n_bins)
+    for (w,d) in walkways:
+      print (d-mi)/bin_size, n_bins
+      distance_distr[(d-mi)/bin_size] += 1.0
+    plt.bar(np.arange(n_bins), distance_distr)
+    plt.show()
+    spread = signal.gaussian(n_bins, std=5)  #  TODO(Jonas): Use sth. senseful.
+    spread[0:-1] *= 1. / sum(spread)  # normalize 
+    result = distance_distr * spread
+    normalizer = float(su) / sum(result)  # normalize the joint distribution
+    result[0:-1] *= normalizer
+
+    plt.bar(np.arange(n_bins), result)
+    plt.show()
+    s = raw_input("Press ENTER for next cycle.")
+
+
+
+
+
 
 
 if __name__ == '__main__':

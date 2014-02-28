@@ -61,8 +61,8 @@ class Grid:
     tx, ty = -input_space[0][0], -input_space[0][1]
     sx = (grid_size[0] + 0.1) / (input_space[1][0] - input_space[0][0])
     sy = (grid_size[1] + 0.1) / (input_space[1][1] - input_space[0][1])
-    self.transformation = np.matrix( ((sx, 0, sx*tx), \
-                                      (0, sy, sy*ty), \
+    self.transformation = np.matrix( ((sx, 0, sx*tx), 
+                                      (0, sy, sy*ty), 
                                       (0, 0, 1)) );
 
   def show(self):
@@ -89,7 +89,7 @@ class Grid:
   def draw_line(self, line_pts, fill='#FFFFFF', width=1):
     ''' Draws a line along a set of points in the input space. '''
     transformed = [self.transformation * hom(point) for point in line_pts]
-    self.draw.line([(p.item(0), p.item(1)) for p in transformed], \
+    self.draw.line([(p.item(0), p.item(1)) for p in transformed], 
         fill=fill, width=width)
     self.updated = True
 
@@ -97,7 +97,7 @@ class Grid:
     ''' Draws a circle around @center=(px, py) with radius @rad. '''
     transformed = self.transformation * hom((px, py))
     px, py = transformed.item(0), transformed.item(1)
-    self.draw.ellipse(((px-rad, py-rad), (px+rad, py+rad)), \
+    self.draw.ellipse(((px-rad, py-rad), (px+rad, py+rad)), 
         outline=outline, fill=fill)
     self.updated = True
 

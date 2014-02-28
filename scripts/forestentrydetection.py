@@ -25,6 +25,7 @@ from grid import Grid, bounding_box
 from graph import Graph, Edge, NodeInfo
 import convexhull
 
+visualize = True
 
 speed_table = {"motorway"       : 110, \
                "trunk"          : 110, \
@@ -347,7 +348,6 @@ def classify_forest(osmfile, maxspeed=130):
   return weps, forestal_highway_nodes, population, digraph, osm_id_map, nodes, \
       nodeinfo
 
-visualize = False
 
 def main():
   if len(sys.argv) < 2 or os.path.splitext(sys.argv[1])[1] != '.osm':

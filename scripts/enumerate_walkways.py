@@ -151,7 +151,7 @@ class WayGenerator(object):
       path.append(node.node)
       parent = node.parent
     path.reverse()
-    return path
+    return path, leaf_node.cost
     
   def trace(self, targets=None):
     ''' Backtracks paths from leaves of the generated WayTree back to the root.
@@ -167,7 +167,8 @@ class WayGenerator(object):
 
 def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
     local_cycle_depth=2, edge_distance=None):
-  ''' Enumerates walkways beginning at @start_node.
+  ''' Enumerates walkways beginning at @start_node. Returns walkways and their
+      lengths.
      
       Admissible walkways start at a WEP and end at a WEP. Start and end may
       equal. Walkways are required to have a total cost within [cmin, cmax]. 
@@ -192,8 +193,8 @@ def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
 
 
   # collect ways which end at an WEP and have cost >= cmin
-  ways = gen.trace(targets=target_nodes)
-  return ways
+  ways_and_dist  = gen.trace(targets=target_nodes)
+  return ways_and_dist
 
 
 # def main():
