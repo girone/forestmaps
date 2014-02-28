@@ -4,6 +4,7 @@
 import arcpy
 import os
 import subprocess
+import random
 
 # Add library path to the non-arcpy modules.
 libpath = os.path.abspath(os.path.split(sys.argv[0])[0] + "\\..\\")
@@ -12,6 +13,7 @@ import atkis_graph
 from util import msg, Timer
 
 
+# Some general names
 roadGraphFile = "road_graph.txt"
 forestGraphFile = "forest_road_graph.txt"
 entryXYFile = "forest_entries_xy.txt"
@@ -19,6 +21,8 @@ populationFile = "populations.txt"
 entryXYRFFile = "forest_entries_xyrf.txt"
 entryPopularityFile = "forest_entries_popularity.txt"
 edgeWeightFile = "edge_weights.txt"
+
+columnName = "EdgeWeight"
 
 
 def shape_to_polygons(lines):
@@ -37,6 +41,7 @@ def shape_to_polygons(lines):
             polygons.append([])
         polygons[-1].append(tuple(b['shape']))
     return polygons
+
 
 def create_road_graph(dataset, max_speed):
     """Creates a graph from ATKIS data stored as FeatureClass in a shapefile.
@@ -101,36 +106,24 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
     return arcToFID
 
 
-def parse_and_dump():
+def parse_and_dump(env):
     """Parses data from shapefiles, dumps it as plain text.
 
     Returns the mapping from forest graph arcs to shapefile FIDs.
 
     """
-    shpRoads = arcpy.GetParameterAsText(0)
-    shpForestRoads = arcpy.GetParameterAsText(1)
-    shpEntryLocations = arcpy.GetParameterAsText(2)
-    ## TODO(jonas): Generate population nodes from polygons. ##
-    #shpPopulationNodes = arcpy.GetParameterAsText(3)
-    shpSettlements = arcpy.GetParameterAsText(3)
-
-    if not (shpRoads and shpForestRoads and shpSettlements and
-            shpEntryLocations):
-        msg("Error with input.")
-        exit(1)
-    path = os.path.split(shpRoads)[0] + "\\"
 
     t = Timer()
     t.start_timing("Creating road graph from the data...")
-    read_graph_and_dump_it(shpRoads, roadGraphFile)
+    read_graph_and_dump_it(env.paramShpRoads, roadGraphFile)
     t.stop_timing()
 
     t.start_timing("Creating forest road graph from the data...")
-    forestArcToFID = read_graph_and_dump_it(shpForestRoads, forestGraphFile)
+    forestArcToFID = read_graph_and_dump_it(env.paramShpForestRoads, forestGraphFile)
     t.stop_timing()
 
     t.start_timing("Creating population points...")
-    population_coords = create_population(shpSettlements,
+    population_coords = create_population(env.paramShpSettlements,
                                           point_distance=200)
     total_population = 230000
     avg_population = total_population / float(len(population_coords))
@@ -140,7 +133,7 @@ def parse_and_dump():
     t.stop_timing()
 
     t.start_timing("Parsing forest entry locations...")
-    arr4 = arcpy.da.FeatureClassToNumPyArray(shpEntryLocations, ["fid", "shape"])
+    arr4 = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntryLocations, ["fid", "shape"])
     with open(entryXYFile, "w") as f:
         for east, north in arr4['shape']:
             f.write("{0} {1}\n".format(east, north))
@@ -150,20 +143,17 @@ def parse_and_dump():
 
 
 def call_subprocess(prog, args):
-    msg("Calling " + prog + " with arguments '" + args + "'")
+    timer = Time()
+    timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
         output = subprocess.check_output(prog + " " + args)  # shell=False
-    except CalledProcessError as e:
+    except subprocess.CalledProcessError as e:
         msg(e.output)
         raise
     msg("Subprocess has finished, its output was:")
     msg(output)
+    t.stop_timing()
     return output
-
-
-def add_column(shp, values):
-
-    assert arcpy.management.GetCount(shp).getOutput(0) == len(values)
 
 
 def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
@@ -205,27 +195,97 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
             else:
                 msg("{0} not contained".format(row[0]))
 
+class AlgorithmEnvironment(object):
+    def __init__(self):
+        """Reads the parameters from ArcGIS."""
+        self.paramShpRoads = arcpy.GetParameterAsText(0)
+        self.paramShpForestRoads = arcpy.GetParameterAsText(1)
+        self.paramShpEntryLocations = arcpy.GetParameterAsText(2)
+        ## TODO(jonas): Generate population nodes from polygons. ##
+        #shpPopulationNodes = arcpy.GetParameterAsText(3)
+        self.paramShpSettlements = arcpy.GetParameterAsText(3)
+
+        self.paramShpParking = arcpy.GetParameterAsText(4)
+        self.paramTxtTimeToForest = arcpy.GetParameterAsText(5)
+        self.paramTxtTimeInForest = arcpy.GetParameterAsText(6)
+        self.paramValAlgorithm = arcpy.GetParameterAsText(7)
+        self.paramValRasterize = arcpy.GetParameterAsText(8)
+
+        self.path = os.path.split(self.paramShpRoads)[0] + "\\"
+
+        if not (self.paramShpRoads and
+                self.paramShpForestRoads and
+                self.paramShpSettlements and
+                self.paramShpEntryLocations and
+                self.paramTxtTimeToForest and
+                self.paramTxtTimeInForest and
+                self.paramValAlgorithm and
+                self.paramValRasterize):
+            msg("Error with input.")
+            exit(1)
+
+        self.paramValAlgorithm = int(self.paramValAlgorithm)
+        self.paramValRasterize = self.paramValRasterize == "true"
+        msg(str(self.paramValAlgorithm) + " " + str(self.paramValRasterize))
+
+
+def create_raster(env, columnName, rasterPixelSize=20):
+    if not arcpy.GetParameterAsText(0):
+        # we are not working in ArcMap
+        return
+    t = Timer()
+    t.start_timing("Rasterizing the forest roads...")
+    blub = str(random.randint(0,999))
+    raster = env.path + "out_raster_" + blub + ".tif"
+    # NOTE(Jonas): If the code below raises any error, you should close ArcMap,
+    # delete any file named "raster_*.*" and restart the application.
+    if os.path.exists(raster):
+        arcpy.management.Delete(raster)
+    arcpy.conversion.PolylineToRaster(
+            env.paramShpForestRoads,
+            columnName,
+            raster,
+            cellsize=rasterPixelSize)
+    t.stop_timing()
+    layerFile = env.path + "raster_" + blub + ".lyr"
+    layer = arcpy.management.MakeRasterLayer(raster, "raster_layer" + blub)
+    #try:
+    arcpy.management.SaveToLayerFile(layer, layerFile)
+    #except:
+    #    raise
+    msg(layerFile)
+    layer = arcpy.mapping.Layer(layerFile)
+    # layer.transparency = 40
+    mxd = arcpy.mapping.MapDocument("CURRENT")
+    dataframe = arcpy.mapping.ListDataFrames(mxd, "*")[0]
+    arcpy.mapping.AddLayer(dataframe, layer, "TOP")
+
 
 def main():
     """Prepares data from the ArcGIS/ArcPy side.
 
-    1. Parse supplied parameters. Open the shapefiles, dump the content as .txt.
+    1. Read supplied parameters. Open the shapefiles, dump the content as .txt.
     2. Call the succeeding steps of the C++ module, wait for each to finish.
-    3. Load back the resuling arc weights, visualize them in ArcGIS.
+    3. Load back the resuling arc weights,
+    4. If selected, visualize the result in ArcGIS.
 
     """
-    forestArcToFID = parse_and_dump()
+    env = AlgorithmEnvironment()
+    forestArcToFID = parse_and_dump(env)
 
     call_subprocess("MatchForestEntriesMain.exe",
             roadGraphFile + " " + forestGraphFile + " " + entryXYFile)
     call_subprocess("ForestEntryPopularityMain.exe",
             roadGraphFile + " " + entryXYRFFile + " " + populationFile)
     call_subprocess("ForestEdgeAttractivenessMain.exe",
-            forestGraphFile + " " + entryXYRFFile + " " + entryPopularityFile)
+            forestGraphFile + " " + entryXYRFFile + " " + entryPopularityFile +
+            " " + str(env.paramValAlgorithm))
 
-    forestShpFile = arcpy.GetParameterAsText(1)
-    add_column(forestShpFile, "BlaBlub", forestGraphFile, forestArcToFID,
+    add_column(env.paramShpForestRoads, columnName, forestGraphFile, forestArcToFID,
             edgeWeightFile)
+
+    if env.paramValRasterize:
+        create_raster(env, columnName)
 
     msg("Finished!")
     return 0
