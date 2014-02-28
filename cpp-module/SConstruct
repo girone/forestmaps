@@ -1,63 +1,62 @@
-'''Copyright 2012-13: Jonas Sternisko, in extension to a script of Manuel Braun
+""" Copyright 2012-13: Jonas Sternisko, in extension to a script of Manuel Braun
+
+This is the SConstruct file.
+
+It is used by SCons to enter targets and build locations. Scons files are
+python code that define a build environment. In order to start the
+compilation process directly, call
+
+  ./scons [scons options] [options]
+
+Although it can be started directly, I recommend to use the more convenient
+Makefile as a wrapper to scons, allowing the use of 'make', 'make test' etc.
 
 
-   This is the SConstruct file.
+For [scons options] refer to the scons manual. Available [options] for this
+SCons environment are:
 
-   It is used by SCons to enter targets and build locations. Scons files are
-   python code that define a build environment. In order to start the
-   compilation process directly, call
+  mode=[Debug|Release|RelWithDebInfo]
+    Sets the compiler optimization level and debug information. Search the
+    code for details.
 
-    ./scons [scons options] [options]
+  target_set=[main|test|all]
+    Selects the targets to be built: Creates executables from either
+    *Main.cpp (main), *Test.cpp (test) or both (all).
+    If the option 'target' is set, this option will be ignored.
 
-   Although it can be started directly, I recommend to use the more convenient
-   Makefile as a wrapper to scons, allowing the use of 'make', 'make test' etc.
+  target=*{Test,Main}
+    Selects a single executable that will be built. This option is usefull if
+    you do not want to compile and link every other Main or Test executable
+    over and over again.
 
+  omp=[0|1]
+    Enable OpenMP parallelization (-fopenmp flag)
 
-   For [scons options] refer to the scons manual. Available [options] for this
-   SCons environment are:
-
-    mode=[Debug|Release|RelWithDebInfo]
-      Sets the compiler optimization level and debug information. Search the
-      code for details.
-
-    target_set=[main|test|all]
-      Selects the targets to be built: Creates executables from either
-      *Main.cpp (main), *Test.cpp (test) or both (all).
-      If the option 'target' is set, this option will be ignored.
-
-    target=*{Test,Main}
-      Selects a single executable that will be built. This option is usefull if
-      you do not want to compile and link every other Main or Test executable
-      over and over again.
-
-    omp=[0|1]
-      Enable OpenMP parallelization (-fopenmp flag)
-
-    build_dir
-      Sets the directory where executables and temporary files are created.
+  build_dir
+    Sets the directory where executables and temporary files are created.
 
 
-   In short, the commands in the script below do the following:
+In short, the commands in the script below do the following:
 
-    1. Set up an environment with the compiler flags and libraries. The build-
-       directory is set to 'build'. The duplicate=1 option means that scons
-       creates copies of the up-to-date src/ and test/ directory structure and
-       builds the object files and links them to executables.
-    2. The build mode and suite are set. They are passed via arguments. They
-       influence the set of built targets and the optimization level (-O3, -g
-       etc.) In our setup, the upstream Makefile sets these arguments depending
-       on its build target (e.g. 'compile' or 'test'). Note that the Makefile
-       also operates downstream: It copies the executable tests and mains to
-       the top level of build/ to allow easy access.
-    3. The targets and their dependencies are defined. The procedure uses
-       globbing to select the source files. The files are distinguished by
-       their name pattern: Regular sources end with *.cpp while programs end
-       with *Main.cpp. Test-sources are located at test/ and end on *Test.cpp.
-       The targets and their dependencies are added to the SCons-environment.
-       Automatic dependency checking is done before compiling, so we just add
-       all sources as dependencies.
+  1. Set up an environment with the compiler flags and libraries. The build-
+     directory is set to 'build'. The duplicate=1 option means that scons
+     creates copies of the up-to-date src/ and test/ directory structure and
+     builds the object files and links them to executables.
+  2. The build mode and suite are set. They are passed via arguments. They
+     influence the set of built targets and the optimization level (-O3, -g
+     etc.) In our setup, the upstream Makefile sets these arguments depending
+     on its build target (e.g. 'compile' or 'test'). Note that the Makefile
+     also operates downstream: It copies the executable tests and mains to
+     the top level of build/ to allow easy access.
+  3. The targets and their dependencies are defined. The procedure uses
+     globbing to select the source files. The files are distinguished by
+     their name pattern: Regular sources end with *.cpp while programs end
+     with *Main.cpp. Test-sources are located at test/ and end on *Test.cpp.
+     The targets and their dependencies are added to the SCons-environment.
+     Automatic dependency checking is done before compiling, so we just add
+     all sources as dependencies.
 
-'''
+"""
 import os
 import sys
 import glob
@@ -97,40 +96,52 @@ def checkstyle(env, target, source):
 # Main script
 
 
-# select build directory
+# Set build directory
 build_dir = ARGUMENTS.get('build_dir', 'build')
 
-# set up environment
 VariantDir(build_dir, '.', duplicate=1)  # have a separate directory for results
 build_dir = build_dir + '/'
+
+# Set up environment
 env = Environment(ENV = os.environ)
+
+# Set compiler and flags
 env.Replace(CXX = "g++-4.6")
 env.Append(CXXFLAGS='-std=c++0x -Wall')
+#env.Replace(CXX = "clang")
+#env.Append(CXXFLAGS='-stdlib=libstdc++')
+
+# Add include dirs
 env.Append(CPPPATH=[gmock_dir + 'include', gmock_dir,
                     gtest_dir + 'include', gtest_dir,
                     gperftools_dir,
                     sparse_hash_map_dir,
                     gflags_dir + 'include']);
-# build google-mock (includes google-test) and gtest_main as library
+
+# Colorful output of colormake / clang will be forwarded by SCons
+env['ENV']['TERM'] = os.environ['TERM']
+
+# Build google-mock (includes google-test) and gtest_main as library
 env.Library(gmock_dir + 'gmock',
             [gmock_dir + 'src/gmock-all.cc', gtest_dir + 'src/gtest-all.cc'])
 env.Library(gmock_dir + 'gtest_main',
             gtest_dir + 'src/gtest_main.cc')
 env.Append(LIBPATH=[gmock_dir, gflags_dir + 'lib'])
 
-# set the libraries
-env.Append(LIBS=['boost_system',
+# Set the libraries
+env.Append(LIBS=['gmock',
+                 'gtest_main',
+                 File(gflags_dir + 'lib/libgflags.a'),
+                 'boost_system',
                  'boost_filesystem-mt',
                  'boost_program_options',
                  'boost_serialization',
                  'boost_date_time',
                  'boost_thread-mt',
-                 'gmock',
-                 'gtest_main',
-                 File(gflags_dir + 'lib/libgflags.a')])
+                 ])
 
 
-# select build mode (optimization level and debug information)
+# Select build mode (optimization level and debug information)
 build_mode = ARGUMENTS.get('mode', 'RelWithDebInfo').lower()
 if not (build_mode in ['debug', 'release', 'relwithdebinfo']):
     print " * Error: expected 'Debug' or 'Release' or 'RelWithDebInfo', " \
@@ -152,7 +163,7 @@ if not (target_set in ['main', 'test', 'all']):
           target_set
     Exit(1)
 
-profile = int(ARGUMENTS.get('profile', 1))
+profile = int(ARGUMENTS.get('profile', 0))
 # compile with gperftools profiler support (uses fast tcmalloc)
 if profile or build_mode is 'release':
   env.Append(LIBS=['profiler', 'tcmalloc'])

@@ -10,9 +10,9 @@
 
 // Forward decl.
 template<class A> class ArcIterator;
-template<class A> class CompactDirectedGraph;
+template<class A> class OffsetListGraph;
 
-// _____________________________________________________________________________
+
 // This class allows for convenient access to graphs with concatenated arc lists
 // by implementing an interface for Iterator creation which enables range-based
 // for-loops over the outgoing arcs of a node, while hiding the offset vector to
@@ -22,18 +22,20 @@ class _AccessMediator {
  public:
   ArcIterator<A> begin() const;
   ArcIterator<A> end() const;
+  size_t size() const;
   const std::string string() const;
 
  private:
   // C'tor. Only CompactDirectedGraph should be able to instantiate this class.
   _AccessMediator(const std::vector<A>* const target, const size_t begin,
       const size_t end);
-  friend class CompactDirectedGraph<A>;
+  friend class OffsetListGraph<A>;
 
   const std::vector<A>* const _target;
   size_t _begin;
   size_t _end;
 };
+
 
 // _____________________________________________________________________________
 // Implements a STL-like Iterator for the outgoing arcs of a node in the compact
@@ -42,6 +44,7 @@ template<class A>
 class ArcIterator {
  public:
   const A& operator*() const;
+  const A* operator->() const;
   void operator++();
   bool operator!=(const ArcIterator& other) const;
 
@@ -79,6 +82,12 @@ ArcIterator<A> _AccessMediator<A>::end() const {
 
 
 template<class A>
+size_t _AccessMediator<A>::size() const {
+  return _end - _begin;
+}
+
+
+template<class A>
 const std::string _AccessMediator<A>::string() const {
   std::ostringstream os;
   for (size_t i = _begin; i < _end; ++i) {
@@ -101,6 +110,12 @@ ArcIterator<A>::ArcIterator(const std::vector<A>* const target,
 template<class A>
 const A& ArcIterator<A>::operator*() const {
   return _target->operator[](_state);
+}
+
+
+template<class A>
+const A* ArcIterator<A>::operator->() const {
+  return &_target->operator[](_state);
 }
 
 

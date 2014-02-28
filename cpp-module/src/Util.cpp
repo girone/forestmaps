@@ -1,11 +1,9 @@
-// Copyright 2013, Chair of Algorithms and Datastructures.
-// Author: Mirko Brodesser <mirko.brodesser@gmail.com>
+// Copyright 2013: Jonas Sternisko
 
 #include <cmath>
+#include "./Util.h"
 
-#include "./utils.h"
-
-namespace utils {
+namespace util {
   float distance(float lat1, float lon1, float lat2, float lon2) {
     // http://en.wikipedia.org/wiki/Great-circle_distance
     const double degToRad = M_PI / 180.;
@@ -17,4 +15,4 @@ namespace utils {
         sin(dLon / 2);
     return 2 * R * asin(sqrt(a));
   }
-}  // namespace utils
+}  // namespace util

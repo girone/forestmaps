@@ -11,8 +11,8 @@
 #include <vector>
 
 // _____________________________________________________________________________
-// Straight forward graph class which is simple to use. For shortest path
-// computation use CompactDirectedGraph.
+// Straight forward graph class. For shortest path computation use
+// CompactDirectedGraph.
 template<class N, class A>
 class DirectedGraph {
  public:

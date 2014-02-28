@@ -14,4 +14,8 @@
 *.forest.txt
 *.glade.txt
 *.graph.txt
+*.swp
+*.xcf
+*.o
+*.tmp.txt
 

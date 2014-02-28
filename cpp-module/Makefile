@@ -37,5 +37,5 @@ clean:
 	rm -f build/*Test* build/*Main
 
 checkstyle:
-	python cpplint.py src/*.h src/*.hpp src/*impl.h src/*.cpp test/*.cpp
+	#python cpplint.py src/*.h src/*.hpp src/*impl.h src/*.cpp test/*.cpp
 

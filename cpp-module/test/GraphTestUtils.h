@@ -16,8 +16,8 @@ namespace test {
 template<class Graph>
 class GraphComposer {
  public:
-  static
-  Graph compose(const vector<typename Graph::Arc_t>& arcs, const vector<size_t>& offset);
+  static Graph compose(const vector<typename Graph::Arc_t>& arcs,
+                       const vector<size_t>& offset);
 };
 
 

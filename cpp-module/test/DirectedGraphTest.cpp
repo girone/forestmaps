@@ -1,0 +1,169 @@
+// Copyright 2013: Jonas Stegraphisko
+
+#include <gtest/gtest.h>
+#include "../src/DirectedGraph.h"
+#include "../src/Util.h"
+
+using std::string;
+
+// _____________________________________________________________________________
+TEST(DirectedGraphTest, to_string) {
+  {
+    RoadGraph graph;
+    ASSERT_EQ("[0,0,]", graph.to_string());
+
+    graph._nodes.assign(3, RoadGraph::Node_t());
+    graph._offset.assign(3+1, 0);
+    graph._arcList = vector<RoadGraph::Arc_t>();
+    EXPECT_EQ("[3,0,{},{},{}]", graph.to_string());
+  }
+}
+
+// _____________________________________________________________________________
+TEST(DirectedGraphTest, compute_offsets) {
+  typedef RoadGraph::Arc_t Arc;
+  {
+    vector<Arc> arcList;
+    vector<size_t> offsets = compute_offsets(arcList, 0);
+    EXPECT_EQ(vector<size_t>({0}), offsets);
+
+    offsets = compute_offsets(arcList, 3);
+    EXPECT_EQ(vector<size_t>({0, 0, 0, 0}), offsets);
+  }
+
+  {
+    int c = 0;  // dummy
+    vector<Arc> arcList = {Arc(0, 7, c),
+                           Arc(0, 8, c),
+                           Arc(0, 10, c),
+                           Arc(1, 3, c),
+                           Arc(1, 10, c),
+                           Arc(2, 9, c),
+                           Arc(2, 9, c),
+                           Arc(2, 4, c),
+                           Arc(5, 9, c),
+                           Arc(7, 8, c)};
+    std::sort(arcList.begin(), arcList.end(), CompareArcs<Arc>());
+    vector<size_t> offsets = compute_offsets(arcList, 8);
+    EXPECT_EQ("0,3,5,8,8,8,9,9,10", util::join(",", offsets));
+  }
+
+  {
+    // [4,2,{},{(1,3)(2,5)},{},{}]
+    vector<Arc> arcList = {Arc(1, 1, 3),
+                           Arc(1, 2, 5)};
+    std::sort(arcList.begin(), arcList.end(), CompareArcs<Arc>());
+    vector<size_t> offsets = compute_offsets(arcList, 4);
+    EXPECT_EQ("0,0,2,2,2", util::join(",", offsets));
+  }
+}
+
+// _____________________________________________________________________________
+TEST(DirectedGraphTest, from_string) {
+  {
+    OffsetListGraph<SourceTargetCostArc> graph;
+    graph.from_string("[3,2,{(1,3)},{},{(2,5)}]");
+
+    ASSERT_EQ(3, graph.size());
+    ASSERT_EQ(2, graph.numArcs());
+
+    EXPECT_EQ(1, graph.arcs(0).begin()->target);
+    EXPECT_EQ(3, graph.arcs(0).begin()->cost);
+    EXPECT_EQ(0, graph.arcs(1).size());
+    EXPECT_EQ(2, graph.arcs(2).begin()->target);
+    EXPECT_EQ(5, graph.arcs(2).begin()->cost);
+  }
+  {
+    RoadGraph graph;
+    graph.from_string("[3,2,{(1,3)},{},{(2,5)}]");
+
+    ASSERT_EQ(3, graph.size());
+    ASSERT_EQ(2, graph.numArcs());
+
+    EXPECT_EQ(1, graph.arcs(0).begin()->target);
+    EXPECT_EQ(3, graph.arcs(0).begin()->cost);
+    EXPECT_EQ(0, graph.arcs(1).size());
+    EXPECT_EQ(2, graph.arcs(2).begin()->target);
+    EXPECT_EQ(5, graph.arcs(2).begin()->cost);
+  }
+}
+
+// _____________________________________________________________________________
+TEST(DirectedGraphTest, one_more_test) {
+  {
+    OffsetListGraph<SourceTargetCostArc> graph;
+    graph.from_string("[4,2,{},{(1,3)(2,5)},{},{}]");
+    EXPECT_EQ(4, graph.numNodes());
+    EXPECT_EQ(2, graph.numArcs());
+    EXPECT_EQ("[4,2,{},{(1,3)(2,5)},{},{}]", graph.to_string());
+  }
+  {
+    RoadGraph graph;
+    graph.from_string("[4,2,{},{(1,3)(2,5)},{},{}]");
+    EXPECT_EQ("[4,2,{},{(1,3)(2,5)},{},{}]", graph.to_string());
+  }
+}
+
+// _____________________________________________________________________________
+TEST(DirectedGraphTest, from_stream) {
+  {
+    // Check nodes
+    std::stringstream ss;
+    ss << "12  99" << std::endl;
+    RoadGraph::Node_t n;
+    n.from_stream(ss);
+    EXPECT_EQ(12, n.x);
+    EXPECT_EQ(99, n.y);
+    EXPECT_EQ("12 99", n.to_string());
+  }
+
+  {
+    // Check arcs
+    std::stringstream ss;
+    ss << "5    7  42";
+    RoadGraph::Arc_t arc;
+    arc.from_stream(ss);
+    EXPECT_EQ(5, arc.source);
+    EXPECT_EQ(7, arc.target);
+    EXPECT_EQ(42, arc.cost);
+    EXPECT_EQ("(7,42)", arc.to_string());
+  }
+
+  {
+    string filename = "from_stream.tmp.txt";
+    std::ofstream ofs(filename);
+    ofs << "9" << std::endl;
+    ofs << "10" << std::endl;
+
+    // Nodes
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+    ofs << "42 42" << std::endl;
+
+    // Arcs
+    ofs << "0 7  0" << std::endl;
+    ofs << "0 8  0" << std::endl;
+    ofs << "0 10 0" << std::endl;
+    ofs << "1 3  0" << std::endl;
+    ofs << "1 10 0" << std::endl;
+    ofs << "2 9  0" << std::endl;
+    ofs << "2 9  0" << std::endl;
+    ofs << "2 4  0" << std::endl;
+    ofs << "5 8  0" << std::endl;
+    ofs << "7 8  0" << std::endl;
+  }
+
+  {
+    RoadGraph graph;
+    graph.read_in("from_stream.tmp.txt");
+
+    EXPECT_EQ("[9,10,{(7,0)(8,0)(10,0)},{(3,0)(10,0)},{(4,0)(9,0)(9,0)},{},{},{(8,0)},{},{(8,0)},{}]",  // NOLINT
+              graph.to_string());
+  }
+}
