@@ -154,13 +154,14 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
   cout << "Normalizing and distributing the contributions..." << endl;
   // Collect node attractivenesses.
   normalize_contributions(&contribution);
-  vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
-  distribute(_popularities, contribution, &nodeAttractiveness);
+  vector<float> nodeAttractivenesses(_graph.num_nodes(), 0.f);
+  distribute(_popularities, contribution, &nodeAttractivenesses);
 
   // Node -> Arc: Each arc gets the attractiveness of its target node.
   const vector<ForestRoadGraph::Arc_t>& arcs = _graph.arclist();
   for (size_t i = 0; i < arcs.size(); ++i) {
-    _aggregatedEdgeAttractivenesses[i] = nodeAttractiveness[arcs[i].target];
+    _aggregatedEdgeAttractivenesses[i] = nodeAttractivenesses[arcs[i].target] +
+                                         nodeAttractivenesses[arcs[i].source];
   }
   return result();
 }
