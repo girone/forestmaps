@@ -152,7 +152,7 @@ TEST(AdjacencyListGraphTest, read_in) {
     ofs << "0 7  0" << std::endl;
     ofs << "0 8  0" << std::endl;
     ofs << "0 10 0" << std::endl;
-    ofs << "1 3  0" << std::endl;
+    ofs << "1 3  0 99 55 77" << std::endl;  // Works with unregular input?
     ofs << "1 10 0" << std::endl;
     ofs << "2 9  0" << std::endl;
     ofs << "2 9  0" << std::endl;

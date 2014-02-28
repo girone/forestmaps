@@ -106,7 +106,7 @@ TEST_F(GraphSimplificatorTest, contract_node) {
   EXPECT_FALSE(modul.contract_node(4, contracted));
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
-  auto map = modul.edgeIndexToFidsMap();
+  auto map = modul.edges_contained_in_shortcut_map();
   EXPECT_THAT(map[originalNumberOfArcs], WhenSorted(vector<int>({1,2})));
   EXPECT_THAT(map[originalNumberOfArcs+1], WhenSorted(vector<int>({1,2})));
 }
@@ -137,7 +137,7 @@ TEST_F(GraphSimplificatorTest, simplify) {
             result.to_string());
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
-  auto map = modul.edgeIndexToFidsMap();
+  auto map = modul.edges_contained_in_shortcut_map();
   EXPECT_THAT(map[14], WhenSorted(vector<int>({1,2,3})));
   EXPECT_THAT(map[15], WhenSorted(vector<int>({1,2,3})));
 }
@@ -170,7 +170,7 @@ TEST_F(GraphSimplificatorTest, simplify_do_not_contract) {
             result.to_string());
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
-  auto map = modul.edgeIndexToFidsMap();
+  auto map = modul.edges_contained_in_shortcut_map();
   EXPECT_THAT(map[12], WhenSorted(vector<int>({1,2})));
   EXPECT_THAT(map[13], WhenSorted(vector<int>({1,2})));
 }
@@ -229,7 +229,7 @@ TEST_F(GraphSimplificatorTest, special_case) {
               result.to_string());
 
     // Check the mapping: The new arcs should represent the old arcs's FIDs.
-    auto map = modul.edgeIndexToFidsMap();
+    auto map = modul.edges_contained_in_shortcut_map();
     EXPECT_THAT(map[10], WhenSorted(vector<int>({1,2})));
     EXPECT_THAT(map[11], WhenSorted(vector<int>({1,2})));
   }

@@ -95,16 +95,16 @@ TEST(EdgeAttractivenessModelTest, FloodingApproach) {
       ss << arc.source << " " << arc.target << " " << result[i]
                 << std::endl;
     }
-    EXPECT_EQ("0 1 75\n"
-              "0 2 50\n"
-              "0 3 100\n"
-              "1 0 72.619\n"
-              "1 3 72.619\n"
-              "2 0 53.1746\n"
-              "2 3 53.1746\n"
-              "3 0 100\n"
-              "3 1 75\n"
-              "3 2 50\n", ss.str());
+    EXPECT_EQ("0 1 184.848\n"
+              "0 2 176.812\n"
+              "0 3 191.045\n"
+              "1 0 191.045\n"
+              "1 3 191.045\n"
+              "2 0 191.045\n"
+              "2 3 191.045\n"
+              "3 0 191.045\n"
+              "3 1 184.848\n"
+              "3 2 176.812\n", ss.str());
   }
 }
 
@@ -191,16 +191,16 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
       ss << arc.source << " " << arc.target << " " << result[i]
                 << std::endl;
     }
-    EXPECT_EQ("0 1 75\n"
-              "0 2 50\n"
+    EXPECT_EQ("0 1 77.865\n"
+              "0 2 53.5338\n"
               "0 3 100\n"
-              "1 0 72.619\n"
-              "1 3 72.619\n"
-              "2 0 53.1746\n"
-              "2 3 53.1746\n"
+              "1 0 75.8242\n"
+              "1 3 75.8242\n"
+              "2 0 56.391\n"
+              "2 3 56.391\n"
               "3 0 100\n"
-              "3 1 75\n"
-              "3 2 50\n", ss.str());
+              "3 1 77.865\n"
+              "3 2 53.5338\n", ss.str());
   }
 }
 
