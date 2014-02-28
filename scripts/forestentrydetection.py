@@ -15,11 +15,10 @@ import sys
 import os.path
 import math
 from collections import defaultdict
-import math
+import pickle
 
 from grid import Grid
 from graph import Graph, Edge
-from dijkstra import Dijkstra
 import convexhull
 
 
@@ -362,23 +361,13 @@ def main():
   #   f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
   # f.close()
 
-  ''' Restrict the graph to non-forest nodes. '''
-  graph.remove_partition([osm_id_map[id] for id in forestal_highway_nodes])
-
-  ''' Compute Dijkstra from every WEP. '''
-  avg = 0
-  for count, node in enumerate(weps):
-    print 'Running time-restricted Dijkstra %d of %d...' % (count+1, len(weps))
-    search = Dijkstra(graph)
-    search.set_cost_limit(60 * 60)  # 1 hour
-    res = search.run(osm_id_map[node])
-    avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
-  avg /= len(weps)
-  print 'In average, %f of %d nodes have been settled.' \
-      % (avg, len(graph.nodes))
-
-
-
+  filename = os.path.splitext(osmfile)[0]
+  for data, extension in \
+      zip([weps, forestal_highway_nodes, population, graph, osm_id_map], \
+          ['weps', 'forestal_ids', 'population', 'graph', 'osm_id_map']):
+    f = open(filename + "." + extension + ".out", 'w')
+    pickle.dump(data, f, protocol=2)
+    f.close()
 
 
 if __name__ == '__main__':
