@@ -89,6 +89,7 @@ def create_from_feature_class(fc, max_speed=5):
     return coord_to_node[coordinate]
   graph = Graph()
   coord_to_node = {}
+  arc_to_fid = {}
   field_names = ["fid", "SHAPE@XY", "klasse", "wanderweg"]
   last_fid = None
   import arcpy
@@ -106,12 +107,14 @@ def create_from_feature_class(fc, max_speed=5):
         cost = dist / (determine_speed(way_type, max_speed) / 3.6)
         graph.add_edge(index_a, index_b, cost)
         graph.add_edge(index_b, index_a, cost)
+        arc_to_fid[(index_a, index_b)] = fid
+        arc_to_fid[(index_b, index_a)] = fid
       else:
         count += 1
         p.progress(count)
       last_fid = fid
       last_coordinates = coordinates
-  return graph, coord_to_node
+  return graph, coord_to_node, arc_to_fid
 
 
 import unittest
