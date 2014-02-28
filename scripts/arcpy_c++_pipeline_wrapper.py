@@ -126,7 +126,14 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
             f.write("{0} {1}\n".format(x, y))
         for source, targets in graph.edges.items():
             for target, edge in targets.items():
-                f.write("{0} {1} {2}\n".format(source, target, edge.cost))
+                f.write("{0} {1}".format(source, target))
+                if hasattr(edge.cost, '__iter__'):  
+                # TODO(Jonas): Check this using a shp file
+                  for elem in edge.cost:  
+                    f.write(" {0}".format(elem))
+                else:
+                  f.write(" {0}".format(edge.cost))
+                f.write("\n")
     return arcToFID
 
 

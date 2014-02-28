@@ -164,6 +164,12 @@ def create_from_feature_class(fc, max_speed=5):
         field_names.append(clsKeyword)
     else:
         way_type = 87003  # "Fussgaengerzone" == pedestrian area
+    # Read edge weights if present
+    weightKeyword = "wert"
+    if weightKeyword in fields:
+        field_names.append(weightKeyword)
+    else:
+        weightKeyword = None
 
     graph = Graph()
     coord_to_node = {}
@@ -177,6 +183,8 @@ def create_from_feature_class(fc, max_speed=5):
             #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
             if len(field_names) == 3:
                 index, coordinates, way_type = row
+            elif weightKeyword:
+                index, coordinates, weight = row
             else:  # len(field_names) == 2
                 index, coordinates = row
 
@@ -189,7 +197,10 @@ def create_from_feature_class(fc, max_speed=5):
                 index_a = add_node(last_coordinates)
                 index_b = add_node(coordinates)
                 dist = distance(last_coordinates, coordinates)
-                cost = dist / (determine_speed(way_type, max_speed) / 3.6)
+                time = dist / (determine_speed(way_type, max_speed) / 3.6)
+                cost = [time]
+                if weightKeyword:
+                    cost.append(int(weight))
                 graph.add_edge(index_a, index_b, cost)
                 graph.add_edge(index_b, index_a, cost)
                 arc_to_fid[(index_a, index_b)] = index
