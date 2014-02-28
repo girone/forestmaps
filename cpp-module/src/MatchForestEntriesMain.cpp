@@ -64,7 +64,10 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < xx.size(); ++i) {
     combined.push_back(XYRF(xx[i], yy[i], indexR[i], indexF[i]));
   }
-  util::dump_vector(combined, "forest_entries_XYRF.txt");
+  string filename = "forest_entries_xyrf.txt";
+  std::cout << "Writing forest entry locations and r/f graph indices to "
+            << filename << std::endl;
+  util::dump_vector(combined, filename);
 
   return 0;
 }

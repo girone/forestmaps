@@ -26,10 +26,11 @@ vector<float> reachability_analysis(
     const RoadGraph& graph,
     const vector<int>& fepIndices,
     const vector<float>& population,
-    const vector<int>& populationIndices) {
+    const vector<int>& populationIndices,
+    const int costLimit) {
   assert(population.size() == populationIndices.size());
   Dijkstra<RoadGraph> dijkstra(graph);
-  dijkstra.set_cost_limit(3*60);
+  dijkstra.set_cost_limit(costLimit);
 
   // First round of Dijkstras: Analyse reachability and determine frequency of
   // forest distances categories for each population point.
@@ -121,7 +122,8 @@ int main(int argc, char** argv) {
   //  nodeId0
   //  nodeId1
   //  ...
-  vector<int> fepNodeIndices = util::read_column_file<int>(fepFile)[0];
+  vector<vector<float> > fepCols = util::read_column_file<float>(fepFile);
+  vector<int> fepNodeIndices(fepCols[2].begin(), fepCols[2].end());
 
 
   // Read the population nodes. The file has the format:
@@ -137,11 +139,16 @@ int main(int argc, char** argv) {
 
   vector<int> populationNodeIndices = map_xy_locations_to_closest_node(x, y, graph);
 
+  const int costLimit = 30 * 60;
+
 
   // Reachability analysis
   vector<float> fepPopulations = reachability_analysis(
-      graph, fepNodeIndices, population, populationNodeIndices);
-  util::dump_vector(fepPopulations, "fepPopulation.txt");
+      graph, fepNodeIndices, population, populationNodeIndices, costLimit);
+  string filename = "forest_entries_popularity.txt";
+  std::cout << "Writing entry point popularity to " << filename << std::endl;
+  util::dump_vector(fepPopulations, filename);
+  std::cout << util::join(", ", fepPopulations) << std::endl;
 
   return 0;
 }

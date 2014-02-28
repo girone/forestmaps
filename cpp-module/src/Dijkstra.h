@@ -54,7 +54,7 @@ class Dijkstra {
   // Sets the indicators for nodes which should be ignored during the search.
   void set_nodes_to_ignore(const vector<bool>* ignore);
   // Set the cost limit.
-  void set_cost_limit(const float cost);
+  void set_cost_limit(const int cost);
   // Set the hop limit.
   void setHopLimit(const size_t maxHops);
 
@@ -67,10 +67,10 @@ class Dijkstra {
   bool isSettled(uint node) const;
   // Gets the number off settled nodes.
   size_t getNumSettledNodes() const;
-  // Get the vector of settled nodes in limited searches.
-  const vector<uint>& getSettledNodeIndices() const;
+  // Get the vector of settled nodes in the last limited search.
+  const vector<uint>& get_settled_node_indices() const;
   // Get the settled node flags.
-  const vector<bool>& getSettledNodes() const;
+  const vector<bool>& get_settled_flags() const;
   // Get the vector of touched nodes in limited searches.
   const vector<uint>& getTouchedNodeIndices() const;
 
@@ -88,7 +88,7 @@ class Dijkstra {
   // A pointer to a number indicating the largest cost of a node to be settled.
   // If set, the Dijkstra search aborts after a node with tentative costs larger
   // than this value is removed from the priority queue.
-  float _costLimit;
+  int _costLimit;
   // The limit of hops for Dijkstra searches. A limit of 0 means no limit.
   size_t _hopLimit;
 
@@ -114,7 +114,7 @@ class Dijkstra {
 template<class G>
 const int Dijkstra<G>::infinity = std::numeric_limits<int>::max();
 template<class G>
-const uint Dijkstra<G>::no_target = std::numeric_limits<uint>::max();
+const uint Dijkstra<G>::no_target = std::numeric_limits<unsigned int>::max();
 
 template<class G>
 Dijkstra<G>::Dijkstra(const G& graph) : _graph(graph) {
@@ -169,7 +169,7 @@ void Dijkstra<G>::set_nodes_to_ignore(const vector<bool>* ignore) {
 }
 
 template<class G>
-void Dijkstra<G>::set_cost_limit(const float cost) {
+void Dijkstra<G>::set_cost_limit(const int cost) {
   _costLimit = cost;
 }
 
@@ -200,12 +200,12 @@ size_t Dijkstra<G>::getNumSettledNodes() const {
 }
 
 template<class G>
-const vector<uint>& Dijkstra<G>::getSettledNodeIndices() const {
+const vector<uint>& Dijkstra<G>::get_settled_node_indices() const {
   return _settledNodes;
 }
 
 template<class G>
-const vector<bool>& Dijkstra<G>::getSettledNodes() const {
+const vector<bool>& Dijkstra<G>::get_settled_flags() const {
   return _settled;
 }
 
