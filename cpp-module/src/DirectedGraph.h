@@ -34,13 +34,15 @@ class OffsetListGraph {
 
   // Grants read-access to the adjacent arcs of a node.
   const _AccessMediator<A> arcs(const size_t node) const;
+  // Returns the arc list.
+  const std::vector<A>& arclist() const { return _arcList; }
 
   // The size of the graph is the number of nodes.
-  size_t size() const { return numNodes(); }
+  size_t size() const { return num_nodes(); }
   // Returns the number of nodes.
-  size_t numNodes() const { return _offset.size() - 1; }
+  size_t num_nodes() const { return _offset.size() - 1; }
   // Returns the number of arcs.
-  size_t numArcs() const { return _arcList.size(); }
+  size_t num_arcs() const { return _arcList.size(); }
 
   // Returns a string representation of the style "[3,2,{(1,3)(2,5)},{},{}]".
   const std::string to_string() const;
@@ -94,7 +96,7 @@ typedef Graph<GeoPosition, SourceTargetCostArc> RoadGraph;
 
 // Computes the offset vector for a sorted list of arcs with source node ids.
 template<class A>
-vector<size_t> compute_offsets(const vector<A>& sortedArcList, int numNodes) {
+vector<size_t> compute_offsets(const vector<A>& sortedArcList, size_t numNodes) {
   vector<size_t> offsets = {0};
   size_t currSource = 0;
   if (sortedArcList.size()) {
@@ -138,7 +140,7 @@ OffsetListGraph<A>::OffsetListGraph(const vector<A>& a,
 template<class A>
 const std::string OffsetListGraph<A>::to_string() const {
   std::stringstream s;
-  s << "[" << numNodes() << "," << numArcs() << ",";
+  s << "[" << num_nodes() << "," << num_arcs() << ",";
   for (size_t i = 0; i < size(); ++i) {
     if (i != 0) { s << ","; }
     s << "{";

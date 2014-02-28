@@ -17,7 +17,8 @@ void OffsetListGraph<SourceTargetCostArc>::from_string(string s) {
   s = ss.str();
 
   // read number of nodes
-  size_t numNodes = atoi(s.substr(1).c_str());
+  int numNodes = atoi(s.substr(1).c_str());
+  assert(numNodes >= 0);
 
   // read number of arcs
   size_t pos = s.find(",");
@@ -47,5 +48,5 @@ void OffsetListGraph<SourceTargetCostArc>::from_string(string s) {
   std::sort(_arcList.begin(), _arcList.end(),
             CompareArcs<SourceTargetCostArc>());
   _offset = compute_offsets(_arcList, numNodes);
-  assert(numNodes == this->numNodes());
+  assert(numNodes == this->num_nodes());
 }

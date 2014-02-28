@@ -80,7 +80,6 @@ namespace util {
       ofs << element << std::endl;
   }
 
-
 }  // namespace util
 
 

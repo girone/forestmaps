@@ -1,64 +1,12 @@
 // Copyright 2011-2013: Jonas Sternisko
 
-#include <kdtree++/kdtree.hpp>
 #include <numeric>
 #include <string>
 #include <vector>
 #include "./Dijkstra.h"
 #include "./DirectedGraph.h"
+#include "./Tree2d.h"
 #include "./Util.h"
-
-
-// _____________________________________________________________________________
-// Reference of a graph node in a 2dtree.
-class TreeNode {
- public:
-  typedef float value_type;
-  // Construct a kdtree node for a graph node and its index.
-  explicit TreeNode(const RoadGraph::Node_t& node, int index)
-    : refNodeIndex(index) {
-    pos[0] = node.x;
-    pos[1] = node.y;
-  }
-  value_type operator[](size_t i) const {
-    assert(i < 2);
-    return pos[i];
-  }
-  int refNodeIndex;
-  value_type pos[2];
-};
-
-typedef KDTree::KDTree<2, TreeNode> Tree2D;
-
-// _____________________________________________________________________________
-// Builds a 2d tree from a road graph.
-Tree2D build_kdtree(const RoadGraph& graph) {
-  Tree2D tree;
-  for (size_t i = 0; i < graph.nodes().size(); ++i) {
-    const RoadGraph::Node_t& node = graph.nodes()[i];
-    tree.insert(TreeNode(node, i));
-  }
-  return tree;
-}
-
-// _____________________________________________________________________________
-// Maps (x,y) coordinates to the closest node referenced by the kdtree.
-vector<int> map_population_to_closest_node(const vector<float>& x,
-    const vector<float>& y, const RoadGraph& graph) {
-  Tree2D tree = build_kdtree(graph);
-  vector<int> populationNodeIndices(x.size(), -1);
-  assert(x.size() == y.size());
-  for (size_t i = 0; i < x.size(); ++i) {
-    RoadGraph::Node_t dummy;
-    dummy.x = x[i];
-    dummy.y = y[i];
-    TreeNode pos(dummy, -1);
-    std::pair<Tree2D::const_iterator, float> res = tree.find_nearest(pos);
-    assert(res.first != tree.end());
-    populationNodeIndices[i] = res.first->refNodeIndex;
-  }
-  return populationNodeIndices;
-}
 
 // _____________________________________________________________________________
 // Returns the bucket index for a cost.
@@ -80,9 +28,8 @@ vector<float> reachability_analysis(
     const vector<float>& population,
     const vector<int>& populationIndices) {
   assert(population.size() == populationIndices.size());
-  typedef Dijkstra<RoadGraph::Node_t, RoadGraph::Arc_t> Dijkstra_t;
-  Dijkstra_t dijkstra(graph);
-  dijkstra.setCostLimit(3*60);
+  Dijkstra<RoadGraph> dijkstra(graph);
+  dijkstra.set_cost_limit(3*60);
 
   // First round of Dijkstras: Analyse reachability and determine frequency of
   // forest distances categories for each population point.
@@ -91,12 +38,12 @@ vector<float> reachability_analysis(
       population.size(), vector<float>(bucketCostBounds.size() + 1, 0.f));
   for (int index: fepIndices) {
     dijkstra.reset();
-    dijkstra.shortestPath(index, Dijkstra_t::no_target);
-    const vector<int>& costs = dijkstra.getCosts();
+    dijkstra.shortestPath(index, Dijkstra<RoadGraph>::no_target);
+    const vector<int>& costs = dijkstra.get_costs();
     for (size_t i = 0; i < populationIndices.size(); ++i) {
       int popIndex = populationIndices[i];
       int cost = costs[popIndex];
-      if (cost != Dijkstra_t::infinity) {
+      if (cost != Dijkstra<RoadGraph>::infinity) {
         uint b = determine_bucket_index(cost, bucketCostBounds);
         buckets[i][b]++;
       }
@@ -120,12 +67,12 @@ vector<float> reachability_analysis(
   for (size_t i = 0; i < fepIndices.size(); ++i) {
     int index = fepIndices[i];
     dijkstra.reset();
-    dijkstra.shortestPath(index, Dijkstra_t::no_target);
-    const vector<int>& costs = dijkstra.getCosts();
+    dijkstra.shortestPath(index, Dijkstra<RoadGraph>::no_target);
+    const vector<int>& costs = dijkstra.get_costs();
     for (size_t j = 0; j < populationIndices.size(); ++j) {
       int popIndex = populationIndices[j];
       int cost = costs[popIndex];
-      if (cost != Dijkstra_t::infinity) {
+      if (cost != Dijkstra<RoadGraph>::infinity) {
         uint b = determine_bucket_index(cost, bucketCostBounds);
         fepPop[i] = fepPop[i] + buckets[i][b] * population[j];
       }

@@ -17,16 +17,18 @@ typedef unsigned int uint;
 
 
 // Dijkstra's algorithm on a bidirectional graph.
-template<class N, class A>
+template<class Graph_t>
 class Dijkstra {
  public:
    // Dijkstra priority queue elements: <cost, node>
   typedef std::pair<int, uint> pq_elem;
+  typename Graph_t::Node_t N;
+  typename Graph_t::Arc_t A;
   static const int infinity;
   static const uint no_target;
 
   // Constructor.
-  Dijkstra(const Graph<N, A>& graph);
+  Dijkstra(const Graph_t& graph);
 
   // Sets and initializes the member arrays according to the size of the network
   void resetMemberArraysFull();
@@ -37,24 +39,28 @@ class Dijkstra {
   void reset() { resetMemberArraysAfterLimitedShortestPath(); }
 
   // Computes the shortest path from a node s to a node t.
-  int shortestPath(uint s, uint t=numeric_limits<int>::max());
+  int shortestPath(uint s, uint t=no_target);
+  // Alias for shortestPath(s, t)
+  int run(uint s, uint t=no_target) { return shortestPath(s, t); }
   // Computes the shortest path from a set of nodes S to a node t. Returns the
   // total costs of the shortest path. Returns Dijkstra::infinity if there is no
   // path from S to t.
-  int shortestPath(const vector<uint>& S, uint t=numeric_limits<int>::max());
+  int shortestPath(const vector<uint>& S, uint t=no_target);
 
   // Set the vector indicating which nodes have to be settled and the number of
   // these nodes.
   void setNodesToBeSettledMarks(const vector<bool>* nodesToBeSettledMarks,
                                 const size_t numNodesToBeSettled);
+  // Sets the indicators for nodes which should be ignored during the search.
+  void set_nodes_to_ignore(const vector<bool>* ignore);
   // Set the cost limit.
-  void setCostLimit(const float maxCosts);
+  void set_cost_limit(const float cost);
   // Set the hop limit.
   void setHopLimit(const size_t maxHops);
 
   // Get the costs to each node settled by Dijkstra. If a node was not settled,
   // the costs equal numeric_limits<float>::max().
-  const vector<int>& getCosts() const;
+  const vector<int>& get_costs() const;
   // Get the parent node of every settled node.
   const vector<uint>& getOrigins() const;
   // Returns true if a node was settled, false otherwise.
@@ -70,13 +76,15 @@ class Dijkstra {
 
  private:
   // The graph.
-  const Graph<N, A>& _graph;
+  const Graph_t& _graph;
 
   // A pointer to a vector indicating which nodes Dijkstra has to settle. If all
   // these nodes are settled, Dijkstra aborts.
   const vector<bool>* _nodesToBeSettledMarks;
   // The number of nodes to be settled. Used to avoid large reinitialisation.
   size_t _numNodesToBeSettled;
+  // Pointer to indicator for ignored nodes.
+  const vector<bool>* _ignore;
   // A pointer to a number indicating the largest cost of a node to be settled.
   // If set, the Dijkstra search aborts after a node with tentative costs larger
   // than this value is removed from the priority queue.
@@ -103,15 +111,16 @@ class Dijkstra {
 // _____________________________________________________________________________
 // TEMPLATE DEFINITIONS GO BELOW
 
-template<class N, class A>
-const int Dijkstra<N, A>::infinity = std::numeric_limits<int>::max();
-template<class N, class A>
-const uint Dijkstra<N, A>::no_target = std::numeric_limits<uint>::max();
+template<class G>
+const int Dijkstra<G>::infinity = std::numeric_limits<int>::max();
+template<class G>
+const uint Dijkstra<G>::no_target = std::numeric_limits<uint>::max();
 
-template<class N, class A>
-Dijkstra<N, A>::Dijkstra(const Graph<N, A>& graph) : _graph(graph) {
+template<class G>
+Dijkstra<G>::Dijkstra(const G& graph) : _graph(graph) {
   _nodesToBeSettledMarks = NULL;
   _numNodesToBeSettled   = 0;
+  _ignore                = NULL;
   _costLimit             = infinity;
   _hopLimit              = 0;
   // init member arrays
@@ -119,15 +128,15 @@ Dijkstra<N, A>::Dijkstra(const Graph<N, A>& graph) : _graph(graph) {
   _numSettledNodes = 0;
 }
 
-template<class N, class A>
-void Dijkstra<N, A>::resetMemberArraysFull() {
-  _costs.assign(_graph.numNodes(), infinity);
-  _origins.assign(_graph.numNodes(), no_target);
-  _settled.assign(_graph.numNodes(), false);
+template<class G>
+void Dijkstra<G>::resetMemberArraysFull() {
+  _costs.assign(_graph.num_nodes(), infinity);
+  _origins.assign(_graph.num_nodes(), no_target);
+  _settled.assign(_graph.num_nodes(), false);
 }
 
-template<class N, class A>
-inline void Dijkstra<N, A>::resetMemberArraysAfterLimitedShortestPath() {
+template<class G>
+inline void Dijkstra<G>::resetMemberArraysAfterLimitedShortestPath() {
   // 'untouch' the nodes
   vector<uint>::const_iterator it;
   for (it = _settledNodes.begin(); it != _settledNodes.end(); ++it)
@@ -138,11 +147,10 @@ inline void Dijkstra<N, A>::resetMemberArraysAfterLimitedShortestPath() {
   }
   _settledNodes.clear();
   _touchedNodes.clear();
-
 }
 
-template<class N, class A>
-void Dijkstra<N, A>::setNodesToBeSettledMarks(
+template<class G>
+void Dijkstra<G>::setNodesToBeSettledMarks(
     const vector<bool>* nodesToBeSettledMarks,
     const size_t numNodesToBeSettled) {
   _nodesToBeSettledMarks = nodesToBeSettledMarks;
@@ -154,61 +162,67 @@ void Dijkstra<N, A>::setNodesToBeSettledMarks(
       ++_numNodesToBeSettled;*/
 }
 
-template<class N, class A>
-void Dijkstra<N, A>::setCostLimit(const float maxCost) {
-  _costLimit = maxCost;
+template<class G>
+void Dijkstra<G>::set_nodes_to_ignore(const vector<bool>* ignore) {
+  assert(ignore->size() == _graph.num_nodes());
+  _ignore = ignore;
 }
 
-template<class N, class A>
-void Dijkstra<N, A>::setHopLimit(const size_t maxHops) {
+template<class G>
+void Dijkstra<G>::set_cost_limit(const float cost) {
+  _costLimit = cost;
+}
+
+template<class G>
+void Dijkstra<G>::setHopLimit(const size_t maxHops) {
   _hopLimit = maxHops;
 }
 
-template<class N, class A>
-const vector<int>& Dijkstra<N, A>::getCosts() const {
+template<class G>
+const vector<int>& Dijkstra<G>::get_costs() const {
   return _costs;
 }
 
-template<class N, class A>
-const vector<uint>& Dijkstra<N, A>::getOrigins() const {
+template<class G>
+const vector<uint>& Dijkstra<G>::getOrigins() const {
   return _origins;
 }
 
-template<class N, class A>
-bool Dijkstra<N, A>::isSettled(uint node) const {
-  assert(node < _graph.numNodes());
+template<class G>
+bool Dijkstra<G>::isSettled(uint node) const {
+  assert(node < _graph.num_nodes());
   return _settled[node];
 }
 
-template<class N, class A>
-size_t Dijkstra<N, A>::getNumSettledNodes() const {
+template<class G>
+size_t Dijkstra<G>::getNumSettledNodes() const {
   return _numSettledNodes;
 }
 
-template<class N, class A>
-const vector<uint>& Dijkstra<N, A>::getSettledNodeIndices() const {
+template<class G>
+const vector<uint>& Dijkstra<G>::getSettledNodeIndices() const {
   return _settledNodes;
 }
 
-template<class N, class A>
-const vector<bool>& Dijkstra<N, A>::getSettledNodes() const {
+template<class G>
+const vector<bool>& Dijkstra<G>::getSettledNodes() const {
   return _settled;
 }
 
-template<class N, class A>
-const vector<uint>& Dijkstra<N, A>::getTouchedNodeIndices() const {
+template<class G>
+const vector<uint>& Dijkstra<G>::getTouchedNodeIndices() const {
   return _touchedNodes;
 }
 
-template<class N, class A>
-int Dijkstra<N, A>::shortestPath(uint s, uint t) {
+template<class G>
+int Dijkstra<G>::shortestPath(uint s, uint t) {
   vector<uint> S;
   S.push_back(s);
   return shortestPath(S, t);
 }
 
-template<class N, class A>
-int Dijkstra<N, A>::shortestPath(const vector<uint>& S, uint t) {
+template<class G>
+int Dijkstra<G>::shortestPath(const vector<uint>& S, uint t) {
   const bool limited = (_nodesToBeSettledMarks || _costLimit != infinity ||
       _hopLimit);
   if (limited) {
@@ -259,6 +273,7 @@ int Dijkstra<N, A>::shortestPath(const vector<uint>& S, uint t) {
     // Relax the outgoing arcs xIndex --> yIndex.
     for (const auto& arc: _graph.arcs(xIndex)) {
       uint yIndex = arc.target;
+      if (_ignore && _ignore->at(yIndex)) { continue; }
       if (!_settled[yIndex]) {
         // Compute the tentative distance.
         int g = _costs[xIndex] + arc.cost;

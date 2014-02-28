@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include "../src/Dijkstra.h"
 
-typedef Dijkstra<RoadGraph::Node_t, RoadGraph::Arc_t> RoadDijkstra;
+typedef Dijkstra<RoadGraph> RoadDijkstra;
 
 
 // _____________________________________________________________________________
@@ -15,13 +15,13 @@ TEST(DijkstraTest, computeShortestPath) {
   RoadGraph graph;
   graph.from_string(s);
   RoadDijkstra dijkstra(graph);
-  ASSERT_EQ(8, dijkstra.shortestPath(0, 1));
+  EXPECT_EQ(8, dijkstra.shortestPath(0, 1));
 
   vector<uint> origins = dijkstra.getOrigins();
-  ASSERT_EQ(4, origins[1]);
-  ASSERT_EQ(3, origins[4]);
-  ASSERT_EQ(2, origins[3]);
-  ASSERT_EQ(0, origins[2]);
+  EXPECT_EQ(4, origins[1]);
+  EXPECT_EQ(3, origins[4]);
+  EXPECT_EQ(2, origins[3]);
+  EXPECT_EQ(0, origins[2]);
 }
 
 
@@ -100,7 +100,7 @@ TEST(DijkstraTest, origins) {
   RoadDijkstra dijkstra(graph);
   dijkstra.shortestPath(2, std::numeric_limits<int>::max());
 
-  ASSERT_EQ(1, dijkstra.getOrigins()[0]);
+  EXPECT_EQ(1, dijkstra.getOrigins()[0]);
 }
 
 
@@ -126,7 +126,7 @@ TEST(DijkstraTest, limitedDijkstraReset) {
 //   EXPECT_TRUE(dijkstra.isSettled(2));
 
   // check for cost limit
-  dijkstra.setCostLimit(4);
+  dijkstra.set_cost_limit(4);
   dijkstra.shortestPath(0, RoadDijkstra::no_target);
   EXPECT_TRUE(dijkstra.isSettled(0));
   EXPECT_TRUE(dijkstra.isSettled(1));
@@ -137,10 +137,9 @@ TEST(DijkstraTest, limitedDijkstraReset) {
   EXPECT_TRUE(dijkstra.isSettled(2));
 
   // check for nodes to be settled
-  dijkstra.setCostLimit(RoadDijkstra::infinity);
+  dijkstra.set_cost_limit(RoadDijkstra::infinity);
   vector<bool> nodesToSettle(3, false);
   nodesToSettle[1] = true;
-  size_t numNodesToSettle = 1;
   dijkstra.setNodesToBeSettledMarks(&nodesToSettle, 1);
   dijkstra.shortestPath(0, RoadDijkstra::no_target);
   EXPECT_TRUE(dijkstra.isSettled(0));
@@ -150,4 +149,35 @@ TEST(DijkstraTest, limitedDijkstraReset) {
   EXPECT_FALSE(dijkstra.isSettled(0));
   EXPECT_TRUE(dijkstra.isSettled(1));
   EXPECT_TRUE(dijkstra.isSettled(2));
+}
+
+
+// _____________________________________________________________________________
+/*
+ *       2
+ *      / \
+ *    7/   \5
+ *    /     \
+ *   0-------1
+ *       1
+ * Ignore a node during search.
+ */
+TEST(DijkstraTest, ignore_nodes) {
+  RoadGraph graph;
+  graph.from_string("[3,6,"
+                   "{(1,1)(2,7)},"
+                   "{(0,1)(2,5)},"
+                   "{(0,7)(1,5)}]");
+  // Without ignoring a node.
+  RoadDijkstra dijkstra(graph);
+  dijkstra.shortestPath(0, RoadDijkstra::no_target);
+  EXPECT_EQ(1, dijkstra.getOrigins()[2]);
+  EXPECT_EQ(6, dijkstra.get_costs()[2]);
+
+  // Ignore node 1.
+  vector<bool> ignoreIndicators = {false, true, false};
+  dijkstra.set_nodes_to_ignore(&ignoreIndicators);
+  dijkstra.shortestPath(0, RoadDijkstra::no_target);
+  EXPECT_EQ(0, dijkstra.getOrigins()[2]);
+  EXPECT_EQ(7, dijkstra.get_costs()[2]);
 }

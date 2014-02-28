@@ -65,7 +65,7 @@ TEST(DirectedGraphTest, from_string) {
     graph.from_string("[3,2,{(1,3)},{},{(2,5)}]");
 
     ASSERT_EQ(3, graph.size());
-    ASSERT_EQ(2, graph.numArcs());
+    ASSERT_EQ(2, graph.num_arcs());
 
     EXPECT_EQ(1, graph.arcs(0).begin()->target);
     EXPECT_EQ(3, graph.arcs(0).begin()->cost);
@@ -76,9 +76,10 @@ TEST(DirectedGraphTest, from_string) {
   {
     RoadGraph graph;
     graph.from_string("[3,2,{(1,3)},{},{(2,5)}]");
+    EXPECT_EQ("[3,2,{(1,3)},{},{(2,5)}]", graph.to_string());
 
     ASSERT_EQ(3, graph.size());
-    ASSERT_EQ(2, graph.numArcs());
+    ASSERT_EQ(2, graph.num_arcs());
 
     EXPECT_EQ(1, graph.arcs(0).begin()->target);
     EXPECT_EQ(3, graph.arcs(0).begin()->cost);
@@ -93,8 +94,8 @@ TEST(DirectedGraphTest, one_more_test) {
   {
     OffsetListGraph<SourceTargetCostArc> graph;
     graph.from_string("[4,2,{},{(1,3)(2,5)},{},{}]");
-    EXPECT_EQ(4, graph.numNodes());
-    EXPECT_EQ(2, graph.numArcs());
+    EXPECT_EQ(4, graph.num_nodes());
+    EXPECT_EQ(2, graph.num_arcs());
     EXPECT_EQ("[4,2,{},{(1,3)(2,5)},{},{}]", graph.to_string());
   }
   {
