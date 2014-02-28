@@ -40,6 +40,8 @@ def main():
         node_id_map[r1.group(2)] = len(node_id_map) + index_shift
       elif r2:
         way_id_map[r2.group(2)] = len(way_id_map) + index_shift
+      elif line.strip().startswith("<relation"):  # ignore relations
+        break
 
   # second sweep: translate node ids and occurrences in other objects (ways...)
   p_noderef = re.compile('(.*<nd ref=")(-*\d+)(".*)')
@@ -51,8 +53,11 @@ def main():
       line = p_way.sub(replace_way_id, line)
       if line == '<tag k="Objektname" v="Wald" />':
         print '<tag k="landuse" v="forest" />'
+      elif line.startswith("<relation"):  # ignore relations
+        break
       else:
         print line
+    print "</osm>"
 
 
 if __name__ == "__main__":

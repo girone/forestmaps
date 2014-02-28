@@ -206,6 +206,8 @@ def read_file(filename, maxspeed, interpret=Std_OSM_way_tag_interpreter):
         elif len(ways_by_type['forest_delim']) \
             and ways_by_type['forest_delim'][-1] is way_id:
           way_nodes[way_id] = node_list
+    elif stripped.startswith("<relation"):  # ignore relations
+      break
   return way_nodes, ways_by_type, graph, nodes, osm_id_map
 
 
