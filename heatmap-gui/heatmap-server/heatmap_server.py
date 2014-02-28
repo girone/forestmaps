@@ -138,6 +138,18 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             print "Failed!"
         return result
 
+    def datasetBoundsRequest(self, dataset):
+        """Requests the bounds of a dataset. Returns JSON."""
+        print "datasetBoundsRequest() called with dataset=", dataset
+        bounds = gLocalBounds[datasetShortNameToIndex[dataset]]
+        (minLon, minLat, maxLon, maxLat) = bounds
+        return ('{\n' +
+                '   "minLon" : ' + str(minLon) + ',\n' +
+                '   "minLat" : ' + str(minLat) + ',\n' +
+                '   "maxLon" : ' + str(maxLon) + ',\n' +
+                '   "maxLat" : ' + str(maxLat) + ' \n' +
+                '}')
+
     def initializationRequest(self, zoomLevelAndBBoxesString, opt=[]):
         """Requests the raster initialization for the specified dataset.
 
@@ -282,14 +294,23 @@ def heatmap_setup(graphFileNames, edgeHeatsFileNames):
 
 
 def determine_bounds(graphFileNames):
-    """Determines left, bottom, right and top bounds of all data."""
-    minLon = 180
-    minLat = 90
-    maxLon = -180
-    maxLat = -90
+    """Determines left, bottom, right and top bounds of all datasets.
+
+    Returns the global bounds and a list of the bounds for each dataset.
+
+    """
     print "Determining data set bounds..."
+    gminLon = 180
+    gminLat = 90
+    gmaxLon = -180
+    gmaxLat = -90
+    localBounds = []
     for f in graphFileNames:
         print f, "..."
+        minLon = 180
+        minLat = 90
+        maxLon = -180
+        maxLat = -90
         with open(f) as f1:
             for line in f1:
                 parts = line.strip().split(" ")
@@ -303,8 +324,14 @@ def determine_bounds(graphFileNames):
                     maxLon = max(maxLon, lon)
                 elif len(parts) == 3:  # first edge line
                     break
-    print "Dataset bounds are ", minLon, minLat, maxLon, maxLat
-    return minLon, minLat, maxLon, maxLat
+            print " --> Bounds are ", minLon, minLat, maxLon, maxLat
+            gminLat = min(gminLat, minLat)
+            gminLon = min(gminLon, minLon)
+            gmaxLat = max(gmaxLat, maxLat)
+            gmaxLon = max(gmaxLon, maxLon)
+            localBounds.append((minLon, minLat, maxLon, maxLat))
+    print "Global dataset bounds are ", gminLon, gminLat, gmaxLon, gmaxLat
+    return (gminLon, gminLat, gmaxLon, gmaxLat), localBounds
 
 
 def main():
@@ -323,7 +350,8 @@ def main():
         graphFilenames.append(sys.argv[i])
         edgeHeatFilenames.append(sys.argv[i+1])
     global gLeftBottomRightTop
-    gLeftBottomRightTop = determine_bounds(graphFilenames)
+    global gLocalBounds
+    gLeftBottomRightTop, gLocalBounds = determine_bounds(graphFilenames)
     global gHeatmapDB
 
 

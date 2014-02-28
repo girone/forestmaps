@@ -36,7 +36,7 @@ function data_bounds(data) {
         if (data[i].lon < minLon) { minLon = data[i].lon; }
         if (data[i].lon > maxLon) { maxLon = data[i].lon; }
     }
-    bounds = new OpenLayers.Bounds();
+    var bounds = new OpenLayers.Bounds();
     bounds.extend(new OpenLayers.LonLat(minLon, minLat));
     bounds.extend(new OpenLayers.LonLat(maxLon, maxLat));
     return bounds;
@@ -303,8 +303,25 @@ function initialization_callback() {
 
 function select_dataset(shortName) {
   selectedDataset = shortName;
+  console.log("Changing dataset to " + selectedDataset)
+  request_dataset_bounds(selectedDataset);
   allowCentering = true;  // Allow centering for this request.
-  get_heatmap_raster("");
+}
+
+function request_dataset_bounds(dataset) {
+    $.getJSON(url + "?datasetBoundsRequest=" + dataset, function( data ) {
+            var bounds = new OpenLayers.Bounds();
+            bounds.extend(new OpenLayers.LonLat(data.minLon, data.minLat));
+            bounds.extend(new OpenLayers.LonLat(data.maxLon, data.maxLat));
+            datasetExtent = bounds;
+            console.log(datasetExtent)
+            datasetExtent.transform(map.projection, layer.projection);
+            console.log("After transformation:")
+            console.log(datasetExtent)
+            map.zoomToExtent(datasetExtent);
+            console.log("Zoomlevel for first request after changing dataset is: " + map.zoom);
+            get_heatmap_raster(datasetExtent.toBBOX());
+    });
 }
 
 window.onload = function() {
