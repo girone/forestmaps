@@ -311,12 +311,6 @@ window.onload = function() {
     init();
 
     // register event handlers
-    map.events.register("zoombegin", map, function(){
-        if (map.zoom < 6) {
-            map.zoomIn();
-        }
-    }
-
     map.events.register("zoomend", map, function(){
         if (map.zoom < 6) {
             map.zoomIn();
