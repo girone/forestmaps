@@ -19,6 +19,7 @@ import os.path
 import math
 from collections import defaultdict
 import pickle
+#import numpy as np
 
 from grid import Grid
 from graph import Graph, Edge
@@ -256,7 +257,8 @@ def classify_forest(osmfile, maxspeed=130):
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
   print 'Computing the convex hull...'
-  visual_grid = Grid(bbox, mode="RGB")
+  if visualize:
+    visual_grid = Grid(bbox, mode="RGB")
   boundary_filename = os.path.splitext(osmfile)[0] + ".boundary.out"
   if os.path.exists(boundary_filename):
     hull = convexhull.load(boundary_filename)
@@ -264,7 +266,8 @@ def classify_forest(osmfile, maxspeed=130):
     points = [list(p) for p in nodes.values()]
     hull = convexhull.compute(points)
     convexhull.save(hull, boundary_filename)
-  visual_grid.fill_polygon(hull, color="#fadbaa")
+  if visualize:
+    visual_grid.fill_polygon(hull, color="#fadbaa")
 
   print 'Creating forest grid from polygons...'
   forest_polygons = \
@@ -287,6 +290,34 @@ def classify_forest(osmfile, maxspeed=130):
   forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
   open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))
 
+  # This does not work properly and does not bring the expected benefit.
+  #print 'Restrict the graph to largest connected component...'
+  #n = digraph.size()
+  #c = len(digraph.nodes)
+  #digraph = digraph.lcc()
+  #print "Removed " + str(c - len(digraph.nodes))
+  ## update indices
+  #delete = np.array([0]*n)
+  #for i in range(1, n):
+  #  if i not in digraph.nodes:
+  #    delete[i] = 1
+  #index_shift = np.cumsum(delete)
+  #shifted_graph = Graph()
+  #for node in digraph.nodes:
+  #  if delete[node] == 0:
+  #    for to, edge in digraph.edges[node].items():
+  #      if delete[to] == 0:
+  #        shifted_graph.add_edge(node - index_shift[node], \
+  #            to - index_shift[to], edge.cost)
+  #digraph = shifted_graph
+  #osm_id_map = \
+  #    {k : v - index_shift[v] for k, v in osm_id_map.items() if delete[v] == 0}
+  #ind = set([inverse_id_map[n] for n in digraph.nodes if delete[node] == 0])
+  #forestal_highway_nodes &= ind
+  #open_highway_nodes &= ind
+  #print 'Removed %d nodes, new size is %d.' % (n - digraph.size(), \
+  #    digraph.size())
+
   print 'Select WEPs...'
   weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph, \
       osm_id_map)
@@ -299,20 +330,26 @@ def classify_forest(osmfile, maxspeed=130):
   boundary_polygon = hull
   population = create_population_grid(boundary_polygon, forest_polygons, 10)
 
-  print 'Visualizing the result...'
-  for poly in forest_polygons:
-    visual_grid.fill_polygon(poly, color="#00DD00")
-  for node_id in weps:
-    x, y = visual_grid.transform(nodes[node_id])
-    r = 10
-    visual_grid.draw.ellipse((x-r,y-r,x+r,y+r), fill="#BB1111")
-  for (x,y) in population:
-    (x, y) = visual_grid.transform((x,y))
-    r = 30
-    visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
-  visual_grid.show()
-  return weps, forestal_highway_nodes, population, digraph, osm_id_map
+  if visualize:
+    print 'Visualizing the result...'
+    for poly in forest_polygons:
+      visual_grid.fill_polygon(poly, color="#00DD00")
+    for node_id in weps:
+      x, y = visual_grid.transform(nodes[node_id])
+      r = 10
+      visual_grid.draw.ellipse((x-r,y-r,x+r,y+r), fill="#BB1111")
+    for (x,y) in population:
+      (x, y) = visual_grid.transform((x,y))
+      r = 30
+      visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
+    visual_grid.show()
 
+  # restrict to used nodes
+  used_osm_ids = forestal_highway_nodes | open_highway_nodes
+  nodes = {k:v for k,v in nodes.items() if k in used_osm_ids}
+  return weps, forestal_highway_nodes, population, digraph, osm_id_map, nodes
+
+visualize = False
 
 def main():
   if len(sys.argv) < 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
@@ -321,9 +358,10 @@ def main():
   osmfile = sys.argv[1]
   maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
-  weps, forestal_highway_nodes, population, graph, osm_id_map = \
+  weps, forestal_highway_nodes, population, graph, osm_id_map, nodes = \
       classify_forest(osmfile, maxspeed)
-  # print 'Writing output...'
+  
+  print 'Writing output...'
   # f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
   # for p in weps:
   #   f.write(str(p) + '\n')
@@ -338,11 +376,10 @@ def main():
   # for (x,y) in population:
   #   f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
   # f.close()
-
   filename = os.path.splitext(osmfile)[0] + "." + str(maxspeed) + "kmh"
   for data, extension in \
-      zip([weps, forestal_highway_nodes, population, graph, osm_id_map], \
-          ['weps', 'forestal_ids', 'population', 'graph', 'osm_id_map']):
+      zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes],\
+          ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes']):
     f = open(filename + "." + extension + ".out", 'w')
     pickle.dump(data, f, protocol=2)
     f.close()
