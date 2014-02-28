@@ -11,8 +11,11 @@ class Edge(object):
   def __init__(self, cost):
     self.cost = cost
 
+  def __eq__(self, other):
+    return self.cost == other.cost
+
   def __repr__(self):
-    return str(self.cost)
+    return "c=" + str(self.cost)
 
 
 class NodeInfo(object):
@@ -31,6 +34,12 @@ class Graph(object):
 
   def __repr__(self):
     return str(self.nodes) + "\n" + str(self.edges) + "\n"
+
+  def __eq__(self, other):
+    return self.nodes == other.nodes and self.edges == other.edges
+
+  def __ne__(self, other):
+    return self.nodes != other.nodes or self.edges != other.edges
 
   def size(self):
     return max(self.nodes) + 1
@@ -126,8 +135,7 @@ class Graph(object):
         if neighbors[0] not in self.edges[neighbors[1]]: 
           self.contract_node(node, remove=False)
           contracted.add(node)
-    for node in contracted:
-      self.nodes.remove(node)
+    self.nodes = self.nodes - contracted
 
   def contract_node(self, node, remove=True):
     ''' Contracts a node. This removes the node from the node set and connects
@@ -170,13 +178,13 @@ class TestGraph(unittest.TestCase):
     g.add_edge(B, E, 1)
     #self.assertEqual(g.nodes, set([0, 1, 2, 3, 4]))
     self.assertEqual(str(g.edges), \
-        "defaultdict(<type 'dict'>, {0: {1: 4, 2: 2}, " \
-        "1: {4: 1}, 2: {3: 1}, 3: {1: 1}})")
+        "defaultdict(<type 'dict'>, {0: {1: c=4, 2: c=2}, " \
+        "1: {4: c=1}, 2: {3: c=1}, 3: {1: c=1}})")
 
     g.remove_partition([B])
     #self.assertEqual(g.nodes, set([0, 2, 3, 4]))
-    self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, {0: {2: 2}, " \
-        "2: {3: 1}, 3: {}})")
+    self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, {0: {2: c=2}, "
+        "2: {3: c=1}, 3: {}})")
 
   def test_lcc(self):
     A, B, C, D, E = 0, 1, 2, 3, 4
@@ -201,7 +209,7 @@ class TestGraph(unittest.TestCase):
     add_biedge(g, B, C, 3)
     g.contract_node(B)
     self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, "\
-        "{0: {2: 5}, 2: {0: 5}})")
+        "{0: {2: c=5}, 2: {0: c=5}})")
 
   def test_contraction2(self):
     A, B, C = 0, 1, 2
@@ -210,7 +218,7 @@ class TestGraph(unittest.TestCase):
     add_biedge(g, B, C, 3)
     g.contract_binary_nodes()
     self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, "\
-        "{0: {2: 5}, 2: {0: 5}})")
+        "{0: {2: c=5}, 2: {0: c=5}})")
 
   def test_contraction3(self):
     A, B, C = 0, 1, 2
@@ -219,7 +227,7 @@ class TestGraph(unittest.TestCase):
     add_biedge(g, B, C, 3)
     g.contract_binary_nodes(exclude=set([B]))
     self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, "\
-        "{0: {1: 2}, 1: {0: 2, 2: 3}, 2: {1: 3}})")
+        "{0: {1: c=2}, 1: {0: c=2, 2: c=3}, 2: {1: c=3}})")
 
   def test_contraction4(self):
     A, B, C = 0, 1, 2
@@ -229,7 +237,7 @@ class TestGraph(unittest.TestCase):
     add_biedge(g, A, C, 4)  # don't contract B, it would cause information loss
     g.contract_binary_nodes()
     self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, "\
-        "{0: {1: 2, 2: 4}, 1: {0: 2, 2: 3}, 2: {0: 4, 1: 3}})")
+        "{0: {1: c=2, 2: c=4}, 1: {0: c=2, 2: c=3}, 2: {0: c=4, 1: c=3}})")
 
 
 def main():
