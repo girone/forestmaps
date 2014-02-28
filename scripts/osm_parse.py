@@ -14,7 +14,7 @@ Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 """
 import math
 import re
-import sys
+import sys, os
 from collections import defaultdict
 from graph import Graph, Edge, NodeInfo
 
@@ -675,13 +675,30 @@ class OSMParser(object):
         Assumes that ways list node references first and tags afterwards.
 
         """
+        def get_filesize(f):
+            old_file_position = f.tell()
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            f.seek(old_file_position, os.SEEK_SET)
+            return size
         state = 'init'
+        print "Reading osm file..."
         with open(filename) as f:
+            fsize = get_filesize(f)
+            avgLinesize = 0.
             for line in f:
                 self.lineNumber += 1
+                avgLinesize = (1. / self.lineNumber * len(line) +
+                      (self.lineNumber - 1.) / self.lineNumber * avgLinesize)
                 state = self.read_line(line.strip(), state)
                 if state == 'other':
                     break
+                if self.lineNumber % 1000000 == 0:
+                    sys.stdout.write("\rRead {0:.2f}%".format(
+                            100. * self.lineNumber * avgLinesize / fsize))
+                    sys.stdout.flush()
+        print "...finished."
+        print "Expanding parsed osm content..."
 
         nodes = self.highway_part(self.osmNodes, self.osmHighwayEdges)
         edges = self.translate_osm_edges(nodes, self.osmHighwayEdges)
