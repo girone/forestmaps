@@ -5,6 +5,9 @@
     - classify arcs which are inside the forest
     - generate population grid points
 
+    Usage:
+    python forestentrydetection.py <OSMFile> [<MAXSPEED>]
+
     Copyright 2013: Institut fuer Informatik
     Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 """
@@ -68,7 +71,7 @@ def great_circle_distance((lat0, lon0), (lat1, lon1)):
   return 2 * r * math.asin(math.sqrt(a))
 
 
-def read_osmfile(filename):
+def read_osmfile(filename, maxspeed):
   """ Parses nodes and arcs from an osm-file.
       Creates two mappings, a graph and a collection of nodes from an osm-file.
       - a mapping {way id -> [list of node ids]}
@@ -131,6 +134,7 @@ def read_osmfile(filename):
             and ways_by_type['highway'][-1] is way_id:
           edges = expand_way_to_edges(node_list)
           v = type_to_speed(way_type)
+          v = v if v <= maxspeed else maxspeed
           if v != 0:
             way_nodes[way_id] = node_list
             for e in edges:
@@ -276,9 +280,10 @@ def filter_point_grid(points, regions, operation='intersect'):
     exit(1)
 
 
-def classify_forest(osmfile):
+def classify_forest(osmfile, maxspeed=130):
   print 'Reading nodes and ways from OSM and creating the graph...'
-  node_ids, ways_by_type, digraph, nodes, osm_id_map = read_osmfile(osmfile)
+  node_ids, ways_by_type, digraph, nodes, osm_id_map = read_osmfile(osmfile, \
+      maxspeed)
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
   print 'Computing the convex hull...'
@@ -341,13 +346,14 @@ def classify_forest(osmfile):
 
 
 def main():
-  if len(sys.argv) != 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
+  if len(sys.argv) < 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
     print ''' No osm file specified! '''
     exit(1)
   osmfile = sys.argv[1]
+  maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
   weps, forestal_highway_nodes, population, graph, osm_id_map = \
-      classify_forest(osmfile)
+      classify_forest(osmfile, maxspeed)
   # print 'Writing output...'
   # f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
   # for p in weps:
@@ -364,7 +370,7 @@ def main():
   #   f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
   # f.close()
 
-  filename = os.path.splitext(osmfile)[0]
+  filename = os.path.splitext(osmfile)[0] + "." + str(maxspeed) + "kmh"
   for data, extension in \
       zip([weps, forestal_highway_nodes, population, graph, osm_id_map], \
           ['weps', 'forestal_ids', 'population', 'graph', 'osm_id_map']):
