@@ -434,7 +434,7 @@ def outer(listA, listB):  # TODO(Jonas): Find a better name.
 
 relevantPOITags = set(
     outer(["tourism"], ["viewpoint", "attraction", "artwork", "picnic_site"]) +
-    outer(["natural"], ["peak", "spring", "water"]) +
+    outer(["natural"], ["peak", "spring"]) +
     outer(["amenity"], ["place_of_worship", "restaurant", "bar", "shelter",
                         "bench", "drinking_water", "bbq", "biergarten", "cafe",
                         "fountain", "pub", ]) +
@@ -443,7 +443,9 @@ relevantPOITags = set(
     [("fireplace", "yes")] +
     [("beer_garden", "yes")] +
     outer(["man_made"], ["tower", "bridge"]) +
-    outer(["historic"], ["memorial", "castle"]))
+    outer(["historic"], ["memorial", "castle"]) +
+    outer(["waterway"], ["stream", "river", "riverbank"]) +
+    outer(["water"], ["river", "lake"]))
 
 
 def tag_to_poi_category(key, value):
