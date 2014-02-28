@@ -58,7 +58,7 @@ def type_to_speed(typee):
 
 
 def great_circle_distance((lat0, lon0), (lat1, lon1)):
-  ''' http://en.wikipedia.org/wiki/Great-circle_distance '''
+  ''' dist in meters, see http://en.wikipedia.org/wiki/Great-circle_distance '''
   to_rad = math.pi / 180.
   r = 6371000.785
   dLat = (lat1 - lat0) * to_rad
@@ -88,7 +88,7 @@ def read_osmfile(filename):
     return edges
   def calculate_edge_cost(a, b, v):
     s = great_circle_distance(a, b)
-    t = s / v
+    t = s / (v * 1000. / 60**2)
     return t
   f = open(filename)
   p_node = re.compile('.*<node id="(\S+)" lat="(\S+)" lon="(\S+)"')
@@ -363,7 +363,7 @@ def main():
   # f.close()
 
   ''' Restrict the graph to non-forest nodes. '''
-  graph.remove_partition(forestal_highway_nodes)
+  graph.remove_partition([osm_id_map[id] for id in forestal_highway_nodes])
 
   ''' Compute Dijkstra from every WEP. '''
   avg = 0
