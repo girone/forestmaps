@@ -145,10 +145,18 @@ def create_from_feature_class(fc, max_speed=5):
   fields = [field.name for field in arcpy.ListFields(fc)]
   idKeyword = "fid" if "fid" in fields else "objectid"
 
+  # The forest road graph does not contain a column 'klasse'. In case this is
+  # not present, assume a constant speed.
+  field_names = [idKeyword, "SHAPE@XY"]
+  clsKeyword = "klasse"
+  if clsKeyword in fields:
+      field_names.append(clsKeyword)
+  else:
+      way_type = 87003
+
   graph = Graph()
   coord_to_node = {}
   arc_to_fid = {}
-  field_names = [idKeyword, "SHAPE@XY", "klasse", "wanderweg"]
   lastIndex = None
   total = int(arcpy.management.GetCount(fc).getOutput(0))
   count = 0
@@ -156,7 +164,11 @@ def create_from_feature_class(fc, max_speed=5):
   with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
     for row in rows:
       #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
-      index, coordinates, way_type, path_flag = row
+      if len(field_names) == 3:
+          index, coordinates, way_type = row
+      else:  # len(field_names) == 2
+          index, coordinates = row
+          
       if index == lastIndex:
         index_a = add_node(last_coordinates)
         index_b = add_node(coordinates)

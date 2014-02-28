@@ -66,14 +66,13 @@ def create_road_graph(dataset, max_speed):
     Returns the graph, a mapping from coordinates to node index, a mapping from
     (s,t) arcs to FIDs of the shapefile, and a list documenting the contraction
     order.
-
     """
     graph, coord_map, arc_to_fid = \
             atkis_graph.create_from_feature_class(dataset, max_speed)
     msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
       sum([len(edge_set) for edge_set in graph.edges.values()])))
 
-    msg("Contracting binary nodes...")
+    #msg("Contracting binary nodes...")
     #contraction_list = graph.contract_binary_nodes()
     contraction_list = []
     msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
@@ -128,16 +127,17 @@ def parse_and_dump(env):
     """Parses data from shapefiles, dumps it as plain text.
 
     Returns the mapping from forest graph arcs to shapefile FIDs.
-
     """
-
     t = Timer()
     t.start_timing("Creating road graph from the data...")
-    read_graph_and_dump_it(env.paramShpRoads, roadGraphFile)
+    speed = 5
+    read_graph_and_dump_it(env.paramShpRoads, roadGraphFile, speed)
     t.stop_timing()
 
     t.start_timing("Creating forest road graph from the data...")
-    forestArcToFID = read_graph_and_dump_it(env.paramShpForestRoads, forestGraphFile)
+    speed = 5
+    forestArcToFID = read_graph_and_dump_it(
+            env.paramShpForestRoads, forestGraphFile, speed)
     t.stop_timing()
 
     t.start_timing("Creating population points...")
@@ -180,7 +180,6 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
     """Adds a column to the dataset in shp and inserts the values.
 
     Needs graph file as input to map from arcs to FIDs.
-
     """
     edges = []
     with open(forestGraphFile) as f:
@@ -288,7 +287,6 @@ def main():
     2. Call the succeeding steps of the C++ module, wait for each to finish.
     3. Load back the resuling arc weights,
     4. If selected, visualize the result in ArcGIS.
-
     """
     set_paths(sys.argv)
     env = AlgorithmEnvironment()
