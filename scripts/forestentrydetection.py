@@ -117,8 +117,9 @@ def read_osmfile(filename):
         if res:
           k, v = res.group(1), res.group(2)
           if k == 'highway':
-            ways_by_type['highway'].append(way_id)
             way_type = v
+            if way_type in speed_table:
+              ways_by_type['highway'].append(way_id)
           if (k == 'landuse' and v == 'forest') or  \
              (k == 'natural' and v == 'wood'):
             ways_by_type['forest_delim'].append(way_id)
@@ -127,12 +128,13 @@ def read_osmfile(filename):
         node_list.append(node_id)
       elif stripped.startswith('</way'):
         state = 'none'
-        way_nodes[way_id] = node_list
-        if ways_by_type['highway'][-1] is way_id:
+        if len(ways_by_type['highway']) \
+            and ways_by_type['highway'][-1] is way_id:
           edges = expand_way_to_edges(node_list)
-          for e in edges:
-            v = type_to_speed(way_type)
-            if v != 0:
+          v = type_to_speed(way_type)
+          if v != 0:
+            way_nodes[way_id] = node_list
+            for e in edges:
               if e[0] not in osm_id_map:
                 osm_id_map[e[0]] = len(graph.nodes)
               x = osm_id_map[e[0]]
@@ -145,6 +147,9 @@ def read_osmfile(filename):
               t = calculate_edge_cost(nodes[e[0]], nodes[e[1]], v)
               graph.add_edge(x, y, t)
               graph.add_edge(y, x, t)
+        elif len(ways_by_type['forest_delim']) \
+            and ways_by_type['forest_delim'][-1] is way_id:
+          way_nodes[way_id] = node_list
   return way_nodes, ways_by_type, graph, nodes, osm_id_map
 
 
