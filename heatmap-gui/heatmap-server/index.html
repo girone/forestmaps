@@ -31,6 +31,7 @@
       <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
       <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
     <![endif]-->
+    <link href="style.css" rel="stylesheet">
   </head>
 
   <body>
@@ -70,6 +71,14 @@
 
     <div class="container">
 
+<!-- firefox warning -->
+<script>
+  var browser = navigator.userAgent.toLowerCase();
+  if (browser.indexOf('firefox') > -1) {
+    alert("Latest versions of Firefox seem to have problems with the library heatmap.js." + 
+          "If the heatmap is not shown in your browser consider using Chrome.");
+  }
+</script>
 <!-- map widget -->
       <div class="row" id="main">
         <div id="heatmapArea"></div>
@@ -420,17 +429,15 @@ If you have any questions regarding this project, how to reproduce our results o
         </footer>
       </div>
     </div> <!-- /container -->
-
-
-
+    <div class="loading-modal"></div>
 
 
     <!-- Placed at the end of the document so the pages load faster -->
     <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
-    <script type="text/javascript" src="ui.js"></script>
-    <script src="http://openlayers.org/api/OpenLayers.js"></script>
     <script type="text/javascript" src="heatmapjs/heatmap.js"></script>
+    <script src="http://openlayers.org/api/OpenLayers.js"></script>
     <script type="text/javascript" src="heatmapjs/heatmap-openlayers.js"></script>
+    <script type="text/javascript" src="ui.js"></script>
 <!--
     <script src="bootstrap/js/bootstrap.min.js"></script>
 -->
