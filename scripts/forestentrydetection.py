@@ -92,7 +92,7 @@ def create_grid_points(bbox, resolution, gridPointDistance):
     if resolution:
         step = minSideLength / (resolution + 1)
     else:
-        if w < 180:
+        if w < 180 and (xmin < 180 or ymin < 180):
             # we are working on (lat, lon) coordinates, determine step size
             p0, p1 = bbox
             p1p = [p1[0], p0[1]]  # project p1 to same latitude as p0
