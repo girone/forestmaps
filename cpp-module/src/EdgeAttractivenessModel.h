@@ -29,6 +29,8 @@ class EdgeAttractivenessModel {
       _popularities[feps[i]] = popularities[i];
     }
   }
+  // D'tor.
+  virtual ~EdgeAttractivenessModel() { };
   // Computes the model. Pure virtual method.
   virtual vector<float> compute_edge_attractiveness() = 0;
   // Returns the result.
@@ -81,9 +83,12 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
 
 
 // _____________________________________________________________________________
-FloodingModel::FloodingModel(const RoadGraph& g, const std::vector< int >& feps, const std::vector< float >& popularities, const int maxCost)
+FloodingModel::FloodingModel(
+    const RoadGraph& g,
+    const vector<int>& feps,
+    const vector<float>& popularities,
+    const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, maxCost) {
-
 }
 
 // _____________________________________________________________________________
@@ -91,14 +96,13 @@ std::vector< float > FloodingModel::compute_edge_attractiveness() {
   // Collect node attractivenesses.
   vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
   Dijkstra<RoadGraph> dijkstra(_graph);
-  dijkstra.set_cost_limit(_maxCost);
-  for (size_t i = 0; i < _forestEntries.size(); ++i) {
-    int fep = _forestEntries[i];
+  dijkstra.set_cost_limit(_maxCost / 2);  // half way forth and back
+  for (int fep: _forestEntries) {
     dijkstra.reset();
     dijkstra.run(fep);
     const vector<int>& costs = dijkstra.get_costs();
     const vector<uint>& settledNodes = dijkstra.get_settled_node_indices();
-    float popularity = _popularities[i];
+    float popularity = _popularities[fep];
     for (uint node: settledNodes) {
       int cost = costs[node];
       assert(cost != Dijkstra<RoadGraph>::infinity);
