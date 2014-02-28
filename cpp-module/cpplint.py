@@ -2552,7 +2552,7 @@ def CheckLanguage(filename, clean_lines, linenum, file_extension, include_state,
     # We allow non-const references in a few standard places, like functions
     # called "swap()" or iostream operators like "<<" or ">>".
     if not Search(
-        r'(for|swap|Swap|operator[<>][<>])\s*\(\s*(?:[\w:]|<.*>)+\s*&',
+        r'(for|swap|Swap|operator[<>][<>]|\[\])\s*\(\s*(?:[\w:]|<.*>)+\s*&',
         fnline):
       error(filename, linenum, 'runtime/references', 2,
             'Is this a non-const reference? '
