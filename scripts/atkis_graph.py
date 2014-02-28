@@ -144,14 +144,25 @@ def create_graph_via_numpy_array(dataset, max_speed=5):
   return create_graph_from_arc_map(arc_map), coord_to_node_map
 
 
-def create_from_feature_class(fc, max_speed=5):
-    """ Reads a feature class from disk, creates a graph from its Polylines. """
+def create_from_feature_class(fc, maxNumNodes, max_speed=5):
+    """Reads a feature class from disk, creates a graph from its Polylines."""
     import arcpy
     def add_node(coordinate):
-        """ Adds a node for a coordinate (if none exists yet). Returns its id. """
+        """Adds a node for a coordinate (if none exists yet). Returns its id."""
         if coordinate not in coord_to_node:
             coord_to_node[coordinate] = len(coord_to_node)
         return coord_to_node[coordinate]
+    def finish_current_arc():
+        """Finishes the current arc."""
+        index_b = add_node(last_coordinates)
+        time = dist / (determine_speed(last_way_type, max_speed) / 3.6)
+        cost = [time]
+        if weightKeyword:
+            cost.append(int(lastWeight))
+        graph.add_edge(index_a, index_b, cost)
+        graph.add_edge(index_b, index_a, cost)
+        arc_to_fid[(index_a, index_b)] = lastIndex
+        arc_to_fid[(index_b, index_a)] = lastIndex
     # In file-geodatabases the id has another name than in plain feature classes
     fields = [field.name.lower() for field in arcpy.ListFields(fc)]
     idKeyword = "fid" if "fid" in fields else "objectid"
@@ -171,7 +182,7 @@ def create_from_feature_class(fc, max_speed=5):
     else:
         weightKeyword = None
 
-    graph = Graph()
+    graph = Graph(maxNumNodes)
     coord_to_node = {}
     arc_to_fid = {}
     lastIndex = None
@@ -180,7 +191,6 @@ def create_from_feature_class(fc, max_speed=5):
     p = Progress("Building graph from FeatureClass.", total, 100)
     with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
         for row in rows:
-            #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
             if len(field_names) == 3:
                 index, coordinates, way_type = row
             elif weightKeyword:
@@ -194,22 +204,32 @@ def create_from_feature_class(fc, max_speed=5):
                 continue
                 
             if index == lastIndex:
-                index_a = add_node(last_coordinates)
-                index_b = add_node(coordinates)
-                dist = distance(last_coordinates, coordinates)
-                time = dist / (determine_speed(way_type, max_speed) / 3.6)
-                cost = [time]
-                if weightKeyword:
-                    cost.append(int(weight))
-                graph.add_edge(index_a, index_b, cost)
-                graph.add_edge(index_b, index_a, cost)
-                arc_to_fid[(index_a, index_b)] = index
-                arc_to_fid[(index_b, index_a)] = index
+                #index_a = add_node(last_coordinates)
+                #index_b = add_node(coordinates)
+                dist += distance(last_coordinates, coordinates)
+                #time = dist / (determine_speed(way_type, max_speed) / 3.6)
+                #cost = [time]
+                #if weightKeyword:
+                #    cost.append(int(weight))
+                #graph.add_edge(index_a, index_b, cost)
+                #graph.add_edge(index_b, index_a, cost)
+                #arc_to_fid[(index_a, index_b)] = index
+                #arc_to_fid[(index_b, index_a)] = index
             else:
+                if lastIndex:
+                    finish_current_arc()
+                # start a new arc
+                index_a = add_node(coordinates)
+                dist = 0
                 count += 1
                 p.progress(count)
             lastIndex = index
             last_coordinates = coordinates
+            last_way_type = way_type
+            if weightKeyword:
+                lastWeight = weight
+        if lastIndex:
+            finish_current_arc()
     return graph, coord_to_node, arc_to_fid
 
 

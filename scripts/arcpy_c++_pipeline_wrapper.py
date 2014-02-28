@@ -8,13 +8,16 @@ import subprocess
 import random
 from collections import defaultdict
 import atkis_graph
-from arcutil import msg, Timer
+from arcutil import msg, Timer, Progress
 
 scriptDir = ""
 
 # Some general names
+roadFcDump          = "road_feature_class.tmp.txt"
 roadGraphFile       = "road_graph.tmp.txt"
+forestFcDump        = "forest_road_feature_class.tmp.txt"
 forestGraphFile     = "forest_road_graph.tmp.txt"
+arcMappingFile      = "arc_to_fid_map.tmp.txt"
 entryXYFile         = "forest_entries_xy.tmp.txt"
 populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
@@ -31,14 +34,17 @@ def set_paths(argv, env):
     """  """
     global scriptDir
     scriptDir = os.path.split(argv[0])[0] + "\\"
-    msg("############# scriptDir is " + scriptDir)
+    global roadFcDump, forestFcDump, arcMappingFile
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
     global ttfFile, tifFile, parkingLotsFile, entryAndParkingXYRFFile
     # converted inputs are created at the input data's location
     tmpDir = env.path + "\\"
+    roadFcDump          = tmpDir + roadFcDump
     roadGraphFile       = tmpDir + roadGraphFile
+    forestFcDump        = tmpDir + forestFcDump
     forestGraphFile     = tmpDir + forestGraphFile
+    arcMappingFile      = tmpDir + arcMappingFile
     entryXYFile         = tmpDir + entryXYFile
     ttfFile             = env.paramTxtTimeToForest
     tifFile             = env.paramTxtTimeInForest
@@ -70,27 +76,81 @@ def shape_to_polygons(lines, idKeyword):
     return polygons, inhabitants
 
 
-def create_road_graph(dataset, max_speed):
-    """Creates a graph from ATKIS data stored as FeatureClass in a shapefile.
+def dump_graph_feature_class(dataset, outfile, max_speed):
+    """ TODO DOCU"""
+    # In file-geodatabases the id has another name than in plain feature classes
+    field_names = [field.name.lower() for field in arcpy.ListFields(dataset)]
+    idKeyword = "fid" if "fid" in field_names else "objectid"
 
-    Returns the graph, a mapping from coordinates to node index, a mapping from
-    (s,t) arcs to FIDs of the shapefile, and a list documenting the contraction
-    order.
-    """
-    graph, coord_map, arc_to_fid = \
-            atkis_graph.create_from_feature_class(dataset, max_speed)
-    msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
-      sum([len(edge_set) for edge_set in graph.edges.values()])))
+    # The forest road graph does not contain a column 'klasse'. In case this is
+    # not present, assume the constant speed.
+    fields = [idKeyword, "SHAPE@XY"]
+    clsKeyword = "klasse"
+    if clsKeyword in field_names:
+        fields.append(clsKeyword)
+    else:
+        way_type = 87003  # "Fussgaengerzone" == pedestrian area
+    # Read edge weights if present
+    weightKeyword = "wert"
+    if weightKeyword in field_names:
+        fields.append(weightKeyword)
+    else:
+        weightKeyword = None
+    largeRoads = atkis_graph.ATKIS_LARGE_ROAD_CLASSES
+    lastIndex = None
 
-    #msg("Contracting binary nodes...")
-    #contraction_list = graph.contract_binary_nodes()
-    contraction_list = []
-    #msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
-    #  sum([len(edge_set) for edge_set in graph.edges.values()])))
-    #lcc = graph.lcc()
-    #msg("The largest connected component has %d nodes and %d edges." %
-    #    (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
-    return graph, coord_map, arc_to_fid, contraction_list
+    total = int(arcpy.management.GetCount(dataset).getOutput(0))
+    count = 0
+    p = Progress("Dumping graph from FeatureClass.", total, 100)
+    # TODO(Jonas): Parsing and dumping could be even faster if we'd save
+    # uneccessary output. So let the script compute the concatenation of
+    # the arcs and the distances (or use the predefined 'shape_len' field) and
+    # dump only the simplified arcs. --> saves Output time and input to the C++
+    # script becomes even faster.
+    with arcpy.da.SearchCursor(dataset, fields, explode_to_points=True) as rows:
+        with open(outfile, "w") as f:
+            for row in rows:
+                if len(fields) == 3:
+                    index, coords, way_type = row
+                elif weightKeyword:
+                    index, coords, way_type, weight = row
+                else:  # len(fields) == 2
+                    index, coords = row
+
+                # ignore large roads when walking
+                if not (max_speed == 5 and way_type in largeRoads):
+                    f.write("{0} {1} {2} ".format(index, coords[0], coords[1]))
+                    if len(fields) > 2:
+                        f.write("{0} ".format(way_type))
+                    if weightKeyword:
+                        f.write("{0} ".format(weight))
+                    f.write("\n")
+                if index != lastIndex:
+                    count += 1
+                    p.progress(count)
+                lastIndex = index
+
+    #"""Creates a graph from ATKIS data stored as FeatureClass in a shapefile.
+
+    #Returns the graph, a mapping from coordinates to node index, a mapping from
+    #(s,t) arcs to FIDs of the shapefile, and a list documenting the contraction
+    #order.
+    #"""
+    #maxNumNodes = int(arcpy.management.GetCount(dataset).getOutput(0))
+    #graph, coord_map, arc_to_fid = \
+    #        atkis_graph.create_from_feature_class(dataset, maxNumNodes, max_speed)
+    #msg("The graph has %d nodes and %d edges." % (len(graph.edges),
+    #        sum([len(edge_set) for edge_set in graph.edges.values()])))
+
+    ##msg("Contracting binary nodes...")
+    ##contraction_list = graph.contract_binary_nodes()
+    #contraction_list = []
+    ##msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+    ##  sum([len(edge_set) for edge_set in graph.edges.values()])))
+    ##lcc = graph.lcc()
+    ##msg("The largest connected component has %d nodes and %d edges." %
+    ##    (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
+    #return graph, coord_map, arc_to_fid, contraction_list
 
 
 def create_population(fc, distance):
@@ -113,28 +173,30 @@ def create_population(fc, distance):
 
 
 def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
-    """Creates a graph from polylines and stores it in a simple file format."""
-    res = create_road_graph(shpFile, max_speed=maxSpeed)
-    graph, coordinateMap, arcToFID, contractionList = res
-    nodeToCoords = {node : coords for coords, node in coordinateMap.items()}
-    with open(filename, "w") as f:
-        f.write("{0}\n".format(graph.size()))
-        f.write("{0}\n".format(
-                sum([len(edges) for edges in graph.edges.values()])))
-        for node in graph.nodes:
-            x, y = nodeToCoords[node]
-            f.write("{0} {1}\n".format(x, y))
-        for source, targets in graph.edges.items():
-            for target, edge in targets.items():
-                f.write("{0} {1}".format(source, target))
-                if hasattr(edge.cost, '__iter__'):  
-                # TODO(Jonas): Check this using a shp file
-                  for elem in edge.cost:  
-                    f.write(" {0}".format(elem))
-                else:
-                  f.write(" {0}".format(edge.cost))
-                f.write("\n")
-    return arcToFID
+    """Dumps the feature class to a file, from where a graph in C++ is read."""
+    dump_graph_feature_class(shpFile, maxSpeed, filename)
+    ###
+    #nodeToCoords = {node : coords for coords, node in coordinateMap.items()}
+    #with open(filename, "w") as f:
+    #    f.write("{0}\n".format(graph.size()))
+    #    f.write("{0}\n".format(
+    #            sum([len(edges) for edges in graph.edges.values()])))
+    #    for node in graph.get_nodes():
+    #        x, y = nodeToCoords[node]
+    #        f.write("{0} {1}\n".format(x, y))
+    #    for source, targets in graph.edges.items():
+    #        for target, edge in targets.items():
+    #            f.write("{0} {1}".format(source, target))
+    #            if hasattr(edge.cost, '__iter__'):  
+    #            # TODO(Jonas): Check this using a shp file
+    #              for elem in edge.cost:  
+    #                f.write(" {0}".format(elem))
+    #            else:
+    #              f.write(" {0}".format(edge.cost))
+    #            f.write("\n")
+    ## This should encourage gbc to free the graph.
+    #graph, coordinateMap, contractionList = None, None, None
+    #return arcToFID
 
 
 def read_and_dump_parking(parkingShp):
@@ -157,13 +219,22 @@ def parse_and_dump(env):
     t = Timer()
     t.start_timing("Creating road graph from the data...")
     speed = 5
-    read_graph_and_dump_it(env.paramShpRoads, roadGraphFile, speed)
+    dump_graph_feature_class(env.paramShpRoads, roadFcDump, speed)
+    call_subprocess(scriptDir + "ReadGraphFromFeatureClassDumpMain.exe",
+            roadFcDump + " " + str(speed) + " " + roadGraphFile)
     t.stop_timing()
 
     t.start_timing("Creating forest road graph from the data...")
     speed = 5
-    forestArcToFID = read_graph_and_dump_it(
-            env.paramShpForestRoads, forestGraphFile, speed)
+    dump_graph_feature_class(env.paramShpForestRoads, forestFcDump, speed)
+    call_subprocess(scriptDir + "ReadGraphFromFeatureClassDumpMain.exe",
+            forestFcDump + " " + str(speed) + " " + forestGraphFile + " " 
+            + arcMappingFile)
+    with open(arcMappingFile) as f:
+        forestArcToFID = {}
+        for line in f:
+            a, b, fid = line.strip().split(" ")
+            forestArcToFID[(int(a), int(b))] = int(fid)
     t.stop_timing()
 
     t.start_timing("Creating population points...")
@@ -187,6 +258,7 @@ def parse_and_dump(env):
     t.stop_timing()
 
     t.start_timing("Parsing parking lot locations...")
+
     read_and_dump_parking(env.paramShpParking)
     t.stop_timing()
 
@@ -230,7 +302,7 @@ def call_subprocess(prog, args):
     msg("=====================")
     msg("Subprocess has finished {0}.".format(
         "successfully" if returnCode == 0 else "with an error"))
-    #msg(output)
+    msg(output)
     timer.stop_timing()
     msg("=====================")
     if returnCode != 0:
@@ -319,13 +391,12 @@ class AlgorithmEnvironment(object):
 
         self.paramValAlgorithm = int(self.paramValAlgorithm)
         self.paramValRasterize = self.paramValRasterize == "true"
-        msg(str(self.paramValAlgorithm) + " " + str(self.paramValRasterize))
 
 
 def create_raster(env, columnName, rasterPixelSize=20):
     if not arcpy.GetParameterAsText(0) or env.path.endswith(".gdb\\"):
-        # Reason: We are not working in ArcMap, or
-        # raster file handling in geodatabases is one hack of inconvenience...
+        # Reason: We are not working in ArcMap, or raster file handling in 
+        # geodatabases is one hack of inconvenience...
         msg("NOTE: I am not creating any raster from the data. Please do that"+
             " yourself.")
         return

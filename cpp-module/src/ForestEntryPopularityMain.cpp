@@ -411,7 +411,7 @@ int main(int argc, char** argv) {
   // Finally, the population of the parking lots is added to nodes of the graph,
   // such as if they were regular forest entries.
 
-  bool useParkingLotPopulationFromInput = false;
+  bool useParkingLotPopulationFromInput = true;
   vector<float> parkingPopulations;
   if (useParkingLotPopulationFromInput) {
     parkingPopulations = parkingLots[3];

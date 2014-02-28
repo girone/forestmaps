@@ -135,9 +135,6 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       // NOTE(Jonas): As a first scaling variant, increase the gain to minutes.
       // NOTE(Jonas): Try also division by (cost + 60).
       float gain = share / (cost + 60);
-      // NOTE(Jonas): The following assertion does not hold as there may be
-      // duplicate forest entries.
-      // assert(contribution[fep][node] == 0 && "Duplicate fep/node?");
       int w = nodeWeights[node];
       contribution[fep][node] = w * gain;
     }

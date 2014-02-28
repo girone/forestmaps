@@ -5,6 +5,8 @@ Copyright 2013: Jonas Sternisko
 
 """
 from collections import defaultdict
+import numpy as np
+
 
 class Edge(object):
   def __init__(self, cost):
@@ -27,9 +29,11 @@ class NodeInfo(object):
 
 
 class Graph(object):
-  def __init__(self):
+  def __init__(self, maxNumNodes):
+    """Requires the maximum number of nodes to be known."""
     self.edges = defaultdict(dict)  # {node : {successor : Edge}}
-    self.nodes = set()
+    #self.nodes = set()
+    self.nodes = np.zeros(maxNumNodes, dtype=np.uint8)
 
   def __repr__(self):
     return str(self.nodes) + "\n" + str(self.edges) + "\n"
@@ -40,6 +44,10 @@ class Graph(object):
   def __ne__(self, other):
     return self.nodes != other.nodes or self.edges != other.edges
 
+  def get_nodes(self):
+      """Returns defined nodes."""
+      return np.flatnonzero(self.nodes)
+
   def copy(self):
     """Returns a hard copy of the graph."""
     copy = Graph()
@@ -48,12 +56,12 @@ class Graph(object):
     return copy
 
   def size(self):
-    return max(self.nodes) + 1
+    return len(self.edges)
 
   def add_edge(self, s, t, c):
     """ Adds an edge from s to t with cost c. """
-    self.nodes.add(s)
-    self.nodes.add(t)
+    self.nodes[s] = 1
+    self.nodes[t] = 1
     try:
       if self.edges[s][t].cost > c:
         self.edges[s][t] = Edge(c)
@@ -63,7 +71,7 @@ class Graph(object):
   def remove_partition(self, node_ids):
     """ Removes nodes in @node_ids and incident arcs from the graph. """
     node_ids = set(node_ids)
-    self.nodes -= node_ids
+    self.nodes[node_ids] = 0
     for id in node_ids:
       self.edges.pop(id, None)
     for key, edges in self.edges.items():
@@ -135,9 +143,9 @@ class Graph(object):
     Returns the contraction order.
 
     """
-    contracted = set()
+    contracted = np.zeros(len(self.nodes))
     contraction_list = []
-    for node in self.nodes:
+    for node, bit in enumerate(self.nodes):
       edges = self.edges[node]
       if node not in exclude and len(edges) == 2:
         neighbors = edges.keys()
@@ -146,8 +154,8 @@ class Graph(object):
           res = self.contract_node(node, remove=False)
           assert len(res) == 2  # supports only binary contraction
           contraction_list.extend(res)
-          contracted.add(node)
-    self.nodes = self.nodes - contracted
+          contracted[node] = 1
+    self.nodes = self.nodes - contracted * self.nodes
     return contraction_list
 
   def contract_node(self, node, remove=True):
@@ -171,7 +179,7 @@ class Graph(object):
     for (a, b, cost) in new_edges:
       self.add_edge(a, b, cost)
     if remove:
-      self.nodes.remove(node)
+      self.nodes[node] = 0
     for neighbor in self.edges[node].keys():
       self.edges[neighbor].pop(node, None)
     self.edges.pop(node, None)
@@ -188,7 +196,7 @@ class Graph(object):
     for uncontractedArcs in reversed(contractionOrder):
       assert len(uncontractedArcs) == 2
       ((a, c), (_, b)) = uncontractedArcs
-      self.nodes.add(c)
+      self.nodes[c] = 1
       cost = self.edges[a][b].cost
       self.add_edge(a, c, cost)
       self.add_edge(c, b, cost)
