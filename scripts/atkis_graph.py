@@ -27,7 +27,7 @@ def distance(p1, p2):
 def determine_speed(way_type, max_speed):
   ''' Get the speed in km/h on a specific way type. '''
   speed = atkis_speed_table[way_type]
-  return max_speed if speed > max_speed else max_speed
+  return max_speed if speed > max_speed else speed
 
 
 def create_mappings_from_polylines(arr):
@@ -58,7 +58,7 @@ def create_graph_from_arc_map(preliminary_arcs, max_speed):
   g = Graph()
   for s, out_set in preliminary_arcs.items():
     for (t, fid, way_type, dist) in out_set:
-      cost = dist / determine_speed(way_type, max_speed) / 3.6
+      cost = dist / (determine_speed(way_type, max_speed) / 3.6)
       g.add_edge(s, t, cost)
   return g
 
@@ -103,7 +103,7 @@ def create_from_feature_class(fc, max_speed=5):
         index_a = add_node(last_coordinates)
         index_b = add_node(coordinates)
         dist = distance(last_coordinates, coordinates)
-        cost = dist / determine_speed(way_type, max_speed) / 3.6
+        cost = dist / (determine_speed(way_type, max_speed) / 3.6)
         graph.add_edge(index_a, index_b, cost)
         graph.add_edge(index_b, index_a, cost)
       else:
