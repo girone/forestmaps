@@ -23,6 +23,19 @@ void print_usage() {
   "  OutputFile -- Is what you think it is.\n"
             << std::endl;
 }
+/*
+ *
+ * TODO(Jonas): Have population counts as output.
+ *
+ * Proceed as follows: Store for each edge a list of pairs with possible tour
+ * starting forest entry points and the according weight of the edge in the
+ * tour. After the selected approach has finished, sort the list of each edge
+ * by the weights, and normalize all weights relative to their maximum. Then
+ * the populations of the forest entries is distributed according to the
+ * normalized weights.
+ *
+ * TODO(Jonas): Talk to Hannah about this later on.
+ */
 
 // _____________________________________________________________________________
 int main(int argc, char** argv) {
