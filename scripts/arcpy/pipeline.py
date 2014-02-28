@@ -1,9 +1,14 @@
 import arcpy
 import random
 import os
+import sys
 import numpy as np
 from matplotlib import mlab
 from util import msg, Timer
+''' Add library path for the non-arcpy modules. '''
+libpath = os.path.abspath(os.path.split(sys.argv[0])[0] + "\\..\\")
+sys.path.append(libpath)
+import atkis_graph
 
 
 def main():
@@ -55,6 +60,18 @@ def main():
   arr2 = arcpy.da.FeatureClassToNumPyArray(settlement_dataset, ["fid", "shape"], 
                                            explode_to_points=True)
   arr4 = arcpy.da.FeatureClassToNumPyArray(entrypoint_dataset, ["fid", "shape"])
+  t.stop_timing()
+
+  t.start_timing("Creating graph from the data, contracting binary nodes...")
+  graph = atkis_graph.create_graph(road_points_array)
+  msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+      sum([len(edge_set) for edge_set in graph.edges.values()])))
+  graph.contract_binary_nodes()
+  msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
+      sum([len(edge_set) for edge_set in graph.edges.values()])))
+  lcc = graph.lcc()
+  msg("The largest connection component has %d nodes and %d edges." %
+      (len(lcc.nodes), sum([len(e) for e in lcc.edges.values()])))
   t.stop_timing()
 
   t.start_timing("Computing distance to nearest forest entry...")
