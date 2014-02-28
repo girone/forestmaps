@@ -288,8 +288,9 @@ TEST(EdgeAttractivenessModelTest, distribute_contribution) {
   contributions[2][1] = 0.5;
   contributions[2][2] = 0.5;
   contributions[2][3] = 1.;
-  model.distribute(populations, contributions);
-  vector<float> attractivenesses = model.result();
+
+  vector<float> attractivenesses(g.num_arcs(), 0.f);
+  model.distribute(populations, contributions, &attractivenesses);
   EXPECT_FLOAT_EQ(1.0 * 10, attractivenesses[0]);
   EXPECT_FLOAT_EQ(0.8 * 10 + 0.8 * 15 + 0.5 * 5, attractivenesses[1]);
   EXPECT_FLOAT_EQ(0.5 * 10 + 1.0 * 15 + 0.5 * 5, attractivenesses[2]);

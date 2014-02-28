@@ -15,6 +15,7 @@ typedef unordered_map<int, float> Map;
 
 class EdgeAttractivenessModel {
  public:
+  typedef unordered_map<int, unordered_map<int, float> > MapMap;
   // C'tor.
   EdgeAttractivenessModel(const RoadGraph& g,
                           const vector<int>& feps,
@@ -41,6 +42,10 @@ class EdgeAttractivenessModel {
   virtual vector<float> compute_edge_attractiveness() = 0;
   // Returns the result.
   vector<float> result() const { return _aggregatedEdgeAttractivenesses; }
+  // Normalize the contributions of each entrypoint s.t. the maximum is 1.0
+  static void normalize_contributions(MapMap* c);
+  // Distributes the entry points' populations according to their contributions.
+  void distribute(const Map& pop, const MapMap& cont, vector<float>* att) const;
 
  protected:
   const RoadGraph& _graph;
@@ -74,7 +79,6 @@ class FloodingModel : public EdgeAttractivenessModel {
 // Computes the edge attractiveness using the via-edge approach.
 class ViaEdgeApproach : public EdgeAttractivenessModel {
  public:
-  typedef unordered_map<int, unordered_map<int, float> > MapMap;
   // C'tor.
   ViaEdgeApproach(const RoadGraph& g,
                   const vector<int>& feps,
@@ -91,11 +95,6 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
       const vector<bool>& settledS,
       const vector<int>& costsT,
       const vector<bool>& settledT);
-  // Normalize the contributions of each entrypoint s.t. the maximum is 1.0
-  static void normalize_contributions(MapMap* c);
-  // Distributes the entry points' populations according to their contributions.
-  void distribute(const Map& popu, const MapMap& contr);
-
 
  private:
   // Stores pairwise distances between forest entries.
