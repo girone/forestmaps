@@ -102,7 +102,7 @@ def create_grid_points(bbox, resolution, gridPointDistance):
         else:
             # Gauss-Kruger (east, north) coordinates in meters
             step = gridPointDistance
-    gridPoints = []
+    gridPoints = []  # TODO(Jonas): Use numpy methods to save space+time here!
     for i in range(1, int(math.ceil(h / step))):
         for j in range(1, int(math.ceil(w / step))):
             # (lon,lat) ~ (x,y)

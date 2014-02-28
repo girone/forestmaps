@@ -75,7 +75,10 @@ def pairwise(iterable):
 
 
 def distance(p1, p2):
-  """ Euclid. """
+  """ Euclid. 
+  
+  ATKIS Graph has Gauss-Kruger coordinates which are planar.
+  """
   return sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
 
 

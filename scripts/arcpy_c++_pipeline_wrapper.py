@@ -106,7 +106,7 @@ def create_population(fc, distance):
     polygons, inhabitants = shape_to_polygons(array, idKeyword)
     populations = [create_population_grid(p, [], gridPointDistance=distance)
                    for p in polygons]
-    msg("There are %d populations groupd." % len(populations))
+    msg("There are %d populations groups." % len(populations))
     return populations, inhabitants
 
 
@@ -243,9 +243,9 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 row[1] = FIDtoWeight[row[0]]
                 cursor.updateRow(row)
             else:
-                msg("{0} not contained".format(row[0]))
+                #msg("{0} not contained".format(row[0]))
                 count += 1
-    msg(("Warning: {0} of {1} FIDs could not be matched. Probably there road " +
+    msg(("Warning: {0} of {1} FIDs could not be matched. Probably their road " +
          "type has been ignored.").format(
          count, arcpy.management.GetCount(shp).getOutput(0)))
 

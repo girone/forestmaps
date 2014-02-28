@@ -48,8 +48,10 @@ vector<int> map_xy_locations_to_closest_node(
     const vector<float>& x, const vector<float>& y, const RoadGraph& graph);
 
 // Returns the X nearest neightbors within Y meters of the reference node.
+// The distance function has to be provided: distance(x0, y0, x1, y1).
 vector<TreeNode> get_nearest_X_within_Y(
-    const Tree2D& t, const TreeNode& ref, const uint X, const float Y);
+    const Tree2D& t, const TreeNode& ref, const unsigned int X, const float Y,
+    float (*dist_func)(float, float, float, float));
 
 
 #endif  // SRC_TREE2D_H_

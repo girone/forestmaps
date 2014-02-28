@@ -28,6 +28,17 @@ string join(const string& connector, const I& iterable) {
   return os.str();
 }
 
+// Adds variable number of arguments to a stream separated by connector.
+ostringstream& _append_to_stream(ostringstream& os, const string& connector);
+template<class First, class... Rest>
+ostringstream& _append_to_stream(ostringstream& os, const string& connector,
+                                 const First& first, Rest&... rest) {
+  os << connector;
+  os << first;
+  _append_to_stream(os, connector, rest...);
+  return os;
+}
+
 // Join again. Variadic template version to support lists of scalars.
 // TODO(Jonas): Does not yet work with only one argument, because the iterable
 // version is called then. Fix this.
@@ -38,17 +49,6 @@ string join(const string& connector, const First& first, const Types&... input) 
   os << first;
   _append_to_stream(os, connector, input...);
   return os.str();
-}
-
-// Adds variable number of arguments to a stream separated by connector.
-ostringstream& _append_to_stream(ostringstream& os, const string& connector);
-template<class First, class... Rest>
-ostringstream& _append_to_stream(ostringstream& os, const string& connector,
-                                 const First& first, Rest&... rest) {
-  os << connector;
-  os << first;
-  _append_to_stream(os, connector, rest...);
-  return os;
 }
 
 // Converts the input type to the output type.

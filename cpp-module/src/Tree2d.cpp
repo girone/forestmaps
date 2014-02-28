@@ -2,10 +2,8 @@
 
 #include "./Tree2d.h"
 #include <utility>
-#include "./ForestUtil.h"
 
 using std::pair;
-using forest::distance;
 
 // _____________________________________________________________________________
 // Builds a 2d tree from a road graph.
@@ -51,26 +49,27 @@ vector<int> map_xy_locations_to_closest_node(const vector<float>& x,
 
 // _____________________________________________________________________________
 // Returns the X nearest neightbors within Y meters of the reference node.
-vector<TreeNode> get_nearest_X_within_Y(const Tree2D& t, const TreeNode& ref,
-                                        const uint X, const float Y) {
+vector<TreeNode> get_nearest_X_within_Y(
+    const Tree2D& t, const TreeNode& ref, const unsigned int X, const float Y,
+    float (*dist_fun)(float, float, float, float)) {
   // Get everything within Y meters.
   vector<TreeNode> rangeQueryResults;
   t.find_within_range(ref, Y, std::back_inserter(rangeQueryResults));
   // Compute the actual great circle distances
-  vector<pair<float, uint> > distanceAndIndex;
-  uint index = 0;
+  vector<pair<float, unsigned> > distanceAndIndex;
+  unsigned index = 0;
   for (const TreeNode& node: rangeQueryResults) {
-    distanceAndIndex.emplace_back(distance(ref[0], ref[1], node[0], node[1]),
+    distanceAndIndex.emplace_back(dist_fun(ref[0], ref[1], node[0], node[1]),
                                   index++);
   }
   // Sort and truncate to the top X.
-  const uint k = X < rangeQueryResults.size() ? X : rangeQueryResults.size();
+  unsigned int k = X < rangeQueryResults.size() ? X : rangeQueryResults.size();
   std::partial_sort(distanceAndIndex.begin(), distanceAndIndex.begin() + k,
                     distanceAndIndex.end());
   const vector<TreeNode>& r = rangeQueryResults;
   vector<TreeNode> result;
   std::transform(distanceAndIndex.begin(), distanceAndIndex.begin() + k,
                  std::back_inserter(result),
-                 [r](const pair<float, uint>& e) { return r[e.second]; });
+                 [r](const pair<float, unsigned>& e) { return r[e.second]; });
   return result;
 }
