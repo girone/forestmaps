@@ -73,7 +73,7 @@ function init(){
 
     // HACK for restricted zoom range [0...16]
     map.getNumZoomLevels = function(){
-        return 17;
+        return 15;
     };
 
     map.zoomToMaxExtent();
@@ -124,9 +124,8 @@ function set_heatmap_point_scale(targetRadius) {
     if (scaleR > 7) { scaleR = 7; }
     if (map.zoom < 6) { scaleR = map.zoom - 1; }
     console.log("setting point scale to " + Math.ceil(point_radius) + " + " + scaleR)
-    point_radius = 1.5 * (Math.ceil(point_radius)/* + scaleR*/)
+    point_radius = 1.5 * (Math.ceil(point_radius) + Math.sqrt(scaleR / 2) - 1);
     heatmap.heatmap.set("radius", point_radius)
-
 };
 
 
@@ -302,26 +301,27 @@ function initialization_callback() {
 }
 
 function select_dataset(shortName) {
-  selectedDataset = shortName;
-  console.log("Changing dataset to " + selectedDataset)
-  request_dataset_bounds(selectedDataset);
-  allowCentering = true;  // Allow centering for this request.
+    selectedDataset = shortName;
+    console.log("Changing dataset to " + selectedDataset)
+    $.ajax({
+      url: url + "?datasetBoundsRequest=" + selectedDataset,
+      dataType: "jsonp"
+    });
+    allowCentering = true;  // Allow centering for this request.
 }
 
-function request_dataset_bounds(dataset) {
-    $.getJSON(url + "?datasetBoundsRequest=" + dataset, function( data ) {
-            var bounds = new OpenLayers.Bounds();
-            bounds.extend(new OpenLayers.LonLat(data.minLon, data.minLat));
-            bounds.extend(new OpenLayers.LonLat(data.maxLon, data.maxLat));
-            datasetExtent = bounds;
-            console.log(datasetExtent)
-            datasetExtent.transform(map.projection, layer.projection);
-            console.log("After transformation:")
-            console.log(datasetExtent)
-            map.zoomToExtent(datasetExtent);
-            console.log("Zoomlevel for first request after changing dataset is: " + map.zoom);
-            get_heatmap_raster(datasetExtent.toBBOX());
-    });
+function request_dataset_bounds_callback(data) {
+    var bounds = new OpenLayers.Bounds();
+    bounds.extend(new OpenLayers.LonLat(data.minLon, data.minLat));
+    bounds.extend(new OpenLayers.LonLat(data.maxLon, data.maxLat));
+    datasetExtent = bounds;
+    console.log(datasetExtent)
+    datasetExtent.transform(map.projection, layer.projection);
+    console.log("After transformation:")
+    console.log(datasetExtent)
+    map.zoomToExtent(datasetExtent);
+    console.log("Zoomlevel for first request after changing dataset is: " + map.zoom);
+    get_heatmap_raster(datasetExtent.toBBOX());
 }
 
 window.onload = function() {

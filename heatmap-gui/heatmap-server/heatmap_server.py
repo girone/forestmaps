@@ -5,6 +5,7 @@ Author: Jonas Sternisko.
 """
 import threading, webbrowser, BaseHTTPServer, SimpleHTTPServer
 import pickle, gc, urlparse, math
+import numpy as np
 from collections import defaultdict
 from heatmap import Heatmap, HeatmapFactory, compute_longitude_stepsize
 from timer import Timer
@@ -91,8 +92,6 @@ class HeatmapDatabase(object):
 
             globalYResolution = math.ceil((latEnd - latStart) / latFraction)
             globalXResolution = math.ceil((lonEnd - lonStart) / lonFraction)
-            print "globalYResolution", globalYResolution
-            print "globalXResolution", globalXResolution
             rasterData, latFrac = hm.rasterize(heatmap.leftBottomRightTop,
                                                (globalXResolution,
                                                 globalYResolution))
@@ -152,29 +151,30 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             try:
                 with Timer() as t:
                     if len(qlist) > 1:
+                        print qlist[1:]
                         result = method_call(args, opt=qlist[1:])
                     else:
                         result = method_call(args)
                 print " --> This took %s seconds." % t.secs
             except TypeError as e:
-                print e
+                print "ERROR:", e
             print "Success."
         except AttributeError as e:
             print e
             print "Failed!"
         return result
 
-    def datasetBoundsRequest(self, dataset):
+    def datasetBoundsRequest(self, dataset, opt=[]):
         """Requests the bounds of a dataset. Returns JSON."""
         print "datasetBoundsRequest() called with dataset=", dataset
         bounds = gLocalBounds[shortNameToIndex[dataset]]
         (minLon, minLat, maxLon, maxLat) = bounds
-        return ('{\n' +
+        return ('request_dataset_bounds_callback({\n' +
                 '   "minLon" : ' + str(minLon) + ',\n' +
                 '   "minLat" : ' + str(minLat) + ',\n' +
                 '   "maxLon" : ' + str(maxLon) + ',\n' +
                 '   "maxLat" : ' + str(maxLat) + ' \n' +
-                '}')
+                '});')
 
     def initializationRequest(self, zoomLevelAndBBoxesString, opt=[]):
         """Requests the raster initialization for the specified dataset.
@@ -232,7 +232,6 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             bbox = hm.leftBottomRightTop
         else:
             bbox = [float(s) for s in leftBottomRightTop.split(",")]
-        #heatmapExtract, latStepSize = heatmaps[index][lvl].rasterize(bbox)
         heatmapExtract, latStepSize = hm.extract(bbox)
         jsonp = self.format_heatmap_answer(heatmapExtract,
                                            hm.maximum,
@@ -290,16 +289,22 @@ def read_graph_file(filename):
     """Reads a graph file and returns nodes and edges."""
     nodes, edges = [], []
     with open(filename) as f1:
+        numNodes = int(f1.readline())
+        numEdges = int(f1.readline())
+        nodes = np.zeros([numNodes,3], dtype="float32")
+        edges = np.zeros([numEdges,2], dtype="int32")
+        nodeCount = 0
+        edgeCount = 0
         for line in f1:
-            parts = line.strip().split(" ")
+            parts = line.split(" ")
             if len(parts) == 4:
                 # node line
-                lat, lon, _, flag = parts
-                nodes.append( (float(lat), float(lon), int(flag)) )
+                nodes[nodeCount] = (float(parts[0]), float(parts[1]), int(parts[3])) 
+                nodeCount += 1
             elif len(parts) == 3:
                 # edge line
-                s, t, cost = parts
-                edges.append( (int(s), int(t)) )
+                edges[edgeCount] = (int(parts[0]), int(parts[1])) 
+                edgeCount += 1
     return nodes, edges
 
 
@@ -311,13 +316,13 @@ def heatmap_setup(graphFileNames, edgeHeatsFileNames):
         heats = []
         print "Reading heats from " + heatsFile + "..."
         with open(heatsFile) as f2:
+            heats = np.zeros([edges.shape[0], 1], dtype="float32")
+            heatCount = 0
             for line in f2:
-                heats.append(float(line.strip()))
-        assert len(heats) == len(edges) and "Number of heats and edges must equal."
-        ss, tt = zip(*edges)
-        edges = zip(ss, tt, heats)
+                heats[heatCount] = float(line)
+                heatCount += 1
         print "Constructing heatmap from data..."
-        heatmaps.append(HeatmapFactory.construct_from_graph(nodes, edges))
+        heatmaps.append(HeatmapFactory.construct_from_graph(nodes, edges, heats))
     return heatmaps
 
 
