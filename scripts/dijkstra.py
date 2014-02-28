@@ -6,6 +6,7 @@
     Copyright 2013: Jonas Sternisko
 '''
 import sys
+from Queue import PriorityQueue
 
 class Dijkstra:
   def __init__(self, graph):
@@ -20,28 +21,27 @@ class Dijkstra:
 
   def run(self, start_node):
     ''' Runs Dijkstra's algorithm from @start_node. '''
-    def relax_arc(target, new_cost, tentative_costs, priority_queue):
-      if new_cost < tentative_costs[target]:
-        tentative_costs[target] = new_cost
-        priority_queue.put((new_cost, target))
-    from Queue import PriorityQueue
-    pq = PriorityQueue()
-    pq.put((0, start_node))
+    def relax_arc(target, new_cost):
+      if new_cost < self.tentative_costs[target]:
+        self.tentative_costs[target] = new_cost
+        self.pq.put((new_cost, target))
+    self.pq = PriorityQueue()
+    self.pq.put((0, start_node))
     num_nodes = self.graph.size()
-    settled = [False] * num_nodes
-    tentative_costs = [sys.maxint] * num_nodes
-    tentative_costs[start_node] = 0
-    final_costs = [sys.maxint] * num_nodes
-    while not pq.empty():
-      cost, node = pq.get()
+    self.settled = [False] * num_nodes
+    self.tentative_costs = [sys.maxint] * num_nodes
+    self.tentative_costs[start_node] = 0
+    self.final_costs = [sys.maxint] * num_nodes
+    while not self.pq.empty():
+      cost, node = self.pq.get()
       if self.cost_limit and self.cost_limit < cost:
         break
-      if not settled[node]:
+      if not self.settled[node]:
         for to, edge in self.graph.edges[node].items():
-          relax_arc(to, cost + edge.cost, tentative_costs, pq)
-        settled[node] = True
-        final_costs[node] = cost
-    return final_costs
+          relax_arc(to, cost + edge.cost)
+        self.settled[node] = True
+        self.final_costs[node] = cost
+    return self.final_costs
 
 import unittest 
 class TestDijkstra(unittest.TestCase):
@@ -63,17 +63,6 @@ class TestDijkstra(unittest.TestCase):
     sp = d2.run(A)
     print sp == [0, 4, 2, 3, sys.maxint]
 
-##  def test_osmgraph(self):
-##    from graph import OsmGraph
-##    A, B, C = 599, 132, 17
-##    g = OsmGraph()
-##    g.add_osm_edge(A, B, 5)
-##    g.add_osm_edge(A, C, 10)
-##    g.add_osm_edge(B, C, 2)
-##    search = Dijkstra(g)
-##    self.assertEqual(g.osm_id_map[A], 0)
-##    res = search.run(g.osm_id_map[A])
-##    print res
 
 def main():
   ''' Tests this module. '''
