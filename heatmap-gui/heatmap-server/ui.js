@@ -10,6 +10,7 @@ var kpointRadius_DEGREE = kpointRadius_METERS / 111694.;
 var gMinZoomLevel = 5;
 var gMaxZoomLevel = 14;
 
+var requestCount = 1;
 
 // Transforms the json (lat, lon, count) by applying the maps' projection.
 function transform_data(inputData) {
@@ -77,8 +78,9 @@ function init() {
         return 15;
     };
 
-    // Select initial dataset
-    select_dataset("ro");
+    // Select initial dataset. Do this after a short delay such that the zoomEnd
+    // event is already registered.
+    setTimeout('select_dataset("ro");', 1000);
 }
 
 
@@ -127,20 +129,20 @@ function milliseconds() {
 }
 
 
-function get_heatmap_extract(bbox) {
-    var timestamp = milliseconds();
-    if (lastRequestExtent != map.getExtent()) {
-        if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
-            $.ajax({
-                url: url + "?heatmapRequest=" + bbox,
-                dataType: "jsonp"
-            });
-            lastRequestTimeStamp = timestamp;
-            lastRequestExtent = map.getExtent();
-            // console.log("Requesting data inside " + lastRequestExtent.transform(layer.projection,map.projection).toBBOX())
-        }
-    }
-}
+// function get_heatmap_extract(bbox) {
+//     var timestamp = milliseconds();
+//     if (lastRequestExtent != map.getExtent()) {
+//         if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
+//             $.ajax({
+//                 url: url + "?heatmapRequest=" + bbox,
+//                 dataType: "jsonp"
+//             });
+//             lastRequestTimeStamp = timestamp;
+//             lastRequestExtent = map.getExtent();
+//             // console.log("Requesting data inside " + lastRequestExtent.transform(layer.projection,map.projection).toBBOX())
+//         }
+//     }
+// }
 
 
 // Computes the GCD in meters.
@@ -164,9 +166,18 @@ function great_circle_distance(latlon0, latlon1) {
 
 function get_heatmap_raster(bbox) {
     var timestamp = milliseconds();
-    if (forceRequest ||
-        (allowRequests && Math.abs(timestamp - lastRequestTimeStamp) > 500) && 
+    //console.log("=================")
+    
+    //console.log(requestCount);
+    requestCount++;
+    //console.log("force: " + forceRequest + 
+    //    " allowRequest: " + allowRequests + 
+    //    " delta t: " + Math.abs(timestamp - lastRequestTimeStamp) + 
+    //    " map extents equal? " + (lastRequestExtent == map.getExtent()));
+    if (forceRequest || 
+        (allowRequests /*&& Math.abs(timestamp - lastRequestTimeStamp) > 500*/) && 
          lastRequestExtent != map.getExtent()) {
+        //console.log("allowed");
         var zoomlevel = 12;
         if (!(typeof map === "undefined")) {
             zoomlevel = map.zoom;
@@ -177,13 +188,15 @@ function get_heatmap_raster(bbox) {
         if (zoomlevel > gMaxZoomLevel) {
           zoomlevel = gMaxZoomLevel;
         }
-        // console.log("Requesting raster data inside " + bbox + " with zoomlevel " + zoomlevel);
+        //console.log("Requesting raster data inside " + bbox + " with zoomlevel " + zoomlevel);
         $.ajax({
             url: url + "?heatmapRasterRequest=" + bbox + "&dataset=" + selectedDataset + "&zoomlevel=" + zoomlevel,
             dataType: "jsonp"
         });
         lastRequestTimeStamp = timestamp;
         lastRequestExtent = map.getExtent();
+    } else {
+      //console.log("denied");
     }
 }
 
@@ -221,7 +234,7 @@ function parse_datastring(json) {
 
 var allowCentering = true
 function heatmap_request_callback(json) {
-    // console.log("Received JSONP with " + json.datacount + " elements.")
+    //console.log("Received JSONP with " + json.datacount + " elements.")
     // console.log(json)
     if (json.datacount > 1) {
         var data = parse_datastring(json);
@@ -311,7 +324,6 @@ window.onload = function() {
         }
         get_heatmap_raster(get_current_map_extent().toBBOX());
         // console.log("Zoom level " + map.zoom);
-        var bla = "bla"
     });
 
     map.events.register("moveend", map, function(){
