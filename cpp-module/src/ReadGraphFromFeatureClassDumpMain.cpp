@@ -33,8 +33,8 @@ struct Hash {
   }
 };
 
-//typedef unordered_map<pair<double, double>, int, Hash> CoordMap;
-typedef map<pair<double, double>, int> CoordMap;
+typedef unordered_map<pair<double, double>, int, Hash> CoordMap;
+//typedef map<pair<double, double>, int> CoordMap;
 typedef unordered_map<pair<int, int>, int, Hash> ArcToIdMap;
 
 unordered_map<int, int> ATKISSpeedTable = { {164001, 110},
@@ -90,21 +90,33 @@ std::ostream& operator<<(std::ostream& os, const CostWeightEdge& e) {
 template<class Edge>
 class Graph {
  public:
+  // Construct with number of nodes known in advance.
+  Graph(size_t nodes) : _edges(nodes, vector<pair<int, Edge>>()) { }
   void add_edge(int s, int t, const Edge& e) {
     _nodes.insert(s);
     _nodes.insert(t);
-    _edges[s][t] = e;
+    //_edges[s][t] = e;
+    assert(static_cast<size_t>(s) < _edges.size());
+    _edges[s].emplace_back(t, e);
   }
   size_t num_nodes() const { return _nodes.size(); }
-  size_t num_edges() const {
+  /*size_t num_edges() const {
     size_t n = 0;
     for (const pair<int, unordered_map<int, Edge>>& entry: _edges) {
       n += entry.second.size();
     }
     return n;
+  }*/
+  size_t num_edges() const {
+    size_t n = 0;
+    for (const auto& list: _edges) {
+      n += list.size();
+    }
+    return n;
   }
 
-  unordered_map<int, unordered_map<int, Edge>> _edges;
+  //unordered_map<int, unordered_map<int, Edge>> _edges;
+  vector<vector<pair<int, Edge> > > _edges;
   unordered_set<int> _nodes;
 };
 
@@ -151,7 +163,8 @@ Graph<Edge> read_graph(const vector<vector<double> >& cols,
   const vector<double>& weights = (cols.size() > 4) ? cols[4]
                                                     : vector<double>(fsize, 1);
 
-  Graph<Edge> g;
+  size_t nodeBound = fsize;  // it's an upper bound for the number of nodes
+  Graph<Edge> g(nodeBound);
   int lastIndex = -1;
   float dist = 0;
   int indexA, indexB;
@@ -185,6 +198,8 @@ Graph<Edge> read_graph(const vector<vector<double> >& cols,
     (*arcToId)[make_pair(indexA, indexB)] = lastIndex;
     (*arcToId)[make_pair(indexB, indexA)] = lastIndex;
   }
+  // Restrict the graph to used nodes, i.e. [0...N...nodeBound].
+  g._edges.resize(g.num_nodes());
   return g;
 }
 
@@ -209,12 +224,19 @@ void dump_graph(const string& filename, const G& g, const CoordMap& coordmap) {
     const pair<double, double>& coords = inverse[nodeId];
     ofs << coords.first << " " << coords.second << endl;
   }
-  for (auto it = g._edges.begin(); it != g._edges.end(); ++it) {
+  /*for (auto it = g._edges.begin(); it != g._edges.end(); ++it) {
     const int s = it->first;
     const auto& map = it->second;
     for (auto it2 = map.begin(); it2 != map.end(); ++it2) {
       ofs << s << " " << it2->first << " " << it2->second << endl;
     }
+  }*/
+  size_t nodeId = 0;
+  for (auto it = g._edges.begin(); it != g._edges.end(); ++it) {
+    for (auto it2 = it->begin(); it2 != it->end(); ++it2) {
+      ofs << nodeId << " " << it2->first << " " << it2->second << endl;
+    }
+    ++nodeId;
   }
 }
 
