@@ -5,7 +5,6 @@
 '''
 import Queue
 
-DEBUG = False
 
 ''' test_funcs go below '''
 def true(*args):
@@ -80,12 +79,10 @@ class WayTree(object):
     for succ, edge in edges.items():
       if self.detect_cycle(tree_node, succ, depth):
         continue
+      assert edge.cost > 0
       self.nodes.append(tree_node.create_successor(succ, edge.cost))
       ext.append(len(self.nodes) - 1)
       tree_node.successors.append(self.nodes[-1])
-    if DEBUG:
-      print len(self.nodes)
-      print self.nodes[-1].cost
     return ext
 
   def prune_cycle_subgraphs(self, max_arc_repeat=0):
@@ -111,6 +108,11 @@ class WayGenerator(object):
   def __init__(self, way_tree, graph):
     self.tree = way_tree
     self.graph = graph
+    self.edge_distance = None
+
+  def set_edge_distance(self, d):
+    assert len(d) == self.graph.size()
+    self.edge_distance = d
 
   def run(self, start_node, cost_limit=10, local_cycle_depth=2,  \
       prune_after=None):
@@ -128,8 +130,11 @@ class WayGenerator(object):
         count += 1
         if prune_after and count % prune_after == 0:
           self.tree.prune_cycle_subgraphs()
-          print 'Tree has %d nodes.' % len(self.tree.nodes)
-        if tree_node.cost < cost_limit:
+          #print 'Tree has %d nodes.' % len(self.tree.nodes)
+        if self.edge_distance and \
+            cost_limit - tree_node.cost < self.edge_distance[tree_node.node]:
+          tree_node.pruned = True
+        elif tree_node.cost < cost_limit:
           node_idx = tree_node.node
           ext = self.tree.expand(tree_node, self.graph.edges[node_idx], \
               local_cycle_depth)
@@ -161,7 +166,7 @@ class WayGenerator(object):
 
 
 def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
-    local_cycle_depth=2):
+    local_cycle_depth=2, edge_distance=None):
   ''' Enumerates walkways beginning at @start_node.
      
       Admissible walkways start at a WEP and end at a WEP. Start and end may
@@ -171,10 +176,16 @@ def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
       TODO(Jonas): Remove ways which have bad cycles.
       TODO(Jonas): Use some tree structure to represent the walkways.
       TODO(Jonas): Add online-filtering.
+
+      @edge_distance : If the minimum distance of the edge of the forest is
+                      known for every node, this is used to speed up the
+                      computation.
   '''
   # create the tree node until limit cmax
   tree = WayTree(start_node)
   gen = WayGenerator(tree, graph)
+  if edge_distance:
+    gen.set_edge_distance(edge_distance)
   gen.run(start_node, cost_limit, local_cycle_depth, prune_after=500)
   # prune bad walkways
   tree.prune_cycle_subgraphs(max_arc_repeat=0)
@@ -237,16 +248,12 @@ class WalkwayEnumerationTest(TestCase):
     gen = WayGenerator(tree, self.g)
     gen.run(A, cost_limit=50, local_cycle_depth=5)
     ways1 = gen.trace()
-    #for w in ways1:
-    #  print w
     ''' Prune subtrees with cycles from the tree. This removes two large
         repetitions. 
     '''
     collect = set()
     tree.root.traverse(collect, arc_repetition, prune)
     ways2 = gen.trace()
-    #for w in ways2:
-    #  print w
     self.assertLess(len(ways2), len(ways1))
 
   def test_global_cycle_avoidance(self):
@@ -267,12 +274,7 @@ class WalkwayEnumerationTest(TestCase):
     ways2 = enumerate_walkways(self.g, A, cost_limit=50, local_cycle_depth=5, \
         target_nodes=[A, E])
     self.assertNotEqual(ways1, ways2)
-    #print "ways1"
-    #for w in ways1:
-    #  print w
-    #print "ways2"
-    #for w in ways2:
-    #  print w
+
 
 if __name__ == '__main__':
   import unittest
