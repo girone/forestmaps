@@ -6,7 +6,6 @@
 #include <kdtree++/kdtree.hpp>
 #include "./DirectedGraph.h"
 
-// TODO(jonas): Split into header and source file.
 
 // _____________________________________________________________________________
 // Reference of a graph node in a 2dtree.
@@ -35,47 +34,22 @@ class TreeNode {
 
 typedef KDTree::KDTree<2, TreeNode> Tree2D;
 
-
 // _____________________________________________________________________________
+
 // Builds a 2d tree from a road graph.
-Tree2D build_kdtree(const RoadGraph& graph) {
-  Tree2D tree;
-  for (size_t i = 0; i < graph.nodes().size(); ++i) {
-    const RoadGraph::Node_t& node = graph.nodes()[i];
-    tree.insert(TreeNode(node, i));
-  }
-  return tree;
-}
+Tree2D build_kdtree(const RoadGraph& graph);
 
-// _____________________________________________________________________________
 // Builds a 2d tree from a set of coordinates.
-Tree2D build_kdtree(const vector<vector<float>>& coords) {
-  assert(coords.size() >= 2);
-  assert(coords[0].size() == coords[1].size());
-  Tree2D tree;
-  for (size_t i = 0; i < coords[0].size(); ++i) {
-    const float lat = coords[0][i];
-    const float lon = coords[1][i];
-    tree.insert(TreeNode(lat, lon, i));
-  }
-  return tree;
-}
+Tree2D build_kdtree(const vector<vector<float>>& coords);
 
-// _____________________________________________________________________________
 // Maps (x,y) coordinates to the closest node referenced by the kdtree.
 // Returns the index of the closest node for every row of x and y.
-vector<int> map_xy_locations_to_closest_node(const vector<float>& x,
-    const vector<float>& y, const RoadGraph& graph) {
-  Tree2D tree = build_kdtree(graph);
-  vector<int> closestNodeIndices(x.size(), -1);
-  assert(x.size() == y.size());
-  for (size_t i = 0; i < x.size(); ++i) {
-    TreeNode pos(x[i], y[i], -1);
-    std::pair<Tree2D::const_iterator, float> res = tree.find_nearest(pos);
-    assert(res.first != tree.end());
-    closestNodeIndices[i] = res.first->refNodeIndex;
-  }
-  return closestNodeIndices;
-}
+vector<int> map_xy_locations_to_closest_node(
+    const vector<float>& x, const vector<float>& y, const RoadGraph& graph);
+
+// Returns the X nearest neightbors within Y meters of the reference node.
+vector<TreeNode> get_nearest_X_within_Y(
+    const Tree2D& t, const TreeNode& ref, const uint X, const float Y);
+
 
 #endif  // SRC_TREE2D_H_
