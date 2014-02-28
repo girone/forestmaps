@@ -16,6 +16,7 @@ import os.path
 from enumerate_walkways import WayTree, WayGenerator, enumerate_walkways
 import visual_grid
 import edgedistance
+from contraction import SimpleContractionAlgorithm
 
 
 def main():
@@ -48,6 +49,11 @@ def main():
   g.contract_binary_nodes(exclude=wep_nodes)
   print n, len(g.nodes)
 
+  ''' Simplify the graph by contraction of nodes with only short arcs. '''
+  n = len(g.nodes)
+  c = SimpleContractionAlgorithm(g, 20.0)  # 10.0 seconds @ 5 km/h ~= 14m
+  c.contract_graph(exclude_nodes=wep_nodes)
+  print n, len(g.nodes)
 
   ''' Compute the distance to the edge of the woods (or load it) '''
   print 'Computing edge distance...'
