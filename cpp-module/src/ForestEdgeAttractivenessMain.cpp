@@ -30,8 +30,10 @@ int main(int argc, char** argv) {
   vector<int> forestEntries = util::read_column_file<int>(argv[2])[3];
   vector<float> entryPopulation = util::read_column_file<float>(argv[3])[0];
 
-  ViaEdgeApproach algorithm(forestGraph, forestEntries, entryPopulation,
-                            kPARAM_MAX_FOREST_TIME);
+//   ViaEdgeApproach algorithm(forestGraph, forestEntries, entryPopulation,
+//                             kPARAM_MAX_FOREST_TIME);
+  FloodingModel algorithm(forestGraph, forestEntries, entryPopulation,
+                          kPARAM_MAX_FOREST_TIME);
 
   const vector<float> result = algorithm.compute_edge_attractiveness();
   string filename = "edge_weights.txt";

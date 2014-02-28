@@ -44,6 +44,18 @@ class EdgeAttractivenessModel {
 
 
 // Computes the edge attractiveness using the via-edge approach.
+class FloodingModel : public EdgeAttractivenessModel {
+ public:
+  FloodingModel(const RoadGraph& g,
+                const vector<int>& feps,
+                const vector<float>& popularities,
+                const int maxCost);
+  // Computes the model.
+  virtual vector<float> compute_edge_attractiveness();
+};
+
+
+// Computes the edge attractiveness using the via-edge approach.
 class ViaEdgeApproach : public EdgeAttractivenessModel {
  public:
   // C'tor.
@@ -66,6 +78,43 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
   // Stores pairwise distances between forest entries.
   unordered_map<int, unordered_map<int, int> > _distances;
 };
+
+
+// _____________________________________________________________________________
+FloodingModel::FloodingModel(const RoadGraph& g, const std::vector< int >& feps, const std::vector< float >& popularities, const int maxCost)
+  : EdgeAttractivenessModel(g, feps, popularities, maxCost) {
+
+}
+
+// _____________________________________________________________________________
+std::vector< float > FloodingModel::compute_edge_attractiveness() {
+  // Collect node attractivenesses.
+  vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
+  Dijkstra<RoadGraph> dijkstra(_graph);
+  dijkstra.set_cost_limit(_maxCost);
+  for (size_t i = 0; i < _forestEntries.size(); ++i) {
+    int fep = _forestEntries[i];
+    dijkstra.reset();
+    dijkstra.run(fep);
+    const vector<int>& costs = dijkstra.get_costs();
+    const vector<uint>& settledNodes = dijkstra.get_settled_node_indices();
+    float popularity = _popularities[i];
+    for (uint node: settledNodes) {
+      int cost = costs[node];
+      assert(cost != Dijkstra<RoadGraph>::infinity);
+      if (cost < 1) { cost = 1; }
+      float gain = popularity / cost;  // TODO(Jonas): Some scaling or prefactor could/should be added.
+      nodeAttractiveness[node] += gain;
+    }
+  }
+
+  // Convert to arc attractivenesses: Each arc gets the attractiveness of its target.
+  const vector<RoadGraph::Arc_t>& arcs = _graph.arclist();
+  for (size_t i = 0; i < arcs.size(); ++i) {
+    _aggregatedEdgeAttractivenesses[i] = nodeAttractiveness[arcs[i].target];
+  }
+  return result();
+}
 
 
 // _____________________________________________________________________________
@@ -140,16 +189,16 @@ void ViaEdgeApproach::evaluate(
       if (costsFep2 == Dijkstra<RoadGraph>::infinity) { continue; }
       const int totalCost = costsFep1 + c + costsFep2;
       if (totalCost > _maxCost) { continue; }
+      float gain;
       if (fep1 == fep2) {
-        const float gain = _popularities[fep1] / costsFep2;
-        _aggregatedEdgeAttractivenesses[edgeIndex] += gain;
+        gain = _popularities[fep1] / costsFep2;
       } else {
         const float popularity = std::min(_popularities[fep1], _popularities[fep2]);
         const int distance = _distances[fep1][fep2];
         assert(totalCost > 0);
-        const float gain = popularity * distance / totalCost;
-        _aggregatedEdgeAttractivenesses[edgeIndex] += gain;
+        gain = popularity * distance / totalCost;
       }
+      _aggregatedEdgeAttractivenesses[edgeIndex] += gain;
     }
   }
 }
