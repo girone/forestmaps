@@ -37,22 +37,7 @@ int main(int argc, char** argv) {
   vector<vector<float> > preferences = util::read_column_file<float>(argv[4]);
   int approach = util::convert<int>(argv[5]);
 
-  // TODO(Jonas): Check input in separate function, ADD UNITTEST (I mean it!)
-  for (size_t i = 1; i < preferences[0].size(); ++i) {
-    if (preferences[0][i] <= preferences[0][i-1]) {
-      std::cout << "Wrong prefence intervals: upper bound " << preferences[0][i]
-                << " is less than or equal its predecessor." << std::endl;
-      exit(1);
-    }
-  }
-  for (float share: preferences[1]) {
-    if (share < 0 || share > 1) {
-      std::cout << "Wrong preference values: share " << share
-                << " is not in [0,1]." << std::endl;
-      exit(1);
-    }
-  }
-
+  assert(check_preferences(preferences));
 
   EdgeAttractivenessModel* algorithm;
   if (approach == 0) {

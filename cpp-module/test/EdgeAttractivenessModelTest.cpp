@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 #include "../src/EdgeAttractivenessModel.h"
+#include "../src/Util.h"
 
 using ::testing::Each;
 using ::testing::Gt;
@@ -194,3 +195,101 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
               "3 2 50\n", ss.str());
   }
 }
+
+
+// _____________________________________________________________________________
+TEST(EdgeAttractivenessModelTest, user_shares_functions) {
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+
+  vector<vector<float> > preferences =
+      {{ 15,   30,  60,  120},
+       {0.5, 0.25, 0.2, 0.05}};
+  RoadGraph g;
+  const vector<int> feps = {};
+  const vector<float> popularities = {};
+  FloodingModel model(g, feps, popularities, preferences, 0);
+
+  EXPECT_FLOAT_EQ(0.5, model.user_share(0));
+  EXPECT_FLOAT_EQ(0.5, model.user_share(15));
+  EXPECT_FLOAT_EQ(0.25, model.user_share(20));
+  EXPECT_FLOAT_EQ(0.25, model.user_share(30));
+  EXPECT_FLOAT_EQ(0.2, model.user_share(31));
+  EXPECT_FLOAT_EQ(0.05, model.user_share(120));
+  ASSERT_DEATH(model.user_share(121), ".*");
+
+  EXPECT_FLOAT_EQ(1., model.sum_of_user_shares_after(0));
+  EXPECT_FLOAT_EQ(1., model.sum_of_user_shares_after(15));
+  EXPECT_FLOAT_EQ(0.5, model.sum_of_user_shares_after(16));
+  EXPECT_FLOAT_EQ(0.5, model.sum_of_user_shares_after(30));
+  EXPECT_FLOAT_EQ(0.25, model.sum_of_user_shares_after(31));
+  EXPECT_FLOAT_EQ(0.25, model.sum_of_user_shares_after(60));
+  EXPECT_FLOAT_EQ(0.05, model.sum_of_user_shares_after(61));
+  EXPECT_FLOAT_EQ(0.05, model.sum_of_user_shares_after(120));
+  ASSERT_DEATH(model.sum_of_user_shares_after(121), ".*");
+}
+
+using std::endl;
+
+// _____________________________________________________________________________
+TEST(EdgeAttractivenessModelTest, check_preferences) {
+  std::string filename = "test-input.0.tmp.txt";
+  std::ofstream ofs(filename);
+  ofs << "15 0.5" << endl
+      << "30 0.25" << endl
+      << "60 0.2" << endl
+      << "120 0.05" << endl;
+  ofs.close();
+  vector<vector<float> > preferences = util::read_column_file<float>(filename);
+  ASSERT_EQ(2, preferences.size());
+
+  EXPECT_TRUE(EdgeAttractivenessModel::check_preferences(preferences));
+}
+
+// _____________________________________________________________________________
+TEST(EdgeAttractivenessModelTest, check_preferences1) {
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+  std::string filename = "test-input.1.tmp.txt";
+  std::ofstream ofs(filename);
+  ofs << "15 0.5" << endl
+      << "14 0.25" << endl  // <<<<<<<<<<<<< KEYS ARE NOT ASCENDING
+      << "60 0.2" << endl
+      << "120 0.05" << endl;
+  ofs.close();
+  vector<vector<float> > preferences = util::read_column_file<float>(filename);
+  ASSERT_EQ(2, preferences.size());
+
+  ASSERT_DEATH(EdgeAttractivenessModel::check_preferences(preferences), ".*");
+}
+
+// _____________________________________________________________________________
+TEST(EdgeAttractivenessModelTest, check_preferences2) {
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+  std::string filename = "test-input.2.tmp.txt";
+  std::ofstream ofs(filename);
+  ofs << "15 0.5" << endl
+      << "30 0.25" << endl
+      << "60 1.2" << endl  // <<<<<<<<<<<<< SHARE IS NOT IN [0,1]
+      << "120 0.05" << endl;
+  ofs.close();
+  vector<vector<float> > preferences = util::read_column_file<float>(filename);
+  ASSERT_EQ(2, preferences.size());
+
+  ASSERT_DEATH(EdgeAttractivenessModel::check_preferences(preferences), ".*");
+}
+
+// _____________________________________________________________________________
+TEST(EdgeAttractivenessModelTest, check_preferences3) {
+  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
+  std::string filename = "test-input.3.tmp.txt";
+  std::ofstream ofs(filename);
+  ofs << "15 0.5" << endl
+      << "30 0.25" << endl
+      << "60 0.2" << endl
+      << "120 0.5" << endl;  // <<<<<<<<<<<<< SUM IS NOT IN [0,1]
+  ofs.close();
+  vector<vector<float> > preferences = util::read_column_file<float>(filename);
+  ASSERT_EQ(2, preferences.size());
+
+  ASSERT_DEATH(EdgeAttractivenessModel::check_preferences(preferences), ".*");
+}
+
