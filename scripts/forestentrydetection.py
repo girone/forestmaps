@@ -359,10 +359,9 @@ def main():
   print 'Writing output...'
   filename = os.path.splitext(osmfile)[0] + "." + str(maxspeed) + "kmh"
   for data, extension in \
-      zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, \
-          nodeinfo], \
-          ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes', \
-          'nodeinfo']):
+      zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, 
+          nodeinfo], ['weps', 'forest_ids', 'population', 'graph', 'id_map', 
+          'nodes', 'nodeinfo']):
     f = open(filename + "." + extension + ".out", 'w')
     pickle.dump(data, f, protocol=2)
     f.close()

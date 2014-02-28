@@ -15,12 +15,12 @@ def visualize_nodes(graph, nodeinfo, node_ids=set(), inset=1.0, forest=[]):
   for poly in forest:
     g.fill_polygon(poly, fill='#1a7d02')
   for node in nodes_to_draw:
+    px, py = nodeinfo[node].pos
+    g.draw_circle((px, py), rad=4, outline='#AA0000', fill='#AA0000')
+    g.write_text((px, py), str(node))
+  for node in nodes_to_draw:
     for other, edge in graph.edges[node].items():
       g.draw_line([nodeinfo[node].pos, nodeinfo[other].pos], fill='#00FFFF', \
-          width=5)
-  for node in nodes_to_draw:
-    px, py = nodeinfo[node].pos
-    g.draw_circle((px, py), rad=10, outline='#AA0000', fill='#AA0000')
-    g.write_text((px, py), str(node))
+          width=2)
   g.show()
 
