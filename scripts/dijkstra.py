@@ -43,24 +43,41 @@ class Dijkstra:
         final_costs[node] = cost
     return final_costs
 
+import unittest 
+class TestDijkstra(unittest.TestCase):
+  def test_dijkstra(self):
+    from graph import Graph
+    A, B, C, D, E = 0, 1, 2, 3, 4
+    g = Graph()
+    g.add_edge(A, B, 4)
+    g.add_edge(A, C, 2)
+    g.add_edge(C, D, 1)
+    g.add_edge(D, B, 1)
+    g.add_edge(B, E, 1)
+    d1 = Dijkstra(g)
+    sp = d1.run(A)
+    print sp == [0, 4, 2, 3, 5]
+    
+    d2 = Dijkstra(g)
+    d2.set_cost_limit(4)
+    sp = d2.run(A)
+    print sp == [0, 4, 2, 3, sys.maxint]
+
+  def test_osmgraph(self):
+    from graph import OsmGraph
+    A, B, C = 599, 132, 17
+    g = OsmGraph()
+    g.add_osm_edge(A, B, 5)
+    g.add_osm_edge(A, C, 10)
+    g.add_osm_edge(B, C, 2)
+    search = Dijkstra(g)
+    self.assertEqual(g.osm_id_map[A], 0)
+    res = search.run(g.osm_id_map[A])
+    print res
+
 def main():
   ''' Tests this module. '''
-  from graph import Graph
-  A, B, C, D, E = 0, 1, 2, 3, 4
-  g = Graph()
-  g.add_edge(A, B, 4)
-  g.add_edge(A, C, 2)
-  g.add_edge(C, D, 1)
-  g.add_edge(D, B, 1)
-  g.add_edge(B, E, 1)
-  d1 = Dijkstra(g)
-  sp = d1.run(A)
-  print sp == [0, 4, 2, 3, 5]
-  
-  d2 = Dijkstra(g)
-  d2.set_cost_limit(4)
-  sp = d2.run(A)
-  print sp == [0, 4, 2, 3, sys.maxint]
+  unittest.main()
 
 if __name__ == '__main__':
   main()

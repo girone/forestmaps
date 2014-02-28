@@ -20,7 +20,8 @@ import scipy
 from scipy.spatial import qhull
 import math
 from grid import Grid
-from graph import Graph, Edge
+from graph import Graph, OsmGraph, Edge
+from dijkstra import Dijkstra
 
 
 speed_table = {"motorway"       : 110, \
@@ -92,7 +93,7 @@ def read_osmfile(filename):
   p_waytag = re.compile('\D*k="(\w+)" v="(\w+)"')
   way_nodes = {}
   ways_by_type = {'forest_delim': [], 'highway': []}
-  graph = Graph()
+  graph = OsmGraph()
   state = 'none'
   for line in f:
     stripped = line.strip()
@@ -129,8 +130,8 @@ def read_osmfile(filename):
             v = type_to_speed(way_type)
             if v != 0:
               t = calculate_edge_cost(nodes[e[0]], nodes[e[1]], v)
-              graph.add_edge(e[0], e[1], t)
-              graph.add_edge(e[1], e[0], t)
+              graph.add_osm_edge(e[0], e[1], t)
+              graph.add_osm_edge(e[1], e[0], t)
   return way_nodes, ways_by_type, graph, nodes
 
 
@@ -202,10 +203,12 @@ def lcc(nodes, graph, threshold):
 def select_wep(open_highway_nodes, forestal_highway_nodes, graph):
   ''' Selects nodes as WEP which are outside the forest and point into it. '''
   weps = set()
-  for node_id in open_highway_nodes:
+  for osm_id in open_highway_nodes:
+    node_id = graph.osm_id_map[osm_id]
     for other_node_id in graph.edges[node_id].keys():
-      if other_node_id in forestal_highway_nodes:
-        weps.add(node_id)
+      other_osm_id = graph.inv_osm_id_map[other_node_id]
+      if other_osm_id in forestal_highway_nodes:
+        weps.add(osm_id)
         break
   return weps
 
@@ -269,22 +272,7 @@ def sort_hull(hull, points):
   return points[ps[np.argsort(np.arctan2(A[:,1], A[:,0]))]]
 
 
-def main():
-  if len(sys.argv) != 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
-    print ''' No osm file specified! '''
-    exit(1)
-  osmfile = sys.argv[1]
-
-  '''
-    OSM denotes forest polygons as ways with tag either
-      <tag k="landuse" v="forest"/>
-    or
-      <tag k="natural" v="wood"/>
-
-    First sweep: Read all ways, store forest boundary node references.
-    Second sweep: Store lat-lon pairs for all boundary nodes in the correct
-    order.
-  '''
+def classify_forest(osmfile):
   print 'Reading nodes and ways from OSM and creating the graph...'
   node_ids, ways_by_type, digraph, nodes = read_osmfile(osmfile)
   forest_delim = ways_by_type['forest_delim']
@@ -311,8 +299,8 @@ def main():
 
   print 'Restrict forests to large connected components...'
   # turn this off, when fast results are needed
-  forestal_highway_nodes, removed = lcc(forestal_highway_nodes, digraph, 100)
-  open_highway_nodes.union(removed)
+  #forestal_highway_nodes, removed = lcc(forestal_highway_nodes, digraph, 100)
+  #open_highway_nodes.union(removed)
 
   print 'Select WEPs...'
   weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph)
@@ -323,7 +311,7 @@ def main():
   xmax, ymax = bbox[1]
   dummy = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
   boundary_polygon = hull
-  grid = create_population_grid(boundary_polygon, forest_polygons, 10)
+  population = create_population_grid(boundary_polygon, forest_polygons, 10)
 
   print 'Visualizing the result...'
   for poly in forest_polygons:
@@ -332,27 +320,55 @@ def main():
     x, y = visual_grid.transform(nodes[node_id])
     r = 10
     visual_grid.draw.ellipse((x-r,y-r,x+r,y+r), fill="#BB1111")
-  for (x,y) in grid:
+  for (x,y) in population:
     (x, y) = visual_grid.transform((x,y))
     r = 30
     visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
   visual_grid.show()
+  return weps, forestal_highway_nodes, population, digraph
 
-  print 'Writing output...'
-  f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
-  for p in weps:
-    f.write(str(p) + '\n')
-  f.close()
-  f = open(os.path.splitext(osmfile)[0] + '.forest_nodes.out', 'w')
-  for n in forestal_highway_nodes:
-    f.write(str(n) + '\n')
-  f.close()
-  ''' Output the population locations. The cpp-module will create nodes from
-      these. '''
-  f = open(os.path.splitext(osmfile)[0] + '.population_grid_points.out', 'w')
-  for (x,y) in grid:
-    f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
-  f.close()
+
+def main():
+  if len(sys.argv) != 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
+    print ''' No osm file specified! '''
+    exit(1)
+  osmfile = sys.argv[1]
+
+  weps, forestal_highway_nodes, population, graph = classify_forest(osmfile)
+  # print 'Writing output...'
+  # f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
+  # for p in weps:
+  #   f.write(str(p) + '\n')
+  # f.close()
+  # f = open(os.path.splitext(osmfile)[0] + '.forest_nodes.out', 'w')
+  # for n in forestal_highway_nodes:
+  #   f.write(str(n) + '\n')
+  # f.close()
+  # ''' Output the population locations. The cpp-module will create nodes from
+  #     these. '''
+  # f = open(os.path.splitext(osmfile)[0] + '.population_grid_points.out', 'w')
+  # for (x,y) in population:
+  #   f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
+  # f.close()
+
+  ''' Restrict the graph to non-forest nodes. '''
+  graph.remove_partition(forestal_highway_nodes)
+
+  ''' Compute Dijkstra from every WEP. '''
+  avg = 0
+  for count, node in enumerate(weps):
+    print 'Running time-restricted Dijkstra %d of %d...' % (count+1, len(weps))
+    search = Dijkstra(graph)
+    search.set_cost_limit(60 * 60)  # 1 hour
+    res = search.run(graph.osm_id_map[node])
+    avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
+  avg /= len(weps)
+  print 'In average, %f of %d nodes have been settled.' \
+      % (avg, len(graph.nodes))
+
+
+
+
 
 if __name__ == '__main__':
   ''' Run this module '''
