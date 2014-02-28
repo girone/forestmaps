@@ -16,13 +16,19 @@
 template<class N, class A>
 class DirectedGraph {
  public:
+  typedef N Node_t;
+  typedef A Arc_t;
+
   DirectedGraph() {}
   DirectedGraph(const std::vector<N>& nodes,
       const std::vector<std::vector<A>>& arcs);
+
   size_t numNodes() const { return _arcs.size(); }
   const N& node(uint node) const;
-  std::string getSummaryString() const;
   const std::vector<A>& arcs(uint node) const;
+
+  std::string getSummaryString() const;
+
  protected:
   std::vector<std::vector<A> > _arcs;  // size = #nodes.
   std::vector<N> _nodes;

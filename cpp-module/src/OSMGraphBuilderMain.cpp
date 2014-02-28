@@ -5,6 +5,7 @@
 
 #include <string>
 #include "./OSMGraphBuilder.h"
+#include "./LCC.h"
 
 using std::string;
 
@@ -15,4 +16,5 @@ int main(int argc, char** argv) {
   OSMGraph g;
   OSMGraphBuilder builder = OSMGraphBuilder::RoadGraphBuilder(&g);
   builder.build(filename);
+  g = graph_utils::lcc(g);
 }

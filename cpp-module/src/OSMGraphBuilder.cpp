@@ -173,7 +173,6 @@ void OSMGraphBuilder::parseWay() {
   string wayType = NO_WAY_TYPE;
   while (_tokenIt != _tokensEnd) {
     const string& token = *_tokenIt;
-    size_t pos = findPos(token, " id=\"");
     if (boost::starts_with(token, "nd")) {
       size_t pos = findPos(token, "ref=\"");
       int id = atoi(token.c_str() + pos);
@@ -206,9 +205,9 @@ void OSMGraphBuilder::parseWay() {
       addArc(fromId, toId, duration);
       addArc(toId, fromId, duration);
     }
-  } else if (wayType != NO_WAY_TYPE) {
+  }/* else if (wayType != NO_WAY_TYPE) {
     std::cout << "Ignored way with type '" << wayType << "'" << std::endl;
-  }
+  }*/
 }
 
 // _____________________________________________________________________________
