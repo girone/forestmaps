@@ -80,7 +80,7 @@ int main(int argc, char** argv) {
   util::dump_vector(result, filename);
   delete algorithm;
 
-  // Message to exernal callers which can't fetch the return code.
+  // Message to external callers which can't fetch the return code.
   std::cout << std::endl << "OK" << std::endl;
   return 0;
 }

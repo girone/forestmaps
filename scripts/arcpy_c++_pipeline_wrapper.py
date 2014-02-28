@@ -19,7 +19,8 @@ entryXYFile         = "forest_entries_xy.tmp.txt"
 populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
-carPopulationFile   = "car_population.tmp.txt"  # population available for car
+#carPopulationFile   = "car_population.tmp.txt"  # population available for car
+entryAndParkingXYRFFile = "forest_entries_plus_parking_xyrf.tmp.txt"
 parkingLotsFile     = "parking_lot_positions.tmp.txt"
 edgeWeightFile      = "edge_weights.tmp.txt"
 ttfFile             = "preferences_TTF.txt"
@@ -141,11 +142,12 @@ def read_and_dump_parking(parkingShp):
     """Parses and dumps the parking lot locations."""
     fields = [f.name.lower() for f in arcpy.ListFields(parkingShp)]
     idKeyword = "fid" if "fid" in fields else "objectid"
+    fieldnames = [idKeyword, "shape", "RANK", "EW"]
     array = arcpy.da.FeatureClassToNumPyArray(
-            parkingShp, [idKeyword, "shape"], explode_to_points=True)
+            parkingShp, fieldnames, explode_to_points=True)
     with open(parkingLotsFile, "w") as f:
-        for entry in array:
-            f.write("{0} {1}\n".format(entry[1][0], entry[1][1]))
+        for _, coords, rank, pop in array:
+            f.write("{0} {1} {2} {3}\n".format(coords[0], coords[1], rank, pop))
 
 
 def parse_and_dump(env):
@@ -399,7 +401,7 @@ def main():
         add_column(entrypointPopulation, "populati", env.paramShpEntrypoints)
 
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
-            forestGraphFile + " " + entryXYRFFile + " " +
+            forestGraphFile + " " + entryAndParkingXYRFFile + " " +
             entryPopularityFile + " " + tifFile +
             " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
 

@@ -7,6 +7,7 @@
 #define SRC_UTIL_H_
 
 #include <cassert>
+#include <algorithm>
 #include <vector>
 #include <string>
 #include <fstream>
@@ -105,6 +106,13 @@ void dump_vector(const vector<T>& vec, const string& filename) {
   assert(ofs.good());
   for (const T& element: vec)
     ofs << element << std::endl;
+}
+
+// Calculates the sum of elements of an iterable range.
+template<class T>
+T sum(const vector<T>& iterable) {
+  T initial = 0;
+  return std::accumulate(iterable.cbegin(), iterable.end(), initial);
 }
 
 }  // namespace util
