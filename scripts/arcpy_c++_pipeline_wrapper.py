@@ -188,9 +188,17 @@ def create_population(fc, distance):
     from forestentrydetection import create_population_grid
     fields = [f.name.lower() for f in arcpy.ListFields(fc)]
     idKeyword = "fid" if "fid" in fields else "objectid"
-    array = arcpy.da.FeatureClassToNumPyArray(fc,
-                                              [idKeyword, "shape", "FIRST_Bevo"],
-                                              explode_to_points=True)
+    # workaround for data still not conforming to specification
+    populationKey = "first_bevo" if "first_bevo" in fields else None
+    if not populationKey:
+        populationKey = ("first_bevoelkerung_touris_2011__touris" 
+                         if "first_bevoelkerung_touris_2011__touris" in fields 
+                         else None)
+    assert populationKey and \
+            ("Population field missing in data or it has a wrong name.")
+
+    array = arcpy.da.FeatureClassToNumPyArray(
+            fc, [idKeyword, "shape", populationKey], explode_to_points=True)
     if len(array.dtype.names) == 3:
         array.dtype.names = (idKeyword, 'shape', 'population')
     else:
@@ -200,33 +208,6 @@ def create_population(fc, distance):
                    for p in polygons]
     msg("There are %d populations groups." % len(populations))
     return populations, inhabitants
-
-
-def read_graph_and_dump_it(shpFile, filename, maxSpeed=kWALKING_SPEED):
-    """Dumps the feature class to a file, from where a graph in C++ is read."""
-    dump_graph_feature_class(shpFile, maxSpeed, filename)
-    ###
-    #nodeToCoords = {node : coords for coords, node in coordinateMap.items()}
-    #with open(filename, "w") as f:
-    #    f.write("{0}\n".format(graph.size()))
-    #    f.write("{0}\n".format(
-    #            sum([len(edges) for edges in graph.edges.values()])))
-    #    for node in graph.get_nodes():
-    #        x, y = nodeToCoords[node]
-    #        f.write("{0} {1}\n".format(x, y))
-    #    for source, targets in graph.edges.items():
-    #        for target, edge in targets.items():
-    #            f.write("{0} {1}".format(source, target))
-    #            if hasattr(edge.cost, '__iter__'):  
-    #            # TODO(Jonas): Check this using a shp file
-    #              for elem in edge.cost:  
-    #                f.write(" {0}".format(elem))
-    #            else:
-    #              f.write(" {0}".format(edge.cost))
-    #            f.write("\n")
-    ## This should encourage gbc to free the graph.
-    #graph, coordinateMap, contractionList = None, None, None
-    #return arcToFID
 
 
 def read_and_dump_parking(parkingShp):

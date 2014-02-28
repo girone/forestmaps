@@ -64,7 +64,6 @@ def create_population_grid(boundaryPolygons, forestPolygons, resolution=None,
     boundaryPolygons minus the forestPolygons. The resolution can be specified
     either by the number of points along the smaller side of the bounding box
     of all polygons, or by the distance between every two points.
-
     """
     bbox = bounding_box(boundaryPolygons)
     gridPoints = create_grid_points(bbox, resolution, gridPointDistance)
@@ -74,7 +73,8 @@ def create_population_grid(boundaryPolygons, forestPolygons, resolution=None,
     else:
         polys = boundaryPolygons
     gridPoints = filter_point_grid(gridPoints, polys, 'intersect')
-    gridPoints = filter_point_grid(gridPoints, forestPolygons, 'difference')
+    if len(forestPolygons):
+        gridPoints = filter_point_grid(gridPoints, forestPolygons, 'difference')
     return gridPoints
 
 
@@ -84,7 +84,6 @@ def create_grid_points(bbox, resolution, gridPointDistance):
     Creates a point grid for a region with @resolution many points along the
     smaller side of @bbox or @gridPointDistance meters between every pair of
     neighboring points.
-
     """
     assert bool(resolution) != bool(gridPointDistance)  # Specify exactly one!
     w, h = width_and_height(bbox)
@@ -102,7 +101,7 @@ def create_grid_points(bbox, resolution, gridPointDistance):
         else:
             # Gauss-Kruger (east, north) coordinates in meters
             step = gridPointDistance
-    gridPoints = []  # TODO(Jonas): Use numpy methods to save space+time here!
+    gridPoints = []  # NOTE(Jonas): Could use numpy methods to save space+time
     for i in range(1, int(math.ceil(h / step))):
         for j in range(1, int(math.ceil(w / step))):
             # (lon,lat) ~ (x,y)
