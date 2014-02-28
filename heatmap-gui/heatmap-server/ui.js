@@ -1,6 +1,7 @@
 
 var map, layer, heatmap;
 var lastRequestExtent;
+var selectedDataset = "ro";
 var point_radius = 50;  // px
 var kPOINT_RADIUS_METERS = 30.;
 var kPOINT_RADIUS_DEGREE = kPOINT_RADIUS_METERS / 111694.;
@@ -72,7 +73,8 @@ function init(){
     lastRequestExtent = map.getExtent();
 
     // Load initial data from server
-    get_heatmap_extract("");
+    //get_heatmap_extract("");
+    get_heatmap_raster("");
 
     //$.getJSON( "dummy.json", function( data ) {
         //update_heatmap(data);
@@ -98,7 +100,8 @@ function update_heatmap(data) {
         //map.zoomToExtent(data_bounds(data.data).transform(map.projection, layer.projection));
         allowNewHeatmapRequest = true;
     }
-    set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
+    //set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
+    set_heatmap_point_scale(data.radius);
 }
 
 
@@ -107,6 +110,7 @@ function set_heatmap_point_scale(targetRadius) {
     var ext, deltaLatitudeOfMap, pixelHeightOfMap;
     ext = layer.getExtent().transform(layer.projection, map.projection);
     deltaLatitudeOfMap = Math.abs(ext.top - ext.bottom);
+    console.log("deltaLat = " + deltaLatitudeOfMap)
     pixelHeightOfMap = $('#heatmapArea').height();
     point_radius = targetRadius / deltaLatitudeOfMap * pixelHeightOfMap;
     point_radius = Math.ceil(point_radius) + 1
@@ -116,6 +120,9 @@ function set_heatmap_point_scale(targetRadius) {
 
 
 var url = "http://sambesi.informatik.uni-freiburg.de:8080/index.html";
+var hostname = window.location.hostname;
+var port = window.location.port;
+var url = "http://" + hostname + ":" + port + "/"
 var lastRequestTimeStamp = 0;
 var paramOfLastRequest = "none"
 
@@ -144,17 +151,38 @@ function get_heatmap_extract(bbox) {
     }
 }
 
+
+// Computes the GCD in meters.
+// According to: http://en.wikipedia.org/wiki/Great-circle_distance
+function great_circle_distance(latlon0, latlon1) {
+    var lat0 = latlon0[0],
+    lon0 = latlon0[1],
+    lat1 = latlon1[0],
+    lon1 = latlon1[1];
+
+    var to_rad = Math.pi / 180.
+    var r = 6371000.785
+    var dLat = (lat1 - lat0) * to_rad
+    var dLon = (lon1 - lon0) * to_rad
+    var a = Math.sin(dLat / 2.) * Math.sin(dLat / 2.)
+    a += (Math.cos(lat0 * to_rad) * Math.cos(lat1 * to_rad) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2));
+    return 2 * r * math.asin(Math.sqrt(a));
+}
+
+
 function get_heatmap_raster(bbox) {
     var timestamp = milliseconds();
     if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
         $.ajax({
-            url: url + "?heatmapRasterRequest=" + bbox,
+            url: url + "?heatmapRasterRequest=" + bbox + "&dataset=" + selectedDataset,
             dataType: "jsonp"
         });
         lastRequestTimeStamp = timestamp;
         paramOfLastRequest = bbox;
         lastRequestExtent = map.getExtent();
         console.log("Requesting raster data inside " + lastRequestExtent.transform(layer.projection,map.projection).toBBOX())
+        console.log("Dataset is " + selectedDataset);
     }
 }
 
@@ -162,7 +190,8 @@ function get_heatmap_raster(bbox) {
 // Parses the JSON data which come in the following format:
 // json = {
 //    datacount : int,
-//    max       : int,
+//    max       : float,
+//    radius    : float (latitude degrees),
 //    data      : [lat0,lon0,count0,lat1,lon1,count1,...]
 // }
 function parse_datastring(json) {
@@ -181,10 +210,11 @@ function parse_datastring(json) {
         });
     }
     result.max = maxi;
-    // Fix: Use median as max for better display.
-    var median = heats.sort()[Math.floor(heats.length/2)];
-    result.max = median / 2.5;
     result.max = json.max;
+    console.log("heats.length: " + heats.length)
+    var median = heats.sort()[Math.floor(heats.length/2)];
+    //result.max = median;
+    result.radius = json.radius;
     console.log("Maximum of all data is " + result.max);
     return result;
 }
@@ -199,11 +229,20 @@ function heatmap_request_callback(json) {
         if (allowCentering) {
             //console.log("Allow initial centering.")
             allowCentering = false;
-            map.zoomToExtent(data_bounds(data.data).transform(map.projection, layer.projection));
+            map.zoomToExtent(
+                data_bounds(data.data).transform(map.projection,
+                                                 layer.projection)
+            );
         }
     }
 }
 
+
+function select_dataset(shortName) {
+  selectedDataset = shortName;
+  allowCentering = true;  // Allow centering for this request.
+  get_heatmap_raster("");
+}
 
 window.onload = function() {
     init();
@@ -226,6 +265,20 @@ window.onload = function() {
         }
         get_heatmap_raster(get_current_map_extent().toBBOX());
         set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
+    });
+
+
+    $('#data-toggle-de').click(function() {
+      select_dataset("de");
+    });
+    $('#data-toggle-at').click(function() {
+      select_dataset("at");
+    });
+    $('#data-toggle-ch').click(function() {
+      select_dataset("ch");
+    });
+    $('#data-toggle-ro').click(function() {
+      select_dataset("ro");
     });
 };
 

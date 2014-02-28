@@ -4,7 +4,7 @@ Contains the Heatmap class.
 
 """
 import numpy as np
-from math import floor
+from math import floor, ceil
 
 class Heatmap(object):
     def __init__(self, nodes, edges):
@@ -41,7 +41,7 @@ class Heatmap(object):
         # Test: Maybe scaling is better with this:
         intensities = np.array(sorted(heat))
         intensities = intensities[intensities[:]>0]
-        self.maximum = intensities[len(intensities)/2]
+        self.maximum = intensities[len(intensities)/2] * 2.5
         # Sort by latitude and throw away zero entries.
         nodeHeat = sorted(zip(lats, lons, heat))
         self.heatmap = np.array([node for node in nodeHeat if node[2] != 0.])
@@ -54,7 +54,7 @@ class Heatmap(object):
         else:
             i = 0
             while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
-                i += 1
+                i += 1  # could use exponential or binary search here
             filtered = np.zeros([len(self.heatmap) - i, 3])
             j = i
             while j < len(self.heatmap) and self.heatmap[j][0] <= maxLat:
@@ -65,22 +65,18 @@ class Heatmap(object):
             filtered = np.resize(filtered, [j-i,3])
             return filtered
 
-    def rasterize(self, bbox, (xres,yres)=(180,120)):  #=(640,)
+    def rasterize(self, bbox, (xres,yres)=(18,12)):  #=(640,)
         """Returns a raster discretizing the intensities inside the bbox."""
         minLon, minLat, maxLon, maxLat = bbox
         latFraction = (maxLat - minLat) / (yres - 1.)
         lonFraction = latFraction  # (maxLon - minLon) / (xres - 1.)
-        print "latFrac, lonFrac: ", latFraction, lonFraction
-        i = 0
-        while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
-            i += 1
 
-        xres = floor((maxLon - minLon) / lonFraction)
-        coords = np.zeros([yres, xres, 2])
-        latStart = floor(minLat / latFraction) * latFraction + latFraction
-        lonStart = floor(minLon / lonFraction) * lonFraction + lonFraction
-        print "minLat, latStart ", minLat, latStart
-        print "minLon, lonStart ", minLon, lonStart
+        latStart = floor(minLat / latFraction) * latFraction - latFraction
+        lonStart = floor(minLon / lonFraction) * lonFraction - lonFraction
+        xres = ceil((maxLon + 0.5 * lonFraction - lonStart) / lonFraction)
+        coords = np.zeros([yres+2, xres+2, 2])
+
+
         lat = latStart
         y = 0
         while y < coords.shape[0]:
@@ -93,16 +89,19 @@ class Heatmap(object):
             lat += latFraction
             y += 1
 
-        raster = np.zeros([yres,xres])
-        while i < len(self.heatmap) and self.heatmap[i][0] <= maxLat:
+        raster = np.zeros([yres+2,xres+2])
+        i = 0
+        while i < len(self.heatmap) and self.heatmap[i][0] < latStart:
+            i += 1  # could use exponential or binary search here
+        while i < len(self.heatmap) and self.heatmap[i][0] < maxLat + 0.5 * latFraction:
             lat, lon, heat = self.heatmap[i]
-            if lon >= minLon and lon <= maxLon:
-                ly = (lat - latStart) / latFraction
-                lx = (lon - lonStart) / lonFraction
+            if lon >= lonStart and lon < maxLon + 0.5 * lonFraction:
+                ly = (lat + 0.5 * latFraction - latStart) / latFraction
+                lx = (lon + 0.5 * lonFraction - lonStart) / lonFraction
                 raster[ly,lx] += heat
             i += 1
         #print np.dstack([coords, raster])[raster[:] > 0]
-        return np.dstack([coords, raster])[raster[:] > 0]
+        return np.dstack([coords, raster])[raster[:] > 0], latFraction
 
 
 
