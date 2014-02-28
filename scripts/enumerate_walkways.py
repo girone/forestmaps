@@ -88,12 +88,22 @@ class WayTree(object):
       print self.nodes[-1].cost
     return ext
 
-  def prune_cycle_subgraphs(self, max_arc_repeat):
+  def prune_cycle_subgraphs(self, max_arc_repeat=0):
     ''' Traverses the graph and removes subgraphs which repeat an arc for more
         than @max_arc_repeat times.
+        TODO(Jonas): Implement the parameter.
+        Returns the 'prune_state', information which can be reused in the next
+        pruning operation.
     '''
-    traversed_arcs = set()
-    self.root.traverse(traversed_arcs, arc_repetition, prune)
+    new_prune_state = []
+    if not self.prune_state:
+      traversed_edges = set()
+      self.root.traverse(traversed_edges, new_prune_state)
+    else:
+      for (node, traversed_edges) in self.prune_state:
+        node.traverse(traversed_edges, new_prune_state)
+    self.prune_state = new_prune_state
+    return self.prune_state
 
 
 class WayGenerator(object):
@@ -102,22 +112,30 @@ class WayGenerator(object):
     self.tree = way_tree
     self.graph = graph
 
-  def run(self, start_node, cost_limit=10, local_cycle_depth=2):
+  def run(self, start_node, cost_limit=10, local_cycle_depth=2,  \
+      prune_after=None):
     ''' Generates ways until all open ways exceed the @cost_limit. 
         @local_cycle_depth : 
     '''
     assert self.tree.root.node == start_node
     q = Queue.Queue()
     q.put(0)  # index of tree root
+    count = 0
     while not q.empty():
       i = q.get()
       tree_node = self.tree.nodes[i]
-      if tree_node.cost < cost_limit:
-        node_idx = tree_node.node
-        ext = self.tree.expand(tree_node, self.graph.edges[node_idx], \
-            local_cycle_depth)
-        for e in ext:
-          q.put(e)
+      if not tree_node.pruned:
+        count += 1
+        if prune_after and count % prune_after == 0:
+          self.tree.prune_cycle_subgraphs()
+          print 'Tree has %d nodes.' % len(self.tree.nodes)
+        if tree_node.cost < cost_limit:
+          node_idx = tree_node.node
+          ext = self.tree.expand(tree_node, self.graph.edges[node_idx], \
+              local_cycle_depth)
+          for e in ext:
+            q.put(e)
+    print 'Expanded %d tree nodes.' % count
 
   def backtrack_path(self, leaf_node):
     ''' Backtracks a path from a node to the root, returns a node sequence. '''
@@ -156,7 +174,10 @@ def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
   # create the tree node until limit cmax
   tree = WayTree(start_node)
   gen = WayGenerator(tree, graph)
-  gen.run(start_node, cost_limit, local_cycle_depth)
+  gen.run(start_node, cost_limit, local_cycle_depth, prune_after=500)
+  # prune bad walkways
+  tree.prune_cycle_subgraphs(max_arc_repeat=0)
+
 
   # collect ways which end at an WEP and have cost >= cmin
   ways = gen.trace(targets=target_nodes)
