@@ -41,8 +41,8 @@ class Progress(object):
     self.resolution = resolution
     self.completed = 0
     if HAVE_ARCPY_UI:
-      arcpy.SetProgressor("step", task_description, 0, total_steps, 
-                          total_steps / float(resolution))
+      arcpy.SetProgressor("step", task_description, 0, total_steps,
+                          int(total_steps / float(resolution)))
   def __del__(self):
     if HAVE_ARCPY_UI:
       arcpy.ResetProgressor()

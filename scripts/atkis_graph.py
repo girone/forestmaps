@@ -92,7 +92,7 @@ def create_from_feature_class(fc, max_speed=5):
   field_names = ["fid", "SHAPE@XY", "klasse", "wanderweg"]
   last_fid = None
   import arcpy
-  total = arcpy.management.GetCount(fc).getOutput(0)
+  total = int(arcpy.management.GetCount(fc).getOutput(0))
   count = 0
   p = Progress("Building graph from FeatureClass.", total, 100)
   with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
@@ -102,7 +102,7 @@ def create_from_feature_class(fc, max_speed=5):
       if fid == last_fid:
         index_a = add_node(last_coordinates)
         index_b = add_node(coordinates)
-        dist = distance(last_coordinates, coordinates)  
+        dist = distance(last_coordinates, coordinates)
         cost = dist / determine_speed(way_type, max_speed) / 3.6
         graph.add_edge(index_a, index_b, cost)
         graph.add_edge(index_b, index_a, cost)
