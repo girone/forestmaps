@@ -79,8 +79,12 @@ vector<vector<T> > read_column_file(const string& filename) {
   for (size_t i = 0; i <= line.size(); ++i) {
     if ((i < line.size() && line[i] == ' ') || i == line.size()) {
       if (i - last > 0) {
-        columns.push_back(vector<T>());
-        columns.back().push_back(convert<T>(line.substr(last, i - last)));
+        // Ignore whitespace-only strings, e.g. spaces at line end.
+        string sub = line.substr(last, i - last);
+        if (!std::all_of(sub.begin(), sub.end(), isspace)) {
+          columns.push_back(vector<T>());
+          columns.back().push_back(convert<T>(sub));
+        }
       }
       last = i + 1;
     }

@@ -72,11 +72,11 @@ TEST(UtilTest, read_column_file) {
   }
 
   {
-    // Now some more complicated input.
+    // Now some more complicated input, mixed types, whitespace at the end, etc.
     std::ofstream ofs("util.tmp.txt");
-    ofs << "3.2 1.2  4.0  " << std::endl;
-    ofs << "1.0 1.0 4.0 " << std::endl;
-    ofs << "2.8  3.7 4.2" << std::endl;
+    ofs << "3.2 1.2 4.0 " << std::endl;
+    ofs << "1.0 1 4" << std::endl;
+    ofs << "2.8  3.7 4.2 " << std::endl;
   }
   {
     // Test float entries
