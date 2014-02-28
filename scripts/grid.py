@@ -7,11 +7,27 @@
 """
 from PIL import Image, ImageDraw
 import numpy as np
+import sys
 
 
 def hom(point):
   ''' Returns homogenous representation of a point. '''
   return np.matrix([[point[0]], [point[1]], [1]])
+
+
+def bounding_box(points):
+  xmax = ymax = float(-sys.maxint)
+  xmin = ymin = float(sys.maxint)
+  for point in points:
+    if xmax < point[0]:
+      xmax = point[0]
+    if xmin > point[0]:
+      xmin = point[0]
+    if ymax < point[1]:
+      ymax = point[1]
+    if ymin > point[1]:
+      ymin = point[1]
+  return [[xmin, ymin], [xmax, ymax]]
 
 
 class Grid:
@@ -54,7 +70,7 @@ class Grid:
     import matplotlib.pyplot as plt
     plt.figure()
     ax = plt.subplot(111)
-    ax.imshow(self.img)
+    ax.imshow(self.img, origin="lower")
     plt.gca().invert_yaxis()
     plt.show()
 
@@ -69,6 +85,27 @@ class Grid:
     transformed = [self.transformation * hom(point) for point in poly]
     self.draw.polygon([(p.item(0), p.item(1)) for p in transformed], fill=color)
     self.updated = True
+
+  def draw_line(self, line_pts, fill='#FFFFFF', width=1):
+    ''' Draws a line along a set of points in the input space. '''
+    transformed = [self.transformation * hom(point) for point in line_pts]
+    self.draw.line([(p.item(0), p.item(1)) for p in transformed], \
+        fill=fill, width=width)
+    self.updated = True
+
+  def draw_circle(self, (px, py), rad=1, outline='#00FF00', fill='#000000'):
+    ''' Draws a circle around @center=(px, py) with radius @rad. '''
+    transformed = self.transformation * hom((px, py))
+    px, py = transformed.item(0), transformed.item(1)
+    self.draw.ellipse(((px-rad, py-rad), (px+rad, py+rad)), \
+        outline=outline, fill=fill)
+    self.updated = True
+
+  def write_text(self, (px, py), text, fill='#FFFFFF'):
+    ''' Adds text to the grid. '''
+    transformed = self.transformation * hom((px, py))
+    px, py = transformed.item(0), transformed.item(1)
+    self.draw.text((px, py), text, fill=fill)
 
   def test(self, pos):
     ''' Accesses a field of the grid. Updates the grid if necessary. '''

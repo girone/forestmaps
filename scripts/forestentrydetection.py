@@ -21,8 +21,8 @@ from collections import defaultdict
 import pickle
 #import numpy as np
 
-from grid import Grid
-from graph import Graph, Edge
+from grid import Grid, bounding_box
+from graph import Graph, Edge, NodeInfo
 import convexhull
 
 
@@ -143,7 +143,7 @@ def read_osmfile(filename, maxspeed):
                 osm_id_map[e[0]] = len(graph.nodes)
               x = osm_id_map[e[0]]
               if e[1] not in osm_id_map:
-                osm_id_map[e[1]] = len(graph.nodes) 
+                osm_id_map[e[1]] = len(graph.nodes)
               y = osm_id_map[e[1]]
               if x == y:
                 y += 1
@@ -155,21 +155,6 @@ def read_osmfile(filename, maxspeed):
             and ways_by_type['forest_delim'][-1] is way_id:
           way_nodes[way_id] = node_list
   return way_nodes, ways_by_type, graph, nodes, osm_id_map
-
-
-def bounding_box(points):
-  xmax = ymax = float(-sys.maxint)
-  xmin = ymin = float(sys.maxint)
-  for point in points:
-    if xmax < point[0]:
-      xmax = point[0]
-    if xmin > point[0]:
-      xmin = point[0]
-    if ymax < point[1]:
-      ymax = point[1]
-    if ymin > point[1]:
-      ymin = point[1]
-  return ((xmin, ymin), (xmax, ymax))
 
 
 def width_and_height(bbox):
@@ -290,6 +275,9 @@ def classify_forest(osmfile, maxspeed=130):
   forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
   open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))
 
+  nodeinfo = {osm_id_map[osm_id] : NodeInfo(osm_id, nodes[osm_id]) \
+              for osm_id in highway_node_ids}
+
   # This does not work properly and does not bring the expected benefit.
   #print 'Restrict the graph to largest connected component...'
   #n = digraph.size()
@@ -344,10 +332,15 @@ def classify_forest(osmfile, maxspeed=130):
       visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
     visual_grid.show()
 
+  pickle.dump(forest_polygons, \
+      open(os.path.splitext(osmfile)[0] + ".forest_polygons.out", "w"), \
+      protocol=2)
+
   # restrict to used nodes
   used_osm_ids = forestal_highway_nodes | open_highway_nodes
   nodes = {k:v for k,v in nodes.items() if k in used_osm_ids}
-  return weps, forestal_highway_nodes, population, digraph, osm_id_map, nodes
+  return weps, forestal_highway_nodes, population, digraph, osm_id_map, nodes, \
+      nodeinfo
 
 visualize = False
 
@@ -358,9 +351,9 @@ def main():
   osmfile = sys.argv[1]
   maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
-  weps, forestal_highway_nodes, population, graph, osm_id_map, nodes = \
-      classify_forest(osmfile, maxspeed)
-  
+  weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, nodeinfo \
+      = classify_forest(osmfile, maxspeed)
+
   print 'Writing output...'
   # f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
   # for p in weps:
@@ -378,8 +371,10 @@ def main():
   # f.close()
   filename = os.path.splitext(osmfile)[0] + "." + str(maxspeed) + "kmh"
   for data, extension in \
-      zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes],\
-          ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes']):
+      zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, \
+          nodeinfo], \
+          ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes', \
+          'nodeinfo']):
     f = open(filename + "." + extension + ".out", 'w')
     pickle.dump(data, f, protocol=2)
     f.close()
