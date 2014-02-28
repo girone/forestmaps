@@ -13,10 +13,13 @@
 
 #define SQR(x) ((x)*(x))
 
+// the file where the population count using the car is written to.
+const string carPopulationFile = "car_population.tmp.txt";
+
 // The user studies revealed these numbers:
 const float kUserShareBicycle = 13 / 124.f;
 const float kUserShareWalking = 71 / 124.f;
-const float kUnmappedPeople = 1.f - (kUserShareWalking - kUserShareBicycle);
+const float kUserShareCar = 1.f - (kUserShareWalking + kUserShareBicycle);
 
 // We combined the extraction of travel costs for bike and walking by assuming
 // the average bike speed being at a constant factor from the walking speed:
@@ -48,6 +51,8 @@ vector<float> reachability_analysis(
     const vector<float>& populations,
     const vector<int>& populationIndices,
     const vector<vector<float> >& preferences) {
+  // TODO(Jonas): Split this method in some submethods.
+  //
   // Get the buckets from the user preferences.
   const vector<float>& upperBounds = preferences[0];
   const vector<float>& shares = preferences[1];
@@ -231,8 +236,19 @@ vector<float> reachability_analysis(
               << mapped + unmapped << std::endl;
     //assert(false && "See stdout above.");
   }
-  // TODO(Jonas): Return car population or do that elsewhere.
-  const float kUserShareCar = 1.f - kUserShareWalking - kUserShareBicycle;
+
+
+  // Output the car population.
+  float carPopulation = 0.f;
+  for (size_t i = 0; i < populations.size(); ++i) {
+    carPopulation += kUserShareCar * populations[i];
+  }
+  {
+    std::ofstream ofs(carPopulationFile);
+    ofs << carPopulation << std::endl;
+    std::cout << "Car population written to '" << carPopulationFile << "'."
+              << std::endl;
+  }
   return fepPop;
 }
 
@@ -309,13 +325,46 @@ int main(int argc, char** argv) {
   }
   assert(cumsum <= 1.f);
 
+  // Read in the parking lots. Format is:
+  //  x0 y0
+  //  x1 y1
+  //  ...
+  // The population shares for people who cannot reach the forest is distributed
+  // over all parking lots. The population of each parking lot is distributed
+  // over the 5 closest forest entries which are at most 500 meters (straight
+  // line) away.
+  vector<vector<float> > coords = util::read_column_file<float>(parkingFile);
+  assert(coords.size() == 2);
+
 
   // Reachability analysis
-  vector<float> fepPopulations = reachability_analysis(
+  pair<vector<float>, int> res = reachability_analysis(
       graph, fepNodeIndices, population, populationNodeIndices, preferences);
+
+  // Add car population from parking spaces on top.
+  int carPopulation = res.second;
+  distribute_car_population_via_parking(carPopulation, coords, &res.first);
+
   string filename = outfile;  // "forest_entries_popularity.tmp.txt";
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(fepPopulations, filename);
 
   return 0;
 }
+
+
+// Distributes the total car population to a set of parking lots described by
+// coordinates and from there to the nearest forest entriesi, also given by
+// coordinates. Adds the population on top of existing forest entry population.
+void distribute_car_population_via_parking(
+    const int population,
+    const vector<vector<float>>& parkingCoords,
+    const vector<vector<float>>& forestEntryXY,
+    vector<float>* entryPointPopulation) {
+  assert(forestEntryXY.size() >= 2);
+  assert(parkingCoords.size() == 2);
+  assert(forestEntryXY[0].size() == parkingCoords[0].size());
+  assert(forestEntryXY[0].size() == entryPointPopulation->size());
+  Tree2D kdtree = build_kdtree(forestEntryXY);
+
+

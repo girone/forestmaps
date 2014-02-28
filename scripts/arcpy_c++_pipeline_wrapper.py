@@ -19,6 +19,7 @@ entryXYFile         = "forest_entries_xy.tmp.txt"
 populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
+carPopulationFile   = "car_population.tmp.txt"
 edgeWeightFile      = "edge_weights.tmp.txt"
 ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
@@ -32,7 +33,7 @@ def set_paths(argv, env):
     msg("############# scriptDir is " + scriptDir)
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
-    global ttfFile, tifFile
+    global ttfFile, tifFile, carPopulationFile
     # converted inputs are created at the input data's location
     tmpDir = env.path + "\\"
     roadGraphFile       = tmpDir + roadGraphFile
@@ -46,6 +47,7 @@ def set_paths(argv, env):
     entryXYRFFile       = tmpDir + entryXYRFFile
     entryPopularityFile = tmpDir + entryPopularityFile
     edgeWeightFile      = tmpDir + edgeWeightFile
+    carPopublationFile  = tmpDir + carPopulationFile
 
 
 def shape_to_polygons(lines, idKeyword):
@@ -242,6 +244,10 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 cursor.updateRow(row)
             else:
                 msg("{0} not contained".format(row[0]))
+                count += 1
+    msg(("Warning: {0} of {1} FIDs could not be matched. Probably there road " +
+         "type has been ignored.").format(
+         count, arcpy.management.GetCount(shp).getOutput(0)))
 
 class AlgorithmEnvironment(object):
     def __init__(self):
@@ -249,8 +255,6 @@ class AlgorithmEnvironment(object):
         self.paramShpRoads = arcpy.GetParameterAsText(0)
         self.paramShpForestRoads = arcpy.GetParameterAsText(1)
         self.paramShpEntrypoints = arcpy.GetParameterAsText(2)
-        ## TODO(jonas): Generate population nodes from polygons. ##
-        #shpPopulationNodes = arcpy.GetParameterAsText(3)
         self.paramShpSettlements = arcpy.GetParameterAsText(3)
 
         self.paramShpParking = arcpy.GetParameterAsText(4)
