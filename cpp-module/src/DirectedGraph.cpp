@@ -48,5 +48,5 @@ void OffsetListGraph<SourceTargetCostArc>::from_string(string s) {
   std::sort(_arcList.begin(), _arcList.end(),
             CompareArcs<SourceTargetCostArc>());
   _offset = compute_offsets(_arcList, numNodes);
-  assert(numNodes == this->num_nodes());
+  assert(static_cast<size_t>(numNodes) == this->num_nodes());
 }
