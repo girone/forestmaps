@@ -101,7 +101,8 @@ typedef Graph<GeoPosition, ForestArc> ForestRoadGraph;
 
 // Computes the offset vector for a sorted list of arcs with source node ids.
 template<class A>
-vector<size_t> compute_offsets(const vector<A>& sortedArcList, size_t numNodes) {
+vector<size_t> compute_offsets(const vector<A>& sortedArcList,
+                               size_t numNodes) {
   vector<size_t> offsets = {0};
   size_t currSource = 0;
   if (sortedArcList.size()) {
@@ -128,7 +129,7 @@ vector<size_t> compute_offsets(const vector<A>& sortedArcList, size_t numNodes) 
 template<class A>
 const _AccessMediator<A> OffsetListGraph<A>::arcs(const size_t node) const {
   assert(node < _offset.size() - 1);
-  //return _AccessMediator<A>(&this->_arcList, _offset[node], _offset[node+1]);
+  // return _AccessMediator<A>(&this->_arcList, _offset[node], _offset[node+1]);
   return _AccessMediator<A>(&_arcList, _offset[node], _offset[node+1]);
 }
 

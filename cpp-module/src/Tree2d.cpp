@@ -1,7 +1,9 @@
 // Copyright 2014: Jonas Sternisko
 
 #include "./Tree2d.h"
+#include <algorithm>
 #include <utility>
+#include <vector>
 
 using std::pair;
 
@@ -18,7 +20,7 @@ Tree2D build_kdtree(const RoadGraph& graph) {
 
 // _____________________________________________________________________________
 // Builds a 2d tree from a set of coordinates.
-Tree2D build_kdtree(const vector<vector<float>>& coords) {
+Tree2D build_kdtree(const vector<vector<float> >& coords) {
   assert(coords.size() >= 2);
   assert(coords[0].size() == coords[1].size());
   Tree2D tree;

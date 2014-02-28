@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 #include <unordered_map>
+#include <vector>
 #include "../src/EdgeAttractivenessModel.h"
 #include "../src/Util.h"
 #include "../src/ForestUtil.h"
@@ -14,6 +15,7 @@ using ::testing::Gt;
 //   800  0.5
 //  3000  0.5
 const vector<vector<float> > pref = {{800, 3000}, { 0.5,  0.5}};
+enum {A, B, C, D};
 
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, self) {
@@ -26,13 +28,11 @@ TEST(EdgeAttractivenessModelTest, self) {
 TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
   ForestRoadGraph graph;
   graph.from_string(
-      "[4,6,{(1,700)},{(0,700)(2,700)},{(1,700)(3,700)},{(2,700)}]"
-  );
+      "[4,6,{(1,700)},{(0,700)(2,700)},{(1,700)(3,700)},{(2,700)}]");
   EXPECT_EQ(
       "[4,6,{(0,1,[700,1,-1])},{(1,0,[700,1,-1])(1,2,[700,1,-1])},"
       "{(2,1,[700,1,-1])(2,3,[700,1,-1])},{(3,2,[700,1,-1])}]",
-      graph.to_string()
-  );
+      graph.to_string());
 
   {
     // No entry points.
@@ -77,20 +77,18 @@ TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
 
 // More elaborate example:
 //  A ––– B
-//  |  \  |   A-D is shortest path of cost 7.
+//  |  \  |   A-D is shortest path of cost 700.
 //  C ––– D
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, FloodingApproach) {
   ForestRoadGraph graph;
   graph.from_string(
-      "[4,10,{(1,600)(2,900)(3,700)},{(0,600)(3,600)},{(0,900)(3,900)},"
-      "{(0,700)(1,600)(2,900)}]"
-  );
+      "[4,10,{(1,600)(2,700)(3,700)},{(0,600)(3,600)},{(0,700)(3,1100)},"
+      "{(0,700)(1,600)(2,1100)}]");
 
   {
-    // No entry points.
-    vector<int> forestEntries = {0, 3};
-    vector<float> entryPopularity = {100.f, 100.f};
+    vector<int> forestEntries = {A, D};
+    vector<float> entryPopularity = {100.f, 200.f};
     FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 3000);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
@@ -103,16 +101,16 @@ TEST(EdgeAttractivenessModelTest, FloodingApproach) {
       ss << arc.source << " " << arc.target << " " << result[i]
                 << std::endl;
     }
-    EXPECT_EQ("0 1 184.848\n"
-              "0 2 176.812\n"
-              "0 3 191.045\n"
-              "1 0 191.045\n"
-              "1 3 191.045\n"
-              "2 0 191.045\n"
-              "2 3 191.045\n"
-              "3 0 191.045\n"
-              "3 1 184.848\n"
-              "3 2 176.812\n", ss.str());
+    EXPECT_EQ("0 1 121.89\n"
+              "0 2 117.298\n"
+              "0 3 312.039\n"
+              "1 0 121.89\n"
+              "1 3 217.877\n"
+              "2 0 117.298\n"
+              "2 3 213.285\n"
+              "3 0 312.039\n"
+              "3 1 217.877\n"
+              "3 2 213.285\n", ss.str());
   }
 }
 
@@ -122,15 +120,11 @@ TEST(EdgeAttractivenessModelTest, FloodingApproach) {
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
   ForestRoadGraph graph;
-  graph.from_string(
-      "[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]"
-
-  );
+  graph.from_string("[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]");
   EXPECT_EQ(
       "[4,6,{(0,1,[7,1,-1])},{(1,0,[7,1,-1])(1,2,[7,1,-1])},"
       "{(2,1,[7,1,-1])(2,3,[7,1,-1])},{(3,2,[7,1,-1])}]",
-      graph.to_string()
-  );
+      graph.to_string());
   int lim = 3000;
 
   {
@@ -183,8 +177,7 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
   ForestRoadGraph graph;
   graph.from_string(
       "[4,10,{(1,600)(2,900)(3,700)},{(0,600)(3,600)},{(0,900)(3,900)},"
-      "{(0,700)(1,600)(2,900)}]"
-  );
+      "{(0,700)(1,600)(2,900)}]");
 
   {
     // No entry points.
@@ -200,20 +193,19 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
     std::stringstream ss;
     for (size_t i = 0; i < arcs.size(); ++i) {
       const ForestRoadGraph::Arc_t& arc = arcs[i];
-      ss << arc.source << " " << arc.target << " " << result[i]
-                << std::endl;
+      ss << arc.source << " " << arc.target << " " << result[i] << std::endl;
     }
     // The maximum attractiveness should be on the A-D path.
-    EXPECT_EQ("0 1 77.865\n"
-              "0 2 53.5338\n"
+    EXPECT_EQ("0 1 34.7042\n"
+              "0 2 23.5551\n"
               "0 3 100\n"
-              "1 0 75.8242\n"
-              "1 3 75.8242\n"
-              "2 0 56.391\n"
-              "2 3 56.391\n"
+              "1 0 34.1061\n"
+              "1 3 34.1061\n"
+              "2 0 24.3775\n"
+              "2 3 24.3775\n"
               "3 0 100\n"
-              "3 1 77.865\n"
-              "3 2 53.5338\n", ss.str());
+              "3 1 34.7042\n"
+              "3 2 23.5551\n", ss.str());
   }
 }
 

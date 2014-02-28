@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 #include <gtest/gtest_prod.h>
+#include <string>
 #include <vector>
 #include "../src/AdjacencyGraph.h"
 #include "../src/GraphConverter.h"
@@ -14,7 +15,7 @@ using std::vector;
 // A test node.
 class TestNode {
  public:
-  void from_stream(std::istream& is) {
+  void from_stream(std::istream& is) {  // NOLINT
     is >> value;
   }
   string to_string() const {
@@ -28,9 +29,9 @@ class TestNode {
 // A test arc.
 class TestArc {
  public:
-  //TestArc() : source(-1), target(-1), cost(0) { }
-  //TestArc(int s, int t, int c) : source(s), target(t), cost(c) { }
-  void from_stream(std::istream& is) {
+  // TestArc() : source(-1), target(-1), cost(0) { }
+  // TestArc(int s, int t, int c) : source(s), target(t), cost(c) { }
+  void from_stream(std::istream& is) {  // NOLINT
     is >> source >> target >> cost;
   }
   string to_string() const {
@@ -54,7 +55,7 @@ TEST(AdjacencyListGraphTest, to_string) {
     ASSERT_EQ("[0,0,]", graph.to_string());
 
     graph._nodes.assign(3, TestGraph::Node_t());
-    graph._arcs = vector<vector<TestGraph::Arc_t>>(3);
+    graph._arcs = vector<vector<TestGraph::Arc_t> >(3);
     EXPECT_EQ("[3,0,{},{},{}]", graph.to_string());
   }
 }
@@ -196,8 +197,7 @@ TEST(AdjacencyListGraphTest, forest_graph_from_file_with_fids) {
     EXPECT_EQ(
      "[3,5,{(0,1,[10,1,1])(0,2,[4,45,5])},{(1,0,[5,5,2])(1,2,[4,0,3])},"
      "{(2,1,[4,10,4])}]",
-     fg.to_string()
-    );
+     fg.to_string());
   }
 }
 

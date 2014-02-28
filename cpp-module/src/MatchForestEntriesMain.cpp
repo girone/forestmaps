@@ -1,6 +1,7 @@
 // Copyright 2013: Jonas Sternisko
 
 #include <iostream>
+#include <string>
 #include <vector>
 #include "./DirectedGraph.h"
 #include "./Tree2d.h"

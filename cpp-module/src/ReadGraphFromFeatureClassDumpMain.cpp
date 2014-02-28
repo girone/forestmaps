@@ -24,8 +24,8 @@ using std::map;
 
 #define SQR(x) ((x)*(x))
 
-typedef unordered_map<pair<double, double>, int, util::PairHash> CoordMap;
-//typedef map<pair<double, double>, int> CoordMap;
+typedef unordered_map<pair<float, float>, int, util::PairHash> CoordMap;
+// typedef map<pair<float, float>, int> CoordMap;
 typedef unordered_map<pair<int, int>, int, util::PairHash> ArcToIdMap;
 
 
@@ -58,11 +58,11 @@ template<class Edge>
 class Graph {
  public:
   // Construct with number of nodes known in advance.
-  Graph(size_t nodes) : _edges(nodes, vector<pair<int, Edge>>()) { }
+  explicit Graph(size_t nodes) : _edges(nodes, vector<pair<int, Edge> >()) { }
   void add_edge(int s, int t, const Edge& e) {
     _nodes.insert(s);
     _nodes.insert(t);
-    //_edges[s][t] = e;
+    // _edges[s][t] = e;
     assert(static_cast<size_t>(s) < _edges.size());
     _edges[s].emplace_back(t, e);
   }
@@ -82,13 +82,13 @@ class Graph {
     return n;
   }
 
-  //unordered_map<int, unordered_map<int, Edge>> _edges;
+  // unordered_map<int, unordered_map<int, Edge>> _edges;
   vector<vector<pair<int, Edge> > > _edges;
   unordered_set<int> _nodes;
 };
 
 // _____________________________________________________________________________
-int get_node_index(const pair<double, double>& coordinates, CoordMap* coordmap) {
+int get_node_index(const pair<float, float>& coordinates, CoordMap* coordmap) {
     auto it = coordmap->find(coordinates);
     int index;
     if (it == coordmap->end()) {
@@ -102,17 +102,17 @@ int get_node_index(const pair<double, double>& coordinates, CoordMap* coordmap) 
 
 // _____________________________________________________________________________
 template<class Edge>
-Graph<Edge> read_graph(const vector<vector<double> >& cols,
+Graph<Edge> read_graph(const vector<vector<float> >& cols,
                        CoordMap* coordToNodeMap,
                        ArcToIdMap* arcToId) {
   cout << "Creating the graph from parsed content..." << endl;
-  const vector<double>& fids = cols[0];
-  const vector<double>& xx = cols[1];
-  const vector<double>& yy = cols[2];
-  const vector<double>& costs = cols[3];
+  const vector<float>& fids = cols[0];
+  const vector<float>& xx = cols[1];
+  const vector<float>& yy = cols[2];
+  const vector<float>& costs = cols[3];
   size_t fsize = cols[0].size();
-  const vector<double>& weights = (cols.size() > 4) ? cols[4]
-                                                    : vector<double>(fsize, 1);
+  const vector<float>& weights = (cols.size() > 4) ? cols[4]
+                                                    : vector<float>(fsize, 1);
 
   size_t nodeBound = fsize;  // it's an upper bound for the number of nodes
   Graph<Edge> g(nodeBound);
@@ -150,8 +150,8 @@ Graph<Edge> read_graph(const vector<vector<double> >& cols,
 }
 
 // _____________________________________________________________________________
-unordered_map<int, pair<double, double>> inverse_map(const CoordMap& input) {
-  unordered_map<int, pair<double, double>> inverse;
+unordered_map<int, pair<float, float>> inverse_map(const CoordMap& input) {
+  unordered_map<int, pair<float, float>> inverse;
   for (auto it = input.begin(); it != input.end(); ++it) {
     inverse[it->second] = it->first;
   }
@@ -162,14 +162,14 @@ unordered_map<int, pair<double, double>> inverse_map(const CoordMap& input) {
 template<class G>
 void dump_graph(const string& filename, const G& g, const CoordMap& coordmap) {
   cout << "Creating inverse map..." << endl;
-  unordered_map<int, pair<double, double>> inverse = inverse_map(coordmap);
+  unordered_map<int, pair<float, float>> inverse = inverse_map(coordmap);
   cout << "Writing output..." << endl;
   std::ofstream ofs(filename);
   assert(ofs.good());
   ofs << g.num_nodes() << endl;
   ofs << g.num_edges() << endl;
   for (int nodeId: g._nodes) {
-    const pair<double, double>& coords = inverse[nodeId];
+    const pair<float, float>& coords = inverse[nodeId];
     ofs << coords.first << " " << coords.second << endl;
   }
   size_t nodeId = 0;
@@ -216,7 +216,7 @@ int main(const int argc, const char** argv) {
   const string outfile = argv[2];
 
   cout << "Reading input ..." << endl;
-  vector<vector<double> > cols = util::read_column_file<double>(infile);
+  vector<vector<float> > cols = util::read_column_file<float>(infile);
   assert(cols.size() >= 4);
   assert(cols[0].size() == cols[1].size());
   assert(cols[1].size() == cols[2].size());

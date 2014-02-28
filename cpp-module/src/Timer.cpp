@@ -6,6 +6,10 @@
 #include "./Timer.h"
 #include <string>
 
+using std::chrono::milliseconds;
+using std::chrono::high_resolution_clock;
+using std::chrono::duration_cast;
+
 // _____________________________________________________________________________
 /*string Timer::getTimeStamp() {
   struct timeb timebuffer;

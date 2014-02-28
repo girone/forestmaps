@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 #include <set>
+#include <string>
 #include <vector>
 #include "../src/GraphSimplificator.h"
 
@@ -59,6 +60,7 @@ class GraphSimplificatorTest : public ::testing::Test {
           << "6 2 9.0 1 6" << endl;
     }
   }
+
  protected:
   string _filename;
 };
@@ -107,8 +109,8 @@ TEST_F(GraphSimplificatorTest, try_to_contract_node) {
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
   auto map = modul.edges_contained_in_shortcut_map();
-  EXPECT_THAT(map[originalNumberOfArcs], WhenSorted(vector<int>({1,2})));
-  EXPECT_THAT(map[originalNumberOfArcs+1], WhenSorted(vector<int>({1,2})));
+  EXPECT_THAT(map[originalNumberOfArcs], WhenSorted(vector<int>({1, 2})));
+  EXPECT_THAT(map[originalNumberOfArcs+1], WhenSorted(vector<int>({1, 2})));
 }
 
 // _____________________________________________________________________________
@@ -138,8 +140,8 @@ TEST_F(GraphSimplificatorTest, simplify) {
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
   auto map = modul.edges_contained_in_shortcut_map();
-  EXPECT_THAT(map[14], WhenSorted(vector<int>({1,2,3})));
-  EXPECT_THAT(map[15], WhenSorted(vector<int>({1,2,3})));
+  EXPECT_THAT(map[14], WhenSorted(vector<int>({1, 2, 3})));
+  EXPECT_THAT(map[15], WhenSorted(vector<int>({1, 2, 3})));
 }
 
 // _____________________________________________________________________________
@@ -171,8 +173,8 @@ TEST_F(GraphSimplificatorTest, simplify_do_not_contract) {
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
   auto map = modul.edges_contained_in_shortcut_map();
-  EXPECT_THAT(map[12], WhenSorted(vector<int>({1,2})));
-  EXPECT_THAT(map[13], WhenSorted(vector<int>({1,2})));
+  EXPECT_THAT(map[12], WhenSorted(vector<int>({1, 2})));
+  EXPECT_THAT(map[13], WhenSorted(vector<int>({1, 2})));
 }
 
 
@@ -213,7 +215,6 @@ TEST_F(GraphSimplificatorTest, special_case) {
 
   {
     // Simplify the graph. Node 1 should remain uncontracted.
-    // TODO(Jonas): Not sure about this policy.
     SimplificationGraph input;
     input.read_in(filename);
 
@@ -230,8 +231,8 @@ TEST_F(GraphSimplificatorTest, special_case) {
 
     // Check the mapping: The new arcs should represent the old arcs's FIDs.
     auto map = modul.edges_contained_in_shortcut_map();
-    EXPECT_THAT(map[10], WhenSorted(vector<int>({1,2})));
-    EXPECT_THAT(map[11], WhenSorted(vector<int>({1,2})));
+    EXPECT_THAT(map[10], WhenSorted(vector<int>({1, 2})));
+    EXPECT_THAT(map[11], WhenSorted(vector<int>({1, 2})));
   }
 }
 

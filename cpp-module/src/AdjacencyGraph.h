@@ -30,7 +30,7 @@ class AdjacencyListGraph {
 
   AdjacencyListGraph() {}
   AdjacencyListGraph(const std::vector<N>& nodes,
-      const std::vector<std::vector<A>>& arcs);
+      const std::vector<std::vector<A> >& arcs);
 
   // Reads the graph from a file. The filename has the format
   //  #nodes
@@ -82,7 +82,7 @@ const std::vector<A>& AdjacencyListGraph<N, A>::arcs(uint node) const {
 
 template<class N, class A>
 AdjacencyListGraph<N, A>::AdjacencyListGraph(
-    const std::vector<N>& nodes, const std::vector<std::vector<A>>& arcs)
+    const std::vector<N>& nodes, const std::vector<std::vector<A> >& arcs)
   : _arcs(arcs)
   , _nodes(nodes) {
   assert(arcs.size() == nodes.size());

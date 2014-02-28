@@ -4,6 +4,7 @@
 #define SRC_NODESANDEDGES_H_
 
 #include <sstream>
+#include <string>
 #include <vector>
 
 using std::string;
@@ -52,7 +53,7 @@ class SourceTargetLabelsArc {
   SourceTargetLabelsArc()
     : source(-1), target(-1), labels(LabelDescriptor::default_) {
     }
-  SourceTargetLabelsArc(const SourceTargetCostArc& other)
+  SourceTargetLabelsArc(const SourceTargetCostArc& other)  // NOLINT
     : source(other.source)
     , target(other.target)
     , labels(LabelDescriptor::default_) {
@@ -61,27 +62,8 @@ class SourceTargetLabelsArc {
   /*SourceTargetMultipleCostArc(int s, int t, const vector<int>& c)
     : source(s), target(t), labels(c) { }*/
   int get_cost() const { return labels[LabelDescriptor::costField]; }
-  void from_stream(std::istream& is) {  // TODO(Jonas): Put to template defs below.
-    is >> source >> target;
-    for (size_t i = 0; i < LabelDescriptor::count; ++i) {
-      string s;
-      std::stringstream ss;
-      is >> s;
-      ss << s;
-      ss >> labels[i];
-    }
-  }
-  string to_string() const {
-    std::stringstream ss;
-    ss << "(" << source << "," << target << "," << "[";
-    for (auto it = labels.begin(); it != labels.end(); ++it) {
-      if (it != labels.begin())
-        ss << ",";
-      ss << *it;
-    }
-    ss << "])";
-    return ss.str();
-  }
+  void from_stream(std::istream& is);
+  string to_string() const;
 
   int source;
   int target;
@@ -143,8 +125,32 @@ class GeoPosition {
 
 // TEMPLATE DEFINITIONS BELOW
 
+// _____________________________________________________________________________
+template<class LabelDescriptor>
+void SourceTargetLabelsArc<LabelDescriptor>::from_stream(std::istream& is) {
+  is >> source >> target;
+  for (size_t i = 0; i < LabelDescriptor::count; ++i) {
+    string s;
+    std::stringstream ss;
+    is >> s;
+    ss << s;
+    ss >> labels[i];
+  }
+}
 
-
+// _____________________________________________________________________________
+template<class LabelDescriptor>
+string SourceTargetLabelsArc<LabelDescriptor>::to_string() const {
+  std::stringstream ss;
+  ss << "(" << source << "," << target << "," << "[";
+  for (auto it = labels.begin(); it != labels.end(); ++it) {
+    if (it != labels.begin())
+      ss << ",";
+    ss << *it;
+  }
+  ss << "])";
+  return ss.str();
+}
 
 #endif  // SRC_NODESANDEDGES_H_
 

@@ -3,6 +3,7 @@
 #include "./GraphSimplificator.h"
 #include <algorithm>
 #include <set>
+#include <vector>
 
 // _____________________________________________________________________________
 // Return the first arc in the adjacency list of 'from' which points to 'to'.
@@ -21,9 +22,7 @@ const Arc& find_arc(const SimplificationGraph& graph, size_t from, size_t to) {
 // _____________________________________________________________________________
 GraphSimplificator::GraphSimplificator(SimplificationGraph* input)
   : _input(input)
-  , _arcCount(input->count_arcs()) {
-
-}
+  , _arcCount(input->count_arcs()) { }
 
 // _____________________________________________________________________________
 void GraphSimplificator::initialize_mapping() {
@@ -52,8 +51,7 @@ SimplificationGraph GraphSimplificator::extract_simplified_graph(
           simple._arcs.back().push_back(
               ArcFactory::create(arc.source - _indexShift[arc.source],
                                  arc.target - _indexShift[arc.target],
-                                 arc.labels[0], arc.labels[1], arc.labels[2])
-          );
+                                 arc.labels[0], arc.labels[1], arc.labels[2]));
         }
       }
       std::sort(simple._arcs.back().begin(), simple._arcs.back().end(),
@@ -64,7 +62,8 @@ SimplificationGraph GraphSimplificator::extract_simplified_graph(
 }
 
 // _____________________________________________________________________________
-SimplificationGraph GraphSimplificator::simplify(const set<uint>* dontContract) {
+SimplificationGraph GraphSimplificator::simplify(
+    const set<uint>* dontContract) {
   std::cout << "Simplifying the graph..." << std::endl;
   initialize_mapping();
 
@@ -135,7 +134,7 @@ bool GraphSimplificator::try_to_contract_node(size_t node,
 }
 
 // _____________________________________________________________________________
-const unordered_map<int, vector<int>>&
+const unordered_map<int, vector<int> >&
 GraphSimplificator::edges_contained_in_shortcut_map() const {
   return _representedIds;
 }

@@ -12,6 +12,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <utility>
 
 
 namespace util {
@@ -44,8 +45,9 @@ ostringstream& _append_to_stream(ostringstream& os, const string& connector,
 // TODO(Jonas): Does not yet work with only one argument, because the iterable
 // version is called then. Fix this.
 template<class First, class... Types>
-string join(const string& connector, const First& first, const Types&... input) {
-  //const unsigned int size = sizeof...(Types);
+string join(const string& connector, const First& first,
+    const Types&... input) {
+  // const unsigned int size = sizeof...(Types);
   ostringstream os;
   os << first;
   _append_to_stream(os, connector, input...);

@@ -1,6 +1,7 @@
 // Copyright 2014: Jonas Sternisko
 
 #include "./NodesAndEdges.h"
+#include <vector>
 
 // These have to be defined out of class:
 const std::vector<int> N2::default_ = {0, 1};

@@ -1,6 +1,7 @@
 // Copyright 2014: Jonas Sternisko
 
 #include <gmock/gmock.h>
+#include <string>
 #include <vector>
 #include "../src/ForestUtil.h"
 #include "../src/Util.h"

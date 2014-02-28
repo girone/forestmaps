@@ -1,12 +1,13 @@
 // Copyright 2013: Jonas Sternisko
 
-#include "../src/Util.h"
 #include <gtest/gtest.h>
 #include <string>
 #include <vector>
+#include "../src/Util.h"
 
 using std::string;
 using std::vector;
+using util::read_column_file;
 
 
 // _____________________________________________________________________________
@@ -31,7 +32,7 @@ TEST(UtilTest, join) {
 
 // _____________________________________________________________________________
 TEST(UtilTest, join_variadic) {
-  // Just one argument TODO(Jonas): This does not work yet.
+  // Just one argument NOTE(Jonas): This does not work yet.
 //   EXPECT_EQ("42", util::join(", ", 42));
 
   // Some arguments
@@ -52,7 +53,7 @@ TEST(UtilTest, read_column_file) {
   }
   {
     // Test float entries
-    vector<vector<float> > columns = util::read_column_file<float>("util.tmp.txt");
+    vector<vector<float> > columns = read_column_file<float>("util.tmp.txt");
     ASSERT_EQ(3, columns.size());
     ASSERT_EQ(3, columns[0].size());
     ASSERT_EQ(3, columns[1].size());
@@ -80,7 +81,7 @@ TEST(UtilTest, read_column_file) {
   }
   {
     // Test float entries
-    vector<vector<float> > columns = util::read_column_file<float>("util.tmp.txt");
+    vector<vector<float> > columns = read_column_file<float>("util.tmp.txt");
     ASSERT_EQ(3, columns.size());
     ASSERT_EQ(3, columns[0].size());
     ASSERT_EQ(3, columns[1].size());
@@ -100,7 +101,7 @@ TEST(UtilTest, read_column_file) {
   }
   {
     // Test with integer conversion
-    vector<vector<int> > columns = util::read_column_file<int>("util.tmp.txt");
+    vector<vector<int> > columns = read_column_file<int>("util.tmp.txt");
     ASSERT_EQ(3, columns.size());
     EXPECT_EQ(vector<int>({3, 1, 2}), columns[0]);
     EXPECT_EQ(vector<int>({1, 1, 3}), columns[1]);

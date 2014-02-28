@@ -3,6 +3,7 @@
 #include "./EdgeAttractivenessModel.h"
 #include <algorithm>
 #include <utility>
+#include <vector>
 #include "./Util.h"
 #include "./Timer.h"
 
@@ -32,6 +33,8 @@ float EdgeAttractivenessModel::sum_of_user_shares_after(const float tif) const {
   auto it = lower_bound(_preferences[0].begin(), _preferences[0].end(), tif);
   if (it == _preferences[0].end()) { it--; }
   size_t offset = it - _preferences[0].begin();
+  // TODO(Jonas): This should become a LUT: Compute the cumulative sum from the
+  // back and save the std::accumulate() call in every iteration inside eval.
   return accumulate(_preferences[1].begin()+offset, _preferences[1].end(), 0.f);
 }
 
@@ -68,7 +71,8 @@ void EdgeAttractivenessModel::distribute(
     const int entryPoint = it->first;
     const float population = it->second;
     auto fit = contr.find(entryPoint);
-    // Use an empty map if the entry point does not contribute to any edge.   /////// TODO(Jonas): For via edge, try something more focused. And determine why it is so much slower than in the paper.
+    // Use an empty map if the entry point does not contribute to any edge.
+    // TODO(Jonas): For via edge, try something more focused.
     const Map& shares = (fit == contr.end()) ? Map() : fit->second;
     for (auto it2 = shares.begin(); it2 != shares.end(); ++it2) {
       const int edgeIndex = it2->first;
@@ -84,7 +88,7 @@ FloodingModel::FloodingModel(
     const ForestRoadGraph& g,
     const vector<int>& feps,
     const vector<float>& popularities,
-    const vector<vector<float>>& preferences,
+    const vector<vector<float> >& preferences,
     const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
 }
@@ -125,14 +129,13 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
     dijkstra.run(fep);
     const vector<int>& costs = dijkstra.get_costs();
     const vector<uint>& settledNodes = dijkstra.get_settled_node_indices();
+    // Ignore the first node, this is always the fep itself.
     for (const uint node: settledNodes) {
       int cost = costs[node];
       assert(cost != Dijkstra<ForestRoadGraph>::infinity);
       if (cost < 1) { cost = 1; }
       // Map cost * 2 with the preferences, adjust popularity share accordingly.
       float share = sum_of_user_shares_after(2.f * cost);
-      // NOTE(Jonas): As a first scaling variant, increase the gain to minutes.
-      // NOTE(Jonas): Try also division by (cost + 60).
       float gain = share / (cost + 60);
       int w = nodeWeights[node];
       float value = w * gain;
@@ -171,7 +174,7 @@ ViaEdgeApproach::ViaEdgeApproach(
     const ForestRoadGraph& g,
     const vector<int>& feps,
     const vector<float>& popularities,
-    const vector<vector<float>>& preferences,
+    const vector<vector<float> >& preferences,
     const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
   compute_counterarc_map(g);
@@ -369,7 +372,7 @@ void ViaEdgeApproach::evaluate(
 
   // Evaluate routes fep1 -->* s --> t --> fep2.
   for (int fep1: entriesToS) {
-    //if (!settledS[fep1]) { continue; }
+//     if (!settledS[fep1]) { continue; }
     const int costsFep1 = costsS[fep1];
     for (int fep2: entriesFromT) {
 //       if (!settledT[fep2]) { continue; }

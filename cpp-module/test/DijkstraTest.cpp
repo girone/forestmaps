@@ -2,6 +2,9 @@
 // This file contains tests for Dijkstra with and without AStar using either
 // straight line or landmark heuristic.
 #include <gtest/gtest.h>
+#include <limits>
+#include <string>
+#include <vector>
 #include "../src/Dijkstra.h"
 
 typedef Dijkstra<RoadGraph> RoadDijkstra;
@@ -73,11 +76,10 @@ TEST(DijkstraTest, computeShortestPathThreeArcs) {
   EXPECT_FALSE(dijkstraStd.isSettled(0));
   EXPECT_TRUE(dijkstraStd.isSettled(1));
   EXPECT_TRUE(dijkstraStd.isSettled(2));
-  dijkstraStd.shortestPath(0,1);
+  dijkstraStd.shortestPath(0, 1);
   EXPECT_TRUE(dijkstraStd.isSettled(0));
   EXPECT_TRUE(dijkstraStd.isSettled(1));
   EXPECT_FALSE(dijkstraStd.isSettled(2));
-
 }
 
 

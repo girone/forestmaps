@@ -4,6 +4,7 @@
 #define SRC_TREE2D_H_
 
 #include <kdtree++/kdtree.hpp>
+#include <vector>
 #include "./DirectedGraph.h"
 
 
@@ -40,7 +41,7 @@ typedef KDTree::KDTree<2, TreeNode> Tree2D;
 Tree2D build_kdtree(const RoadGraph& graph);
 
 // Builds a 2d tree from a set of coordinates.
-Tree2D build_kdtree(const vector<vector<float>>& coords);
+Tree2D build_kdtree(const vector<vector<float> >& coords);
 
 // Maps (x,y) coordinates to the closest node referenced by the kdtree.
 // Returns the index of the closest node for every row of x and y.

@@ -10,15 +10,13 @@
 #include <vector>
 
 namespace forest {
+  using std::vector;
 
-using std::vector;
+  // Distance between coordinates in meters, using great-circle distance.
+  float distance(float lat1, float lon1, float lat2, float lon2);
 
-// Distance between coordinates in meters, using great-circle distance.
-float distance(float lat1, float lon1, float lat2, float lon2);
-
-// Checks the user preferences read from a text file for correct values.
-bool check_preferences(const vector<vector<float> >& preferences);
-
+  // Checks the user preferences read from a text file for correct values.
+  bool check_preferences(const vector<vector<float> >& preferences);
 }
 
 

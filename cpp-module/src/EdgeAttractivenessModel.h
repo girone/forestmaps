@@ -3,9 +3,10 @@
 #ifndef SRC_EDGEATTRACTIVENESSMODEL_H_
 #define SRC_EDGEATTRACTIVENESSMODEL_H_
 
+#include <gtest/gtest_prod.h>
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
-#include <gtest/gtest_prod.h>
 #include "./DirectedGraph.h"
 #include "./Dijkstra.h"
 
@@ -23,7 +24,7 @@ class EdgeAttractivenessModel {
   EdgeAttractivenessModel(const ForestRoadGraph& g,
                           const vector<int>& feps,
                           const vector<float>& popularities,
-                          const vector<vector<float>>& preferences,
+                          const vector<vector<float> >& preferences,
                           const int maxCost)
     : _graph(g)
     , _forestEntries(feps)
@@ -53,7 +54,7 @@ class EdgeAttractivenessModel {
  protected:
   const ForestRoadGraph& _graph;
   vector<int> _forestEntries;
-  const vector<vector<float>>& _preferences;
+  const vector<vector<float> >& _preferences;
   Map _popularities;
   const int _maxCost;
   vector<float> _aggregatedEdgeAttractivenesses;
@@ -72,7 +73,7 @@ class FloodingModel : public EdgeAttractivenessModel {
   FloodingModel(const ForestRoadGraph& g,
                 const vector<int>& feps,
                 const vector<float>& popularities,
-                const vector<vector<float>>& preferences,
+                const vector<vector<float> >& preferences,
                 const int maxCost);
   // Computes the model.
   virtual vector<float> compute_edge_attractiveness();
@@ -89,7 +90,7 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
   ViaEdgeApproach(const ForestRoadGraph& g,
                   const vector<int>& feps,
                   const vector<float>& popularities,
-                  const vector<vector<float>>& preferences,
+                  const vector<vector<float> >& preferences,
                   const int maxCost);
   // Computes the model.
   virtual vector<float> compute_edge_attractiveness();

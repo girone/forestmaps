@@ -1,6 +1,9 @@
 // Copyright 2013: Jonas Stegraphisko
 
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <string>
+#include <vector>
 #include "../src/DirectedGraph.h"
 #include "../src/Util.h"
 

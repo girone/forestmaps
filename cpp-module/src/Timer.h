@@ -10,15 +10,13 @@
 #include <chrono>
 
 using std::string;
-using namespace std::chrono;
 
 // NOTE(Jonas): chrono::duration::nanoseconds does not work with MinGW for Win7.
 // So I decided to stick with milliseconds resolution instead.
 class Timer {
  public:
-
   // Gets a readable timestamp as string.
-  //static string getTimeStamp();
+  // static string getTimeStamp();
 
   // Resets the timer value to zero and starts the measurement.
   void start();
@@ -46,10 +44,10 @@ class Timer {
 
  private:
   // Timer value.
-  milliseconds _usecs;
+  std::chrono::milliseconds _usecs;
   // Used by the gettimeofday command.
-  high_resolution_clock::time_point _tstart;
-  high_resolution_clock::time_point _tend;
+  std::chrono::high_resolution_clock::time_point _tstart;
+  std::chrono::high_resolution_clock::time_point _tend;
 };
 
 

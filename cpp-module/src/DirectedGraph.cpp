@@ -1,6 +1,8 @@
 // Copyright 2013: Jonas Sternisko
 
 #include "./DirectedGraph.h"
+#include <algorithm>
+#include <string>
 #include "./Util.h"
 
 

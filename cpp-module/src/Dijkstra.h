@@ -4,6 +4,7 @@
 #define SRC_DIJKSTRA_H_
 
 #include <cstdlib>
+#include <functional>
 #include <limits>
 #include <queue>
 #include <utility>
@@ -20,7 +21,7 @@ typedef unsigned int uint;
 template<class Graph_t>
 class Dijkstra {
  public:
-   // Dijkstra priority queue elements: <cost, node>
+  // Dijkstra priority queue elements: <cost, node>
   typedef std::pair<int, uint> pq_elem;
   typename Graph_t::Node_t N;
   typename Graph_t::Arc_t A;
@@ -28,7 +29,7 @@ class Dijkstra {
   static const uint no_target;
 
   // Constructor.
-  Dijkstra(const Graph_t& graph);
+  explicit Dijkstra(const Graph_t& graph);
 
   // Sets and initializes the member arrays according to the size of the network
   void resetMemberArraysFull();
@@ -39,13 +40,13 @@ class Dijkstra {
   void reset() { resetMemberArraysAfterLimitedShortestPath(); }
 
   // Computes the shortest path from a node s to a node t.
-  int shortestPath(uint s, uint t=no_target);
+  int shortestPath(uint s, uint t = no_target);
   // Alias for shortestPath(s, t)
-  int run(uint s, uint t=no_target) { return shortestPath(s, t); }
+  int run(uint s, uint t = no_target) { return shortestPath(s, t); }
   // Computes the shortest path from a set of nodes S to a node t. Returns the
   // total costs of the shortest path. Returns Dijkstra::infinity if there is no
   // path from S to t.
-  int shortestPath(const vector<uint>& S, uint t=no_target);
+  int shortestPath(const vector<uint>& S, uint t = no_target);
 
   // Set the vector indicating which nodes have to be settled and the number of
   // these nodes.

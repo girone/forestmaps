@@ -1,5 +1,7 @@
-// Copyright 2011-2013: Jonas Sternisko
+// Copyright 2013-2014: Jonas Sternisko
 
+#include <algorithm>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -61,7 +63,7 @@ int reachability_analysis(const RoadGraph& graph,
                           const vector<int>& populationIndices,
                           const vector<vector<float> >& preferences,
                           vector<double>* fepPopulationOut) {
-  // TODO(Jonas): Split this method in some submethods.
+  // TODO(Jonas): Split this method into multiple submethods.
   //
   // Get the buckets from the user preferences.
   const vector<float>& upperBounds = preferences[0];
@@ -130,7 +132,6 @@ int reachability_analysis(const RoadGraph& graph,
     float sumOfCosts = 0.f;
     float sumOfCostsBike = 0.f;
     for (size_t b = 0; b < buckets[i].size(); ++b) {
-      // TODO(Jonas): Maybe better use the average instead of the upper bound.
       sumOfCosts += buckets[i][b] * bucketCostBounds[b];
       sumOfCostsBike += bucketsBike[i][b] * bucketCostBoundsBike[b];
     }
@@ -242,7 +243,7 @@ int reachability_analysis(const RoadGraph& graph,
               << (1.f - kUserShareWalking - kUserShareBicycle) * totalPopulation
               << " vs. "
               << totalPopulation - (mapped + unmapped) << endl;
-    //assert(false && "See stdout above.");
+    // assert(false && "See stdout above.");
   }
   if (differ(totalPopulation * (kUserShareWalking + kUserShareBicycle),
              mapped + unmapped)) {
@@ -250,7 +251,7 @@ int reachability_analysis(const RoadGraph& graph,
               << (kUserShareWalking + kUserShareBicycle) * totalPopulation
               << " vs. "
               << mapped + unmapped << endl;
-    //assert(false && "See stdout above.");
+    // assert(false && "See stdout above.");
   }
 
   // Calculate the car share. It is considered separately.
@@ -278,7 +279,7 @@ float euclid(float x0, float y0, float x1, float y1) {
 // coordinates. Returns the populations as vector corresponding to the input.
 vector<float> distribute_car_population(
     const int population,
-    const vector<vector<float>>& parkingLots) {
+    const vector<vector<float> >& parkingLots) {
   assert(parkingLots.size() == 4);
   assert(parkingLots[0].size() == parkingLots[1].size());
   assert(parkingLots[1].size() == parkingLots[2].size());

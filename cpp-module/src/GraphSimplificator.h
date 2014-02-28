@@ -22,14 +22,15 @@ typedef AdjacencyListGraph<ForestRoadGraph::Node_t, ForestRoadGraph::Arc_t>
 //
 class GraphSimplificator {
  public:
-  GraphSimplificator(SimplificationGraph* input);
+  explicit GraphSimplificator(SimplificationGraph* input);
   // Builds and returns the simplified version of the input. Adds shortcuts to
   // the input, so it grows in size. Assumes the input has only bidirectional
   // arcs.
-  SimplificationGraph simplify(const set<uint>* doNotContract=NULL);
+  SimplificationGraph simplify(const set<uint>* doNotContract = NULL);
 
   // returns the mapping.
-  const unordered_map<int, vector<int>>& edges_contained_in_shortcut_map() const;
+  const unordered_map<int, vector<int> >& edges_contained_in_shortcut_map()
+      const;
   // Returns the index shift for each node.
   const vector<int>& index_shift() const;
 

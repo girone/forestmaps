@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <set>
+#include <string>
 #include <vector>
 #include "./DirectedGraph.h"
 #include "./Util.h"
@@ -27,7 +28,7 @@ using std::max_element;
 ForestRoadGraph read_and_simplify(
     const string& filename,
     const vector<int>& forestEntries,
-    unordered_map<int, vector<int>>* containedEdgeIds,
+    unordered_map<int, vector<int> >* containedEdgeIds,
     vector<int>* newForestEntries) {
   // Read the adjacency list graph from file.
   SimplificationGraph adjGraph;
@@ -57,7 +58,7 @@ ForestRoadGraph read_and_simplify(
 void write_output(const string& filename,
                   const vector<float>& result,
                   const ForestRoadGraph& simplifiedGraph,
-                  const unordered_map<int, vector<int>>& representedEdgeIds) {
+                  const unordered_map<int, vector<int> >& representedEdgeIds) {
   // Set up the vector of edge weights. Its size is: max({edgeIndex})
   int maxEdgeIndex = -1;
   for (const auto& entry: representedEdgeIds) {
@@ -120,8 +121,11 @@ int main(int argc, char** argv) {
 
   unordered_map<int, vector<int>> containedEdgeIds;
   vector<int> forestEntriesInSimplifiedGraph;
-  ForestRoadGraph simplifiedGraph = read_and_simplify(
-      argv[1], forestEntries, &containedEdgeIds, &forestEntriesInSimplifiedGraph);
+  ForestRoadGraph simplifiedGraph =
+      read_and_simplify(argv[1],
+                        forestEntries,
+                        &containedEdgeIds,
+                        &forestEntriesInSimplifiedGraph);
   assert(forestEntriesInSimplifiedGraph.size() == forestEntries.size());
   cout << "#nodes: " << simplifiedGraph.num_nodes()
        << " #arcs: " << simplifiedGraph.num_arcs() << endl;
