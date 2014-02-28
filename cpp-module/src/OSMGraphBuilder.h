@@ -1,7 +1,8 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
+// Author: Mirko Brodesser <mirko.brodesser@gmail.com>
 
-#ifndef OSMGRAPHBUILDER_H_
-#define OSMGRAPHBUILDER_H_
+#ifndef SRC_OSMGRAPHBUILDER_H_
+#define SRC_OSMGRAPHBUILDER_H_
 
 #include <boost/tokenizer.hpp>
 
@@ -19,6 +20,9 @@ class OSMGraphBuilder {
  public:
   static OSMGraphBuilder CarGraphBuilder(OSMGraph* g);
   static OSMGraphBuilder WalkingGraphBuilder(OSMGraph* g);
+  // This includes all roads and paths accessible to a car driver (including
+  // when he leaves his car).
+  static OSMGraphBuilder RoadGraphBuilder(OSMGraph* g);
   void build(const std::string& fileName);
 
  private:
@@ -38,4 +42,4 @@ class OSMGraphBuilder {
   tokenizer_t::const_iterator _tokensEnd;
 };
 
-#endif  // OSMGRAPHBUILDER_H_
+#endif  // SRC_OSMGRAPHBUILDER_H_

@@ -1,10 +1,12 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
 // Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 
-#ifndef COMPACTDIRECTEDGRAPHITERATOR_H_
-#define COMPACTDIRECTEDGRAPHITERATOR_H_
+#ifndef SRC_COMPACTDIRECTEDGRAPHITERATOR_H_
+#define SRC_COMPACTDIRECTEDGRAPHITERATOR_H_
 
+#include <string>
 #include <vector>
+#include <sstream>
 
 // Forward decl.
 template<class A> class ArcIterator;
@@ -20,6 +22,7 @@ class _AccessMediator {
  public:
   ArcIterator<A> begin() const;
   ArcIterator<A> end() const;
+  const std::string debugString() const;
 
  private:
   // C'tor. Only CompactDirectedGraph should be able to instantiate this class.
@@ -74,6 +77,17 @@ ArcIterator<A> _AccessMediator<A>::end() const {
   return ArcIterator<A>(_target, _end);
 }
 
+
+template<class A>
+const std::string _AccessMediator<A>::debugString() const {
+  std::ostringstream os;
+  for (size_t i = _begin; i < _end; ++i) {
+    os << ((i != _begin) ? ", " : "") << _target->at(i).debugString();
+  }
+  return os.str();
+}
+
+
 // _____________________________________________________________________________
 // ArcIterator
 
@@ -100,4 +114,4 @@ bool ArcIterator<A>::operator!=(const ArcIterator& other) const {
   return /*_target != other._target ||*/ _state != other._state;
 }
 
-#endif  // COMPACTDIRECTEDGRAPHITERATOR_H_
+#endif  // SRC_COMPACTDIRECTEDGRAPHITERATOR_H_

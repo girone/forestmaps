@@ -1,7 +1,8 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
+// Author: Mirko Brodesser <mirko.brodesser@gmail.com>
 
 #ifndef SRC_DIRECTEDGRAPH_H_
-#define DIRECTEDGRAPH_H_
+#define SRC_DIRECTEDGRAPH_H_
 
 #include <sstream>
 #include <string>
@@ -36,4 +37,4 @@ std::string DirectedGraph<N, A>::getSummaryString() const {
   return os.str();
 }
 
-#endif  // DIRECTEDGRAPH_H_
+#endif  // SRC_DIRECTEDGRAPH_H_

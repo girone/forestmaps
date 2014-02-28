@@ -1,7 +1,7 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
+// Author: Mirko Brodesser <mirko.brodesser@gmail.com>
 
 #include <gtest/gtest.h>
-
 #include <fstream>
 #include <string>
 

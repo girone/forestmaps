@@ -1,4 +1,5 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
+// Author: Mirko Brodesser <mirko.brodesser@gmail.com>
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -8,7 +9,7 @@
 #include <iostream>
 #include <iterator>
 #include <string>
-#include <unordered_map>  // NOLINT
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -70,9 +71,48 @@ OSMGraphBuilder OSMGraphBuilder::WalkingGraphBuilder(OSMGraph* g) {
     roadTypeToSpeed["living_street"]  = walkingSpeed;
     roadTypeToSpeed["service"]        = walkingSpeed;
     roadTypeToSpeed["OTHER"]          = 0;
+    // added by jonas:
+    roadTypeToSpeed["track"]          = 5;
+    roadTypeToSpeed["footway"]        = 5;
+    roadTypeToSpeed["pedestrian"]     = 5;
+    roadTypeToSpeed["tertiary_link"]  = 5;
+    roadTypeToSpeed["path"]           = 4;
+    roadTypeToSpeed["steps"]          = 3;
     return (roadTypeToSpeed.count(wayType) ? roadTypeToSpeed[wayType] :
         roadTypeToSpeed["OTHER"]);
   }; // NOLINT
+  return OSMGraphBuilder(g, wayTypeToSpeedFn);
+}
+
+// _____________________________________________________________________________
+OSMGraphBuilder OSMGraphBuilder::RoadGraphBuilder(OSMGraph* g) {
+  auto wayTypeToSpeedFn = [] (const string& wayType) {
+    unordered_map<string, size_t> roadTypeToSpeed;
+    roadTypeToSpeed["motorway"]       = 110;
+    roadTypeToSpeed["trunk"]          = 110;
+    roadTypeToSpeed["primary"]        = 70;
+    roadTypeToSpeed["secondary"]      = 60;
+    roadTypeToSpeed["tertiary"]       = 50;
+    roadTypeToSpeed["motorway_link"]  = 50;
+    roadTypeToSpeed["trunk_link"]     = 50;
+    roadTypeToSpeed["primary_link"]   = 50;
+    roadTypeToSpeed["secondary_link"] = 50;
+    roadTypeToSpeed["road"]           = 40;
+    roadTypeToSpeed["unclassified"]   = 40;
+    roadTypeToSpeed["residential"]    = 30;
+    roadTypeToSpeed["unsurfaced"]     = 30;
+    roadTypeToSpeed["living_street"]  = 10;
+    roadTypeToSpeed["service"]        = 5;
+    roadTypeToSpeed["OTHER"]          = 0;
+    roadTypeToSpeed["track"]          = 5;
+    roadTypeToSpeed["footway"]        = 5;
+    roadTypeToSpeed["pedestrian"]     = 5;
+    roadTypeToSpeed["tertiary_link"]  = 5;
+    roadTypeToSpeed["path"]           = 4;
+    roadTypeToSpeed["steps"]          = 3;
+    return (roadTypeToSpeed.count(wayType) ? roadTypeToSpeed[wayType] :
+        roadTypeToSpeed["OTHER"]);
+  };
   return OSMGraphBuilder(g, wayTypeToSpeedFn);
 }
 
@@ -129,14 +169,15 @@ void OSMGraphBuilder::parseNode() {
 void OSMGraphBuilder::parseWay() {
   const string& NO_WAY_TYPE = "";
   const string& TAG_KEY_HIGHWAY = "tag k=\"highway\" v=\"";
-  vector<int> wayIds;
+  vector<int> osmNodeIds;
   string wayType = NO_WAY_TYPE;
   while (_tokenIt != _tokensEnd) {
     const string& token = *_tokenIt;
+    size_t pos = findPos(token, " id=\"");
     if (boost::starts_with(token, "nd")) {
       size_t pos = findPos(token, "ref=\"");
       int id = atoi(token.c_str() + pos);
-      wayIds.push_back(id);
+      osmNodeIds.push_back(id);
     }
     if (boost::starts_with(token, TAG_KEY_HIGHWAY)) {
       size_t pos = findPos(token, TAG_KEY_HIGHWAY);
@@ -151,9 +192,9 @@ void OSMGraphBuilder::parseWay() {
   const size_t speed = _wayTypeToSpeedFn(wayType);
   if (speed > 0) {
     // Add arcs in both directions.
-    for (size_t i = 1; i < wayIds.size(); ++i) {
-      const int fromOsmId = wayIds[i - 1];
-      const int toOsmId = wayIds[i];
+    for (size_t i = 1; i < osmNodeIds.size(); ++i) {
+      const int fromOsmId = osmNodeIds[i - 1];
+      const int toOsmId = osmNodeIds[i];
       assert(_osmIdToId.count(fromOsmId));
       assert(_osmIdToId.count(toOsmId));
       const size_t fromId = _osmIdToId[fromOsmId];
@@ -165,8 +206,8 @@ void OSMGraphBuilder::parseWay() {
       addArc(fromId, toId, duration);
       addArc(toId, fromId, duration);
     }
-  } else {
-    std::cout << "Ignored way without type." << std::endl;
+  } else if (wayType != NO_WAY_TYPE) {
+    std::cout << "Ignored way with type '" << wayType << "'" << std::endl;
   }
 }
 

@@ -1,7 +1,9 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
+// Authors: Mirko Brodesser <mirko.brodesser@gmail.com>,
+//          Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 
-#ifndef COMPACTDIRECTEDGRAPH_H_
-#define COMPACTDIRECTEDGRAPH_H_
+#ifndef SRC_COMPACTDIRECTEDGRAPH_H_
+#define SRC_COMPACTDIRECTEDGRAPH_H_
 
 #include <vector>
 #include "./CompactDirectedGraphIterator.h"
@@ -27,7 +29,7 @@ class CompactDirectedGraph {
   // For each node the offset where its arcs begin.
   std::vector<size_t> _offset;  // size = #nodes + 1.
 
-  friend class forst::test::GraphComposer<CompactDirectedGraph<A>>;
+  friend class forst::test::GraphComposer<CompactDirectedGraph<A> >;
 };
 
 // _____________________________________________________________________________
@@ -52,4 +54,4 @@ const _AccessMediator<A> CompactDirectedGraph<A>::arcs(const size_t node)
 }
 
 
-#endif  // COMPACTDIRECTEDGRAPH_H_
+#endif  // SRC_COMPACTDIRECTEDGRAPH_H_

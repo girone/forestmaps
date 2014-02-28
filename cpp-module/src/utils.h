@@ -1,7 +1,8 @@
 // Copyright 2013, Chair of Algorithms and Datastructures.
+// Author: Mirko Brodesser <mirko.brodesser@gmail.com>
 
-#ifndef UTILS_H_
-#define UTILS_H_
+#ifndef SRC_UTILS_H_
+#define SRC_UTILS_H_
 
 #include <sstream>
 #include <string>
@@ -24,4 +25,4 @@ namespace utils {
   }
 }  // namespace utils
 
-#endif  // UTILS_H_
+#endif  // SRC_UTILS_H_
