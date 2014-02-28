@@ -107,7 +107,7 @@ vector<int> FloodingModel::compute_node_from_arc_weights(
 
 // _____________________________________________________________________________
 vector<float> FloodingModel::compute_edge_attractiveness() {
-  std::cout << "Starting..." << std::endl;
+  cout << "Starting..." << endl;
   // Prepare progress information
   size_t total = _forestEntries.size();
   size_t done = 0;
@@ -136,7 +136,10 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       // NOTE(Jonas): Try also division by (cost + 60).
       float gain = share / (cost + 60);
       int w = nodeWeights[node];
-      contribution[fep][node] = w * gain;
+      float value = w * gain;
+      if (value != 0.f) {
+        contribution[fep][node] = value;
+      }
     }
 
     // Progress
@@ -149,6 +152,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
     }
   }
 
+  cout << "Normalizing and distributing the contributions..." << endl;
   // Collect node attractivenesses.
   normalize_contributions(&contribution);
   vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
@@ -171,7 +175,7 @@ ViaEdgeApproach::ViaEdgeApproach(
     const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
   // Compute pairwise distances between forest entries.
-  std::cout << "Setting up entry point distance table..." << std::endl;
+  cout << "Setting up entry point distance table..." << endl;
   Dijkstra<ForestRoadGraph> dijkstra(g);
   dijkstra.set_cost_limit(maxCost);
   for (int fep1: feps) {
@@ -186,7 +190,7 @@ ViaEdgeApproach::ViaEdgeApproach(
 
 // _____________________________________________________________________________
 vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
-  std::cout << "Starting..." << std::endl;
+  cout << "Starting..." << endl;
   Dijkstra<ForestRoadGraph> fwd(_graph), bwd(_graph);
   // During the search from s and t, ignore the respective other node.
   vector<bool> nodesToIgnoreBwd(_graph.num_nodes(), false);
@@ -237,6 +241,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   }
   // ^^ TODO(Jonas): put to separate method
 
+  cout << "Normalizing and distributing contributions..." << endl;
   normalize_contributions(&contributions);
 
   distribute(_popularities, contributions, &_aggregatedEdgeAttractivenesses);
@@ -272,7 +277,10 @@ void ViaEdgeApproach::evaluate(
         const float distance = _distances[fep1][fep2];
         gain = share * distance / (routeCostViaThisEdge + 1.f);
       }
-      (*contributions)[fep1][edgeIndex] += w * gain;
+      float increase = w * gain;
+      if (increase > 0) {
+        (*contributions)[fep1][edgeIndex] += increase;
+      }
     }
   }
 }
