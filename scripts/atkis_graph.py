@@ -9,7 +9,8 @@ from collections import defaultdict
 from itertools import tee, izip
 import numpy as np
 from graph import Graph
-
+from util import msg
+from osm_parse import atkis_speed_table
 
 def pairwise(iterable):
   ''' Example: [w, x, y, z]  --> [(w, x), (x, y), (y, z)]. '''
@@ -41,7 +42,7 @@ def create_mappings_from_expanded_polylines(arr):
     if a['fid'] == b['fid']:
       index_a = add_node(tuple(a['shape']))
       index_b = add_node(tuple(b['shape']))
-      cost = distance(a['shape'], b['shape'])
+      cost = distance(a['shape'], b['shape'])  # TODO(Jonas): compute time here!
       add_two_arcs(index_a, index_b, a['fid'], cost)
   return coord_to_node, arcs
 
@@ -49,16 +50,53 @@ def create_mappings_from_expanded_polylines(arr):
 def create_graph_from_arc_map(preliminary_arcs):
   ''' Assumes the input contains two arcs for bidirectional edges. '''
   g = Graph()
-  for from_, out_set in preliminary_arcs.items():
-    for (to, fid, cost) in out_set:
-      g.add_edge(from_, to, cost)
+  for s, out_set in preliminary_arcs.items():
+    for (t, fid, cost) in out_set:
+      g.add_edge(s, t, cost)
   return g
 
 
-def create_graph(arr):
-  ''' Creates the graph. '''
-  m1, m2 = create_mappings_from_expanded_polylines(arr)
-  return create_graph_from_arc_map(m2)
+def create_graph_from_numpy_array(arr):
+  ''' Uses a numpy structured array in to produce the graph. '''
+  coord_to_node_map, arc_map = create_mappings_from_expanded_polylines(arr)
+  return create_graph_from_arc_map(arc_map), coord_to_node_map
+
+
+def create_from_feature_class(fc, max_speed=5):
+  ''' Reads a feature class from disk, creates a graph from its Polylines. '''
+  def add_node(coordinate):
+    ''' Adds a node for a coordinate (if none exists yet). Returns its id. '''
+    if coordinate not in coord_to_node:
+      coord_to_node[coordinate] = len(coord_to_node)
+    return coord_to_node[coordinate]
+  def determine_speed(way_type, max_speed):
+    ''' Get the speed in km/h on a specific way type. '''
+    speed = atkis_speed_table[way_type]
+    return max_speed if speed > max_speed else max_speed
+  graph = Graph()
+  coord_to_node = {}
+  field_names = ["fid", "SHAPE@XY", "klasse", "wanderweg"]
+  last_fid = None
+  import arcpy
+  total = arcpy.management.GetCount(fc)
+  count = 0
+  with arcpy.da.SearchCursor(fc, field_names, explode_to_points=True) as rows:
+    for row in rows:
+      #msg("{0} {1} {2} {3}".format(row[0], row[1], row[2], row[3]))
+      fid, coordinates, way_type, path_flag = row
+      if fid == last_fid:
+        index_a = add_node(last_coordinates)
+        index_b = add_node(coordinates)
+        dist = distance(last_coordinates, coordinates)  
+        cost = dist / determine_speed(way_type, max_speed) / 3.6
+        graph.add_edge(index_a, index_b, cost)
+        graph.add_edge(index_b, index_a, cost)
+      last_fid = fid
+      last_coordinates = coordinates
+      count += 1
+      if count % 1000 == 0:
+        msg("%.1f%%" % (fid * 100. / int(total.getOutput(0))))
+  return graph, coord_to_node
 
 
 import unittest
@@ -67,7 +105,7 @@ class AtkisGraphTest(unittest.TestCase):
   def test_create_mappings(self):
     arr = np.array([(15, [1.0, 3.0]), (15, [2.0, 0.0]), (16, [5.0, 0.0]),
                     (16, [2.0, 0.0]), (21, [6.0, 2.0]), (21, [5.0, 0.0]),
-                    (22, [5.0, 0.0]), (22, [3.0, -1.0])], 
+                    (22, [5.0, 0.0]), (22, [3.0, -1.0])],
                    dtype=[('fid', '<i4'), ('shape', '<f4', (2,))])
     coord_to_node, arcs = create_mappings_from_expanded_polylines(arr)
     #print coord_to_node
@@ -76,7 +114,7 @@ class AtkisGraphTest(unittest.TestCase):
   def test_create_graph(self):
     arr = np.array([(15, [1.0, 3.0]), (15, [2.0, 0.0]), (16, [5.0, 0.0]),
                     (16, [2.0, 0.0]), (21, [6.0, 2.0]), (21, [5.0, 0.0]),
-                    (22, [5.0, 0.0]), (22, [3.0, -1.0])], 
+                    (22, [5.0, 0.0]), (22, [3.0, -1.0])],
                    dtype=[('fid', '<i4'), ('shape', '<f4', (2,))])
     map1, map2 = create_mappings_from_expanded_polylines(arr)
     graph = create_graph_from_arc_map(map2)
