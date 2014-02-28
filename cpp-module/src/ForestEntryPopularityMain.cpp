@@ -6,6 +6,7 @@
 #include <vector>
 #include "./Dijkstra.h"
 #include "./DirectedGraph.h"
+#include "./EdgeAttractivenessModel.h"
 #include "./Tree2d.h"
 #include "./Util.h"
 
@@ -14,6 +15,7 @@
 uint determine_bucket_index(int cost, const vector<int>& bucketCostBounds) {
   uint b = 0;
   while (b < bucketCostBounds.size() && cost > bucketCostBounds[b]) { b++; }
+  assert(b < bucketCostBounds.size());
   return b;
 }
 
@@ -28,36 +30,41 @@ vector<float> reachability_analysis(
     const vector<int>& fepIndices,
     const vector<float>& population,
     const vector<int>& populationIndices,
-    const vector<vector<float> >& preferences,
-    const int costLimit) {
-  assert(population.size() == populationIndices.size());
-  Dijkstra<RoadGraph> dijkstra(graph);
-  dijkstra.set_cost_limit(costLimit);
-
+    const vector<vector<float> >& preferences) {
   // Get the buckets from the user preferences.
   const vector<float>& upperBounds = preferences[0];
   const vector<float>& shares = preferences[1];
-//   vector<int> bucketCostBounds = {5*60, 10*60, 15*60, 20*60, 25*60};
   vector<int> bucketCostBounds;
   for (float bound: upperBounds) { bucketCostBounds.push_back(60 * bound); }
+  const float costLimit = bucketCostBounds.back();
+
+  assert(population.size() == populationIndices.size());
+  Dijkstra<RoadGraph> dijkstra(graph);
+  dijkstra.set_cost_limit(costLimit);
 
   // Prepare progress information
   size_t total = 2 * fepIndices.size();
   size_t done = 0;
   clock_t timestamp = clock();
 
-  // First round of Dijkstras: Analyse reachability and determine frequency of
-  // forest distances categories for each population point.
+  // First round of Dijkstras: Analize reachability and determine frequency of
+  // forest distance categories for each population point. For each population
+  // grid point a set of buckets is mainted. After the first round of Dijkstra
+  // each bucket contains the number of forest entries that can be reached from
+  // the population point in less that the time bound in the corresponding slot
+  // of bucketCostBounds.
   vector<vector<float>> buckets(
-      population.size(), vector<float>(bucketCostBounds.size() + 1, 0.f));
+      population.size(), vector<float>(bucketCostBounds.size(), 0.f));
   for (int index: fepIndices) {
     dijkstra.reset();
     dijkstra.shortestPath(index, Dijkstra<RoadGraph>::no_target);
     const vector<int>& costs = dijkstra.get_costs();
+    const vector<bool>& settled = dijkstra.get_settled_flags();
     for (size_t i = 0; i < populationIndices.size(); ++i) {
       int popIndex = populationIndices[i];
-      int cost = costs[popIndex];
-      if (cost != Dijkstra<RoadGraph>::infinity) {
+      if (settled[popIndex]) {
+        int cost = costs[popIndex];
+        assert(cost != Dijkstra<RoadGraph>::infinity);
         uint b = determine_bucket_index(cost, bucketCostBounds);
         buckets[i][b]++;
       }
@@ -66,7 +73,8 @@ vector<float> reachability_analysis(
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
-      printf("Progress: %5.1f%%\n", done * 100.f / total);
+      printf("Progress: %d of %d, this is %5.1f%% \r\n",
+             done, total, done * 100.f / total);
     }
   }
 
@@ -74,27 +82,30 @@ vector<float> reachability_analysis(
   for (size_t i = 0; i < population.size(); ++i) {
     float sumOfCosts = 0.f;
     for (size_t b = 0; b < buckets[i].size(); ++b) {
-      sumOfCosts += buckets[i][b] * bucketCostBounds[b];
+      sumOfCosts += buckets[i][b] * bucketCostBounds[b];  // TODO(Jonas): Maybe better use the average instead of the upper bound.
     }
-    for (size_t b = 0; b < buckets[i].size(); ++b) {
-      buckets[i][b] = 1.f - bucketCostBounds[b] / sumOfCosts;
+    if (sumOfCosts > 0) {
+      for (size_t b = 0; b < buckets[i].size(); ++b) {
+        buckets[i][b] = 1.f - bucketCostBounds[b] / sumOfCosts;
+      }
     }
   }
 
   // Second round of Dijkstras: Use buckets as likelihood to distribute the
   // population according to the reachable forest entries and their distance.
-  vector<float> fepPop(fepIndices.size(), 0);
+  vector<float> fepPop(fepIndices.size(), 0.f);
   for (size_t i = 0; i < fepIndices.size(); ++i) {
-    int index = fepIndices[i];
     dijkstra.reset();
-    dijkstra.shortestPath(index, Dijkstra<RoadGraph>::no_target);
+    dijkstra.shortestPath(fepIndices[i], Dijkstra<RoadGraph>::no_target);
     const vector<int>& costs = dijkstra.get_costs();
+    const vector<bool>& settled = dijkstra.get_settled_flags();
     for (size_t j = 0; j < populationIndices.size(); ++j) {
       int popIndex = populationIndices[j];
-      int cost = costs[popIndex];
-      if (cost != Dijkstra<RoadGraph>::infinity) {
+      if (settled[popIndex]) {
+        int cost = costs[popIndex];
+        assert(cost != Dijkstra<RoadGraph>::infinity);
         uint b = determine_bucket_index(cost, bucketCostBounds);
-        fepPop[i] = fepPop[i] + buckets[i][b] * shares[b] * population[j];
+        fepPop[i] += buckets[i][b] * shares[b] * population[j];  // TODO(Jonas): Users which accept long distances to forests will also use entries in the vicinity.
       }
     }
 
@@ -109,7 +120,7 @@ vector<float> reachability_analysis(
   float normalizer = std::accumulate(fepPop.begin(), fepPop.end(), 0.f) /
                      std::accumulate(population.begin(), population.end(), 0.f);
   for (size_t i = 0; i < fepPop.size(); ++i) {
-    fepPop[i] = fepPop[i] / normalizer;
+    fepPop[i] /= normalizer;
   }
 
   return fepPop;
@@ -156,6 +167,7 @@ int main(int argc, char** argv) {
   //  nodeId1
   //  ...
   vector<vector<float> > fepCols = util::read_column_file<float>(fepFile);
+  assert(fepCols.size() > 2);
   vector<int> fepNodeIndices(fepCols[2].begin(), fepCols[2].end());
 
 
@@ -174,18 +186,16 @@ int main(int argc, char** argv) {
 
 
   vector<vector<float>> preferences = util::read_column_file<float>(prefFile);
-  // TODO(Jonas): Do sanity checks with the code from the other Main.cpp
-  //assert(check_preferences(preferences));
-  const int costLimit = preferences[0].back();
+  assert(EdgeAttractivenessModel::check_preferences(preferences));
 
 
   // Reachability analysis
   vector<float> fepPopulations = reachability_analysis(
-      graph, fepNodeIndices, population, populationNodeIndices, preferences, costLimit);
+      graph, fepNodeIndices, population, populationNodeIndices, preferences);
   string filename = outfile;  // "forest_entries_popularity.tmp.txt";
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(fepPopulations, filename);
-  std::cout << util::join(", ", fepPopulations) << std::endl;
+//   std::cout << util::join(", ", fepPopulations) << std::endl;
 
   return 0;
 }

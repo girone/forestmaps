@@ -39,16 +39,20 @@ int main(int argc, char** argv) {
   int approach = util::convert<int>(argv[5]);
   string outfile = argv[6];
 
-  //assert(check_preferences(preferences));
+  // Check preferences & convert from minutes to seconds.
+  assert(EdgeAttractivenessModel::check_preferences(preferences));
+  std::for_each(preferences[0].begin(), preferences[0].end(),
+                [](float& x) { x*=60; });
+  const int costLimit = preferences[0].back();
 
   EdgeAttractivenessModel* algorithm;
   if (approach == 0) {
     algorithm = new FloodingModel(
-        forestGraph, forestEntries, entryPopulation, preferences, preferences[1].back());
+        forestGraph, forestEntries, entryPopulation, preferences, costLimit);
     std::cout << "Selected Flooding Approach." << std::endl;
   } else if (approach == 1) {
     algorithm = new ViaEdgeApproach(
-        forestGraph, forestEntries, entryPopulation, preferences, preferences[1].back());
+        forestGraph, forestEntries, entryPopulation, preferences, costLimit);
     std::cout << "Selected Via Edge Approach." << std::endl;
   } else {
     std::cout << "Invalid approach selector." << std::endl;

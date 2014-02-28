@@ -55,7 +55,8 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
     done++;
     if ((clock() - timestamp) / static_cast<float>(CLOCKS_PER_SEC) > 0.00001) {
       timestamp = clock();
-      printf("Progress: %5.1f%% \r\n", done * 100.f / total);
+      printf("Progress: %d of %d, this is %5.1f%% \r\n",
+             done, total, done * 100.f / total);
     }
   }
 
@@ -147,7 +148,8 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
-      printf("Progress: %5.1f%%\n", done * 100.f / total);
+      printf("Progress: %d of %d, this is %5.1f%% \r\n",
+             done, total, done * 100.f / total);
     }
   }
   return result();
@@ -204,8 +206,10 @@ bool EdgeAttractivenessModel::check_preferences(
     }
   }
 
-  if (std::accumulate(preferences[1].begin(), preferences[1].end(), 0.f) > 1.) {
-    std::cerr << "Sum of preference category shares is greater than 1." << endl;
+  float sum = accumulate(preferences[1].begin(), preferences[1].end(), 0.f);
+  if (sum >= 1.0000001f) {
+    std::cout << "Sum of preference category shares is greater than 1:" << endl;
+    std::cout << sum << std::endl;
     exit(1);
   }
 
