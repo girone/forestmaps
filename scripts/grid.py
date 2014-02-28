@@ -79,11 +79,11 @@ class Grid:
     res = self.transformation * hom(point)
     return res.item(0), res.item(1)
 
-  def fill_polygon(self, poly, color=255):
+  def fill_polygon(self, poly, fill=255):
     ''' Fills an area of the grid corresponding to a polygon in the input space.
     '''
     transformed = [self.transformation * hom(point) for point in poly]
-    self.draw.polygon([(p.item(0), p.item(1)) for p in transformed], fill=color)
+    self.draw.polygon([(p.item(0), p.item(1)) for p in transformed], fill=fill)
     self.updated = True
 
   def draw_line(self, line_pts, fill='#FFFFFF', width=1):

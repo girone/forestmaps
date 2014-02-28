@@ -252,7 +252,7 @@ def classify_forest(osmfile, maxspeed=130):
     hull = convexhull.compute(points)
     convexhull.save(hull, boundary_filename)
   if visualize:
-    visual_grid.fill_polygon(hull, color="#fadbaa")
+    visual_grid.fill_polygon(hull, fill="#fadbaa")
 
   print 'Creating forest grid from polygons...'
   forest_polygons = \
@@ -321,7 +321,7 @@ def classify_forest(osmfile, maxspeed=130):
   if visualize:
     print 'Visualizing the result...'
     for poly in forest_polygons:
-      visual_grid.fill_polygon(poly, color="#00DD00")
+      visual_grid.fill_polygon(poly, fill="#00DD00")
     for node_id in weps:
       x, y = visual_grid.transform(nodes[node_id])
       r = 10
