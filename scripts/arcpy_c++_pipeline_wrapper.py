@@ -5,22 +5,18 @@ import arcpy
 import os
 import subprocess
 import random
-
-# Add library path to the non-arcpy modules.
-libpath = os.path.abspath(os.path.split(sys.argv[0])[0] + "\\..\\")
-sys.path.append(libpath)
 import atkis_graph
-from util import msg, Timer
+from arcutil import msg, Timer
 
 
 # Some general names
-roadGraphFile = "road_graph.txt"
-forestGraphFile = "forest_road_graph.txt"
-entryXYFile = "forest_entries_xy.txt"
-populationFile = "populations.txt"
-entryXYRFFile = "forest_entries_xyrf.txt"
-entryPopularityFile = "forest_entries_popularity.txt"
-edgeWeightFile = "edge_weights.txt"
+roadGraphFile = "road_graph.tmp.txt"
+forestGraphFile = "forest_road_graph.tmp.txt"
+entryXYFile = "forest_entries_xy.tmp.txt"
+populationFile = "populations.tmp.txt"
+entryXYRFFile = "forest_entries_xyrf.tmp.txt"
+entryPopularityFile = "forest_entries_popularity.tmp.txt"
+edgeWeightFile = "edge_weights.tmp.txt"
 
 columnName = "EdgeWeight"
 
@@ -143,7 +139,7 @@ def parse_and_dump(env):
 
 
 def call_subprocess(prog, args):
-    timer = Time()
+    timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
         output = subprocess.check_output(prog + " " + args)  # shell=False
@@ -152,7 +148,7 @@ def call_subprocess(prog, args):
         raise
     msg("Subprocess has finished, its output was:")
     msg(output)
-    t.stop_timing()
+    timer.stop_timing()
     return output
 
 
@@ -249,10 +245,10 @@ def create_raster(env, columnName, rasterPixelSize=20):
     t.stop_timing()
     layerFile = env.path + "raster_" + blub + ".lyr"
     layer = arcpy.management.MakeRasterLayer(raster, "raster_layer" + blub)
-    #try:
-    arcpy.management.SaveToLayerFile(layer, layerFile)
-    #except:
-    #    raise
+    try:
+        arcpy.management.SaveToLayerFile(layer, layerFile)
+    except:
+        raise
     msg(layerFile)
     layer = arcpy.mapping.Layer(layerFile)
     # layer.transparency = 40
@@ -292,5 +288,4 @@ def main():
 
 
 if __name__ == '__main__':
-    #arcpy.management.Delete("in_memory")
     main()

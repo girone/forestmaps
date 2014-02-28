@@ -16,7 +16,7 @@ from collections import defaultdict
 
 from graph import Graph
 from dijkstra import Dijkstra
-from util import Progress
+from arcutil import Progress
 
 
 def load_data(osmfile, maxspeed):

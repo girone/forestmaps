@@ -1,3 +1,6 @@
+"""arcpy_io_pipeline.py -- Demonstrates file input/output with arcpy.
+
+"""
 import arcpy
 import random
 import time
@@ -11,16 +14,16 @@ def msg(text):
 
 
 env = "C:\\Users\\sternis\\Documents\\ArcGIS\\Data\\"
-arcpy.env.workspace = env
-arcpy.env.scratchWorkspace = env + "scratchoutput.gdb"
 
 
 def main():
-  ''' Entry point. '''
+  """ Entry point. """
   arcpy.management.Delete("in_memory")
   input_table = arcpy.GetParameterAsText(0)
   if not input_table:
     msg("RUNNING AS EXTERNAL SCRIPT")
+    arcpy.env.workspace = env
+    arcpy.env.scratchWorkspace = env + "scratchoutput.gdb"
     input_table = env + "random.shp"
   else:
     msg("RUNNING AS INTERNAL SCRIPT")
@@ -32,15 +35,19 @@ def main():
 
   msg("Copying the table into memory...")
   t0 = time.clock()
-  ''' For faster performance and reliable field order, it is recommended that
+  #target_table = arcpy.management.CreateTable("in_memory", "table1")
+  #memory_table = "in_memory\\table1"
+  #arcpy.management.CopyFeatures(input_table, memory_table)
+  """ For faster performance and reliable field order, it is recommended that
       the list of fields be narrowed to only those that are actually needed.
       NOTE(Jonas): That is indeed much faster (factor 10)!
-  '''
-  arr= arcpy.da.TableToNumPyArray(input_table, ("FID", "Id"))
+  """
+  arr= arcpy.da.FeatureClassToNumPyArray(input_table, ("FID", "Id"))
   msg("This took %f seconds." % (time.clock() - t0))
 
   msg("Adding a new column to the table...")
   t0 = time.clock()
+  #arcpy.management.AddField(memory_table, "NewField", "FLOAT")
   # numpy array: pass
   pass
   msg("This took %f seconds." % (time.clock() - t0))
@@ -48,6 +55,21 @@ def main():
   values = range(100)
   for i in values:
     values[i] = float(random.randint(0, 99))
+
+  #msg("Filling the column with values...")
+  #size = int(arcpy.management.GetCount(target_table).getOutput(0))
+  #msg("Table has %d rows." % size)
+  #pos = 0
+  #with arcpy.da.UpdateCursor(target_table, ["NewField"]) as rows:
+  #  arcpy.SetProgressor("step", "Inserting values...", 0, size, 1000)
+  #  for row in rows:
+  #    # row[i] references the ith field specified on creation of the cursor
+  #    row[0] = values[pos % len(values)]
+  #    #rows.updateRow(row)
+  #    pos += 1
+  #    if pos % 1000 == 0:
+  #      arcpy.SetProgressorPosition()
+  #  arcpy.ResetProgressor()
 
   #t0 = time.clock()
   #msg("Converting table to numpy array...")
@@ -60,6 +82,7 @@ def main():
   pos = 0
   t0 = time.clock()
   for row in arr:
+    # row[i] references the ith field specified on creation of the cursor
     row[1] = values[pos % len(values)]
     pos += 1
   msg("This took %f seconds." % (time.clock() - t0))
@@ -72,8 +95,9 @@ def main():
 
   msg("Writing output table to '" + output_table + "'")
   t0 = time.clock()
+  #arcpy.management.CopyFeatures(memory_out_table, output_table)
   # NOTE(Jonas): Here selecting the a subset of fields does not change performance.
-  arcpy.da.NumPyArrayToTable(arr, output_table, ("FID", "Id"))
+  arcpy.da.NumPyArrayToFeatureClass(arr, output_table, ("FID", "Id"))
   msg("This took %f seconds." % (time.clock() - t0))
 
   arcpy.management.Delete("in_memory")

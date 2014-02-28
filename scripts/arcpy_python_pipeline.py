@@ -1,4 +1,6 @@
-""" DOCU TODO
+"""This script containes the first pipeline. It is pure python/arcpy.
+
+Developement switched to C++ with Python wrapper due to speed reasons.
 
 """
 import arcpy
@@ -7,15 +9,13 @@ import os
 import sys
 import numpy as np
 from matplotlib import mlab
-from util import msg, Timer
 from collections import defaultdict
-''' Add library path for the non-arcpy modules. '''
-libpath = os.path.abspath(os.path.split(sys.argv[0])[0] + "\\..\\")
-sys.path.append(libpath)
+
 import atkis_graph
 from graph import Graph
 from fep_weight_computation import connect_population_to_graph, reachability_analysis
 import edge_weight_computation
+from arcutil import msg, Timer
 
 
 newFieldName = "EdgeWeight"
@@ -24,7 +24,7 @@ COST_LIMIT_TO_FOREST_ENTRY = 10*60
 COST_LIMIT_IN_FOREST = 60*60
 
 def create_road_graph(dataset, max_speed):
-  ''' Creates a graph from ATKIS data stored as FeatureClass in a shapefile. '''
+  """Creates a graph from ATKIS data stored as FeatureClass in a shapefile."""
   lines_threshold = 1e6
   msg(str(arcpy.management.GetCount(dataset).getOutput(0)) + " <?> " + str(lines_threshold))
   if False and arcpy.management.GetCount(dataset).getOutput(0) < lines_threshold:
@@ -64,9 +64,9 @@ def shape_to_polygons(lines):
 
 
 def create_populations_from_settlement_fc(lines, point_distance):
-  ''' Creates population points from the 'Ortslage' feature class. The
+  """ Creates population points from the 'Ortslage' feature class. The
   point_distance parameter influences the density of the grid.
-  '''
+  """
   polygons = shape_to_polygons(lines)
   from forestentrydetection import create_population_grid
   return create_population_grid(polygons, [], gridPointDistance=point_distance)
@@ -76,7 +76,7 @@ def create_population(settlement_dataset,
                       coordinate_to_graph_node,
                       graph,
                       point_distance):
-  ''' Creates the population representatives and connects them to the graph. '''
+  """ Creates the population representatives and connects them to the graph. """
   arr2 = arcpy.da.FeatureClassToNumPyArray(settlement_dataset, ["fid", "shape"],
                                            explode_to_points=True)
   population_coords = create_populations_from_settlement_fc(
@@ -86,7 +86,7 @@ def create_population(settlement_dataset,
       population_coords, graph, [coord_map_inv[node] for node in graph.nodes],
       lambda x: x)
   if arcpy.GetParameterAsText(0):
-    '''Showing output layer in ArcMap...'''
+    """Showing output layer in ArcMap..."""
     population_array = np.array(
         [zip(range(len(population_coords)), population_coords)],
         np.dtype([('idfield', np.int32), ('XY', '<f8', 2)]))
@@ -264,7 +264,7 @@ def main():
   t.stop_timing()
 
   if arcpy.GetParameterAsText(0):
-    '''Showing output layer in ArcMap...'''
+    """Showing output layer in ArcMap..."""
     mxd = arcpy.mapping.MapDocument("CURRENT")
     dataframe = arcpy.mapping.ListDataFrames(mxd, "*")[0]
     msg(dataframe)

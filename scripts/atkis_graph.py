@@ -9,7 +9,7 @@ from collections import defaultdict
 from itertools import tee, izip
 import numpy as np
 from graph import Graph
-from util import msg, Progress
+from arcutil import msg, Progress
 from osm_parse import ATKISSpeedTable
 
 def pairwise(iterable):

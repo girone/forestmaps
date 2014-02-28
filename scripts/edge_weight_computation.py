@@ -9,7 +9,7 @@ by conducting one Dijkstra from s and t respectively.
 
 from collections import defaultdict
 from dijkstra import Dijkstra
-from util import Progress
+from arcutil import Progress
 
 MAX_COST = 60*60  # 1 hour
 
