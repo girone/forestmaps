@@ -32,7 +32,7 @@ ostream& operator<<(std::ostream& os, const XYRF& a) {
 
 
 void print_usage() {
-  std::cout << "Usage: ./program <graphR> <graphF> <ForestEntriesXY>"
+  std::cout << "Usage: ./program <graphR> <graphF> <ForestEntriesXY> <outfile>"
             << std::endl;
 }
 
@@ -43,7 +43,7 @@ void print_usage() {
 // as a new file containing each forest entry point's location and corresponding
 // road and forest graph node index.
 int main(int argc, char** argv) {
-  if (argc != 4) {
+  if (argc != 5) {
     print_usage();
     exit(1);
   }
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < xx.size(); ++i) {
     combined.push_back(XYRF(xx[i], yy[i], indexR[i], indexF[i]));
   }
-  string filename = "forest_entries_xyrf.tmp.txt";
+  string filename = argv[4];  // "forest_entries_xyrf.tmp.txt";
   std::cout << "Writing forest entry locations and r/f graph indices to "
             << filename << std::endl;
   util::dump_vector(combined, filename);

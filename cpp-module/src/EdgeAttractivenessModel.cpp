@@ -1,6 +1,7 @@
 // Copyright 2014: Jonas Sternisko
 
 #include "./EdgeAttractivenessModel.h"
+#include <ctime>
 #include <algorithm>
 #include <iostream>
 #include "./Dijkstra.h"
@@ -24,6 +25,11 @@ FloodingModel::FloodingModel(
 
 // _____________________________________________________________________________
 vector<float> FloodingModel::compute_edge_attractiveness() {
+  // Prepare progress information
+  size_t total = 2 * _forestEntries.size();
+  size_t done = 0;
+  clock_t timestamp = clock();
+
   // Collect node attractivenesses.
   vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
   Dijkstra<RoadGraph> dijkstra(_graph);
@@ -43,6 +49,13 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       // TODO(Jonas): Some scaling factor could/should be added below:
       float gain = popularity * share / cost;
       nodeAttractiveness[node] += gain;
+    }
+
+    // Progress
+    done++;
+    if ((clock() - timestamp) / static_cast<float>(CLOCKS_PER_SEC) > 0.00001) {
+      timestamp = clock();
+      printf("Progress: %5.1f%% \r\n", done * 100.f / total);
     }
   }
 
@@ -107,6 +120,10 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   // Iterate over all forest edges s --> t.
   // For each edge, do a forward Dijkstra from t and a backward Dijkstra from s.#
   const vector<RoadGraph::Arc_t>& arcs = _graph.arclist();
+  // Prepare progress information
+  size_t total = arcs.size();
+  size_t done = 0;
+  clock_t timestamp = clock();
   for (size_t arcIndex = 0; arcIndex < arcs.size(); ++arcIndex) {
     // Set up
     const RoadGraph::Arc_t& arc = arcs[arcIndex];
@@ -125,6 +142,13 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
     // Clean up
     nodesToIgnoreBwd[t] = false;
     nodesToIgnoreFwd[s] = false;
+
+    // Progress
+    done++;
+    if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
+      timestamp = clock();
+      printf("Progress: %5.1f%%\n", done * 100.f / total);
+    }
   }
   return result();
 }

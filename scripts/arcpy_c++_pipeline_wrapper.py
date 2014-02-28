@@ -1,7 +1,6 @@
 """This is an Python/ArcPy wrapper to the C++ module.
 
-Note: Keep all input data in the same directoy.
-
+Important note: Keep all input data in the same directoy. 
 """
 import arcpy
 import os
@@ -25,17 +24,23 @@ tifFile             = "preferences_TIF.txt"
 
 columnName = "EdgeWeight"
 
-def set_paths(argv):
+def set_paths(argv, env):
     """  """
     global scriptDir
-    scriptDir = os.path.split(argv[0])[0] + "\\\\"
-    msg("############# Path is " + scriptDir)
+    scriptDir = os.path.split(argv[0])[0] + "\\"
+    msg("############# scriptDir is " + scriptDir)
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
-    tmpDir = ""
+    global ttfFile, tifFile
+    # converted inputs are created at the input data's location
+    tmpDir = env.path + "\\"
     roadGraphFile       = tmpDir + roadGraphFile
     forestGraphFile     = tmpDir + forestGraphFile
     entryXYFile         = tmpDir + entryXYFile
+    ttfFile             = env.paramTxtTimeToForest
+    tifFile             = env.paramTxtTimeInForest
+
+    # intermediate files are created at the script's location
     populationFile      = tmpDir + populationFile
     entryXYRFFile       = tmpDir + entryXYRFFile
     entryPopularityFile = tmpDir + entryPopularityFile
@@ -99,8 +104,7 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
     res = create_road_graph(shpFile, max_speed=maxSpeed)
     graph, coordinateMap, arcToFID, contractionList = res
     nodeToCoords = {node : coords for coords, node in coordinateMap.items()}
-    global scriptDir
-    with open(scriptDir + filename, "w") as f:
+    with open(filename, "w") as f:
         f.write("{0}\n".format(graph.size()))
         f.write("{0}\n".format(
                 sum([len(edges) for edges in graph.edges.values()])))
@@ -134,8 +138,7 @@ def parse_and_dump(env):
     population_coords = create_population(env.paramShpSettlements, 200)
     total_population = 230000
     avg_population = total_population / float(len(population_coords))
-    global scriptDir
-    with open(scriptDir + populationFile, "w") as f:
+    with open(populationFile, "w") as f:
         for coord in population_coords:
             f.write("{0} {1} {2}\n".format(coord[0], coord[1], avg_population))
     t.stop_timing()
@@ -145,7 +148,7 @@ def parse_and_dump(env):
     idKeyword = "fid" if "fid" in fields else "objectid"
     array = arcpy.da.FeatureClassToNumPyArray(env.paramShpEntrypoints, 
                                               [idKeyword, "shape"])
-    with open(scriptDir + entryXYFile, "w") as f:
+    with open(entryXYFile, "w") as f:
         for east, north in array['shape']:
             f.write("{0} {1}\n".format(east, north))
     t.stop_timing()
@@ -157,15 +160,30 @@ def call_subprocess(prog, args):
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
-        output = subprocess.check_output(prog + " " + args, 
-                                         stderr=subprocess.STDOUT)  # shell=False
+        #output = subprocess.check_output(prog + " " + args, 
+        #                                 stderr=subprocess.STDOUT)  # shell=False
+        p = subprocess.Popen(prog + " " + args, 
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        output = ""
+        while True:
+            line = p.stdout.readline()
+            if not line:
+                break
+            if line.startswith("Progress: "):
+                msg(line.strip())
+            else:
+                msg("Reading data...")
+                output += line
     except subprocess.CalledProcessError as e:
         msg("Error occured.")
         msg(e.output)
         raise
+    msg("=====================")
     msg("Subprocess has finished, its output was:")
     msg(output)
     timer.stop_timing()
+    msg("=====================")
     return output
 
 
@@ -225,6 +243,7 @@ class AlgorithmEnvironment(object):
         self.paramValAlgorithm = arcpy.GetParameterAsText(7)
         self.paramValRasterize = arcpy.GetParameterAsText(8)
 
+        """The path for temporaries and output."""
         self.path = os.path.split(self.paramShpRoads)[0] + "\\"
 
         if not (self.paramShpRoads and
@@ -287,21 +306,24 @@ def main():
     3. Load back the resuling arc weights,
     4. If selected, visualize the result in ArcGIS.
     """
-    set_paths(sys.argv)
     env = AlgorithmEnvironment()
+    set_paths(sys.argv, env)
     forestArcToFID = parse_and_dump(env)
     msg("scriptDir = " + scriptDir)
+    s = scriptDir
     call_subprocess(scriptDir + "MatchForestEntriesMain.exe",
-            roadGraphFile + " " + forestGraphFile + " " + entryXYFile)
+            roadGraphFile + " " + forestGraphFile + " " + entryXYFile + " " +
+            entryXYRFFile)
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
-            roadGraphFile + " " + entryXYRFFile + " " + populationFile + " " +
-            ttfFile)
+            roadGraphFile + " " + entryXYRFFile + " " + 
+            populationFile + " " + ttfFile + " " + entryPopularityFile)
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
-            forestGraphFile + " " + entryXYRFFile + " " + entryPopularityFile +
-            " " + tifFile + " " + str(env.paramValAlgorithm))
+            forestGraphFile + " " + entryXYRFFile + " " + 
+            entryPopularityFile + " " + tifFile + 
+            " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
 
-    add_column(env.paramShpForestRoads, columnName, forestGraphFile, forestArcToFID,
-            edgeWeightFile)
+    add_column(env.paramShpForestRoads, columnName, forestGraphFile, 
+            forestArcToFID, edgeWeightFile)
 
     if env.paramValRasterize:
         create_raster(env, columnName)

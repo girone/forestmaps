@@ -1,5 +1,6 @@
 // Copyright 2011-2013: Jonas Sternisko
 
+#include <ctime>
 #include <numeric>
 #include <string>
 #include <vector>
@@ -40,6 +41,11 @@ vector<float> reachability_analysis(
   vector<int> bucketCostBounds;
   for (float bound: upperBounds) { bucketCostBounds.push_back(60 * bound); }
 
+  // Prepare progress information
+  size_t total = 2 * fepIndices.size();
+  size_t done = 0;
+  clock_t timestamp = clock();
+
   // First round of Dijkstras: Analyse reachability and determine frequency of
   // forest distances categories for each population point.
   vector<vector<float>> buckets(
@@ -55,6 +61,12 @@ vector<float> reachability_analysis(
         uint b = determine_bucket_index(cost, bucketCostBounds);
         buckets[i][b]++;
       }
+    }
+
+    done++;
+    if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
+      timestamp = clock();
+      printf("Progress: %5.1f%%\n", done * 100.f / total);
     }
   }
 
@@ -85,6 +97,12 @@ vector<float> reachability_analysis(
         fepPop[i] = fepPop[i] + buckets[i][b] * shares[b] * population[j];
       }
     }
+
+    done++;
+    if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
+      timestamp = clock();
+      printf("Progress: %5.1f%%\n", done * 100.f / total);
+    }
   }
 
   // Normalize the population numbers: Sum must equal the sum before.
@@ -105,12 +123,13 @@ void print_usage() {
   "  ForestEntries -- ...\n"
   "  PopulationNodes -- ...\n"
   "  Preferences -- User study data as 2-column text file. First column contains upper bounds (in minutes), its last value denotes the cost limit for searches. The second column contains shares in [0,1].\n"
+  "  OutputFile -- Path and name of the ouput file.\n"
             << std::endl;
 }
 
 // _____________________________________________________________________________
 int main(int argc, char** argv) {
-  if (argc != 5) {
+  if (argc != 6) {
     print_usage();
     exit(0);
   }
@@ -118,6 +137,7 @@ int main(int argc, char** argv) {
   string fepFile = argv[2];
   string popFile = argv[3];
   string prefFile = argv[4];
+  string outfile = argv[5];
 
   // Read the graph. The file has the graph format
   //  #nodes
@@ -155,13 +175,14 @@ int main(int argc, char** argv) {
 
   vector<vector<float>> preferences = util::read_column_file<float>(prefFile);
   // TODO(Jonas): Do sanity checks with the code from the other Main.cpp
-  const int costLimit = 30 * 60;  // TODO(Jonas): Adapt cost limit tio user preference data.
+  //assert(check_preferences(preferences));
+  const int costLimit = preferences[0].back();
 
 
   // Reachability analysis
   vector<float> fepPopulations = reachability_analysis(
       graph, fepNodeIndices, population, populationNodeIndices, preferences, costLimit);
-  string filename = "forest_entries_popularity.tmp.txt";
+  string filename = outfile;  // "forest_entries_popularity.tmp.txt";
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(fepPopulations, filename);
   std::cout << util::join(", ", fepPopulations) << std::endl;
