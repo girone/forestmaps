@@ -4,45 +4,38 @@ Contains the Heatmap class.
 
 """
 import numpy as np
+from math import floor
 
 class Heatmap(object):
-    def __init__(self, nodes, edges, weights=None, nodeFlags=None):
+    def __init__(self, nodes, edges):
         """Constructs the heatmap.
 
         The heatmap will be a set of coordinates and labels, one for each node.
+        The input nodes are a set of 3-tuples (lat, lon, flag) where the flag
+        indicates forest nodes (=1) and FEPs (=2).
+        The input edges are a set of 3-tuples (s, t, weight).
 
         """
-        nodes = np.array([(lat, lon) for (lat, lon, _) in nodes])
-        lat, lon = zip(*nodes)
-        self.leftBottomRightTop = [min(lon), min(lat), max(lon), max(lat)]
-        assert len(edges) == len(weights)
-        if weights:
-            # WORKAROUND: Fix missing edges with empty weight
-            for index, (edge, weight) in enumerate(zip(edges, weights)):
-                if edge == []:
-                    edges[index] = (0, 0, [])
-                    weights[index] = 0
-            edges = [(s, t, w) for (s, t, _), w in zip(edges, weights)]
-        else:
-            # remove duplicate edges caused by bidirectionality of the graph
-            tmp = set([])
-            for (s, t, labels) in edges:
-                if s < t:
-                    tmp.add((s, t, labels[0]))
-                else:
-                    tmp.add((t, s, labels[0]))
-            edges = list(tmp)
+        nodes = np.array(nodes)
+        lats, lons, flags = zip(*nodes)
+        self.leftBottomRightTop = [min(lons), min(lats), max(lons), max(lats)]
+        # remove duplicate edges caused by bidirectionality of the graph
+        tmp = set([])
+        for (s, t, w) in edges:
+            if s < t:
+                tmp.add((s, t, w))
+            else:
+                tmp.add((t, s, w))
+        edges = list(tmp)
 
         # Map weights to nodes
         heat = [0.] * len(nodes)
         for (s, t, cost) in edges:
             count = float(cost)
             for nodeIndex in [s, t]:
-                # WORKAROUND: Only sum up for forest nodes
-                assert nodeFlags
-                if nodeFlags[nodeIndex] == 0:
+                # Only sum up for forest nodes
+                if nodes[nodeIndex][2] == 0:
                     continue
-                # ENDOF WORKAROUND
                 heat[nodeIndex] += count
         self.maximum = max(heat)
         # Test: Maybe scaling is better with this:
@@ -50,7 +43,7 @@ class Heatmap(object):
         intensities = intensities[intensities[:]>0]
         self.maximum = intensities[len(intensities)/2]
         # Sort by latitude and throw away zero entries.
-        nodeHeat = sorted(zip(lat, lon, heat))
+        nodeHeat = sorted(zip(lats, lons, heat))
         self.heatmap = np.array([node for node in nodeHeat if node[2] != 0.])
 
     def extract(self, bbox):
@@ -72,22 +65,28 @@ class Heatmap(object):
             filtered = np.resize(filtered, [j-i,3])
             return filtered
 
-    def rasterize(self, bbox, (xres,yres)=(180,120)):  #=(640,480)
+    def rasterize(self, bbox, (xres,yres)=(180,120)):  #=(640,)
         """Returns a raster discretizing the intensities inside the bbox."""
         minLon, minLat, maxLon, maxLat = bbox
         latFraction = (maxLat - minLat) / (yres - 1.)
-        lonFraction = (maxLon - minLon) / (xres - 1.)
+        lonFraction = latFraction  # (maxLon - minLon) / (xres - 1.)
+        print "latFrac, lonFrac: ", latFraction, lonFraction
         i = 0
         while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
             i += 1
 
-        coords = np.zeros([yres,xres,2])
-        lat = minLat
+        xres = floor((maxLon - minLon) / lonFraction)
+        coords = np.zeros([yres, xres, 2])
+        latStart = floor(minLat / latFraction) * latFraction + latFraction
+        lonStart = floor(minLon / lonFraction) * lonFraction + lonFraction
+        print "minLat, latStart ", minLat, latStart
+        print "minLon, lonStart ", minLon, lonStart
+        lat = latStart
         y = 0
-        while lat <= maxLat:
-            lon = minLon
+        while y < coords.shape[0]:
+            lon = lonStart
             x = 0
-            while lon <= maxLon:
+            while x < coords.shape[1]:
                 coords[y,x] = (lat,lon)
                 lon += lonFraction
                 x += 1
@@ -98,8 +97,8 @@ class Heatmap(object):
         while i < len(self.heatmap) and self.heatmap[i][0] <= maxLat:
             lat, lon, heat = self.heatmap[i]
             if lon >= minLon and lon <= maxLon:
-                ly = (lat - minLat) / latFraction
-                lx = (lon - minLon) / lonFraction
+                ly = (lat - latStart) / latFraction
+                lx = (lon - lonStart) / lonFraction
                 raster[ly,lx] += heat
             i += 1
         #print np.dstack([coords, raster])[raster[:] > 0]

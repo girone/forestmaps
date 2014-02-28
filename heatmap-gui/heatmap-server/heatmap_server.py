@@ -140,61 +140,32 @@ def read_weights(filename):
 
 
 def main():
-    import sys, pickle
-    # WORKAROUND for changed edge order: Load also the popGraph file and determine
-    # determine the edge order
-    # FURTHERMORE the node labels are read from the popGraph file in order to
-    # restrict edge weights to the forest.
-    if len(sys.argv) < 5:
-        print "MUUUH"
+    import sys
+    if len(sys.argv) < 3:
+        print "Usage: python heatmap_server.py <GRAPH_FILE> <EDGE_HEAT_FILE>"
         exit(1)
-    nodeFlags = []
+    nodes, edges = [], []
     edgeMap = {}
-    with open(sys.argv[4]) as f:
-        index = 0
-        for line in f:
+    with open(sys.argv[1]) as f1:
+        for line in f1:
             parts = line.strip().split(" ")
             if len(parts) == 4:
                 # node line
-                _, _, _, flag = parts
-                nodeFlags.append(int(flag))
+                lat, lon, _, flag = parts
+                nodes.append( (float(lat), float(lon), int(flag)) )
             elif len(parts) == 3:
                 # edge line
-                s, t, _ = parts
-                edgeMap[(int(s), int(t))] = index
-                index += 1
-    # ENDOF WORKAROUND
-
-
-    if len(sys.argv) < 3:
-        print "Usage: python name.py <nodes.pickle> <edges.pickle> [<weight>]"
-        print "       When called without the optional edge weight file,"
-        print "       a dummy weight will be computed."
-        exit(1)
-
-    nodes, edges = [], []
-    with open(sys.argv[1]) as f:
-        nodes = pickle.load(f)
-    with open(sys.argv[2]) as f:
-        edges = pickle.load(f)
-
-    # WORKAROUND: Reorder edges
-    assert len(nodes) == len(nodeFlags)
-    print len(edgeMap), len(edges)
-    reordered = [[]] * len(edges)
-    for edge in edges:
-        (s, t, labels) = edge
-        index = edgeMap[(s,t)]
-        reordered[index] = edge
-    edges = reordered
-    # ENDOF WORKAROUND
-
+                s, t, cost = parts
+                edges.append( (int(s), int(t)) )
+    heats = []
+    with open(sys.argv[2]) as f2:
+        for line in f2:
+            heats.append(float(line.strip()))
+    assert len(heats) == len(edges) and "Number of heats and edges must equal."
+    ss, tt = zip(*edges)
+    edges = zip(ss, tt, heats)
     global heatmap
-    if len(sys.argv) > 3:
-        weights = read_weights(sys.argv[3])
-        heatmap = Heatmap(nodes, edges, weights, nodeFlags)
-    else:
-        heatmap = Heatmap(nodes, edges)
+    heatmap = Heatmap(nodes, edges)
 
     #open_browser()
     start_server()
