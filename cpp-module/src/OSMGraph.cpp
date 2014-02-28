@@ -7,14 +7,14 @@
 #include "./OSMGraph.h"
 
 // _____________________________________________________________________________
-std::string OSMNode::getSummaryString() const {
+std::string OSMNode::string() const {
   std::ostringstream os;
   os << "(" << lat << ", " << lon << ")";
   return os.str();
 }
 
 // _____________________________________________________________________________
-std::string OSMArc::getSummaryString() const {
+std::string OSMArc::string() const {
   std::ostringstream os;
   os << "(" << duration << ", " << headNodeId << ")";
   return os.str();

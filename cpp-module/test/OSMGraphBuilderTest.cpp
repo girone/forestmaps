@@ -31,17 +31,30 @@ void writeTestFile() {
 }
 
 // _____________________________________________________________________________
-TEST(BuildTest, buildTest) {
+TEST(OSMGraphBuilder, build_various) {
   writeTestFile();
   OSMGraph cg, wg;
   OSMGraphBuilder cgBuilder = OSMGraphBuilder::CarGraphBuilder(&cg);
   cgBuilder.build(TEST_FILE_NAME);
   ASSERT_EQ(
-      "{3, [(9, 1)], [(10, 2), (9, 0)], [(10, 1)]}",
-      cg.getSummaryString());
+      "{3, (40.7164, -73.9845):[(9, 1)], "
+      "(40.7166, -73.9853):[(10, 2), (9, 0)], (40.7169, -73.9862):[(10, 1)]}",
+      cg.string());
   OSMGraphBuilder wgBuilder = OSMGraphBuilder::WalkingGraphBuilder(&wg);
   wgBuilder.build(TEST_FILE_NAME);
   ASSERT_EQ(
-      "{3, [(52, 1)], [(57, 2), (52, 0)], [(57, 1)]}",
-      wg.getSummaryString());
+      "{3, (40.7164, -73.9845):[(52, 1)], "
+      "(40.7166, -73.9853):[(57, 2), (52, 0)], (40.7169, -73.9862):[(57, 1)]}",
+      wg.string());
+}
+
+// _____________________________________________________________________________
+TEST(OSMGraphBuilder, compact_graph) {
+  writeTestFile();
+  OSMGraph cg;
+  OSMGraphBuilder cgBuilder = OSMGraphBuilder::CarGraphBuilder(&cg);
+  cgBuilder.build(TEST_FILE_NAME);
+
+  CompactOSMGraph compact = OSMGraphBuilder::compact(cg);
+  EXPECT_EQ(cg.string(), compact.string());
 }

@@ -26,9 +26,7 @@ class GraphComposer {
 template<class Graph>
 Graph GraphComposer<Graph>::compose(const vector<typename Graph::Arc_t>& arcs,
     const vector< size_t >& offset) {
-  Graph g;
-  g._arcList = arcs;
-  g._offset = offset;
+  Graph g(arcs, offset);
   return g;
 }
 

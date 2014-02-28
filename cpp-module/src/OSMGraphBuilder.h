@@ -10,6 +10,7 @@
 #include <unordered_map>  // NOLINT
 
 #include "./OSMGraph.h"
+#include "./CompactDirectedGraph.h"
 
 
 // Builds a symmetric OSMGraph from .osm file.
@@ -24,6 +25,9 @@ class OSMGraphBuilder {
   // when he leaves his car).
   static OSMGraphBuilder RoadGraphBuilder(OSMGraph* g);
   void build(const std::string& fileName);
+
+  // Creates a compact representation of a graph.
+  static CompactOSMGraph compact(const OSMGraph& g);
 
  private:
   // From wayTypeToSpeedFn speed should be returned in km/h.

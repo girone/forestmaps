@@ -233,3 +233,18 @@ void OSMGraphBuilder::addArc(size_t fromId, size_t toId, size_t duration) {
   assert(toId < _g->_arcs.size());
   _g->_arcs[fromId].push_back(OSMArc(duration, toId));
 }
+
+// _____________________________________________________________________________
+CompactOSMGraph OSMGraphBuilder::compact(const OSMGraph& g) {
+  // Concatenate arcs and remember offsets.
+  vector<OSMGraph::Arc_t> arcs;
+  vector<size_t> offsets = {0};
+  for (size_t i = 0; i < g.size(); ++i) {
+    for (const OSMGraph::Arc_t& arc: g.arcs(i)) {
+      arcs.push_back(arc);
+    }
+    offsets.push_back(offsets[i] + g.arcs(i).size());
+  }
+  return CompactOSMGraph(arcs, offsets, g._nodes);
+}
+

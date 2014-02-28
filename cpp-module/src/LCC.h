@@ -35,10 +35,10 @@ Graph restrictToIndices(const Graph& g,
 template<class Graph>
 Graph graph_utils::lcc(const Graph& g) {
   printf("Determining LCC by BFS...\n");
-  vector<bool> node_marks(g.numNodes(), false);
+  vector<bool> node_marks(g.size(), false);
   vector<uint> nodes_in_lcc;
   uint source_node = 0;
-  while (source_node < g.numNodes()) {
+  while (source_node < g.size()) {
     // Settle all nodes reachable from source_node in a BFS.
     vector<uint> queue = {source_node};
     node_marks[source_node] = 1;
@@ -55,7 +55,7 @@ Graph graph_utils::lcc(const Graph& g) {
     if (queue.size() > nodes_in_lcc.size())
       nodes_in_lcc = queue;
     // Find the next source node.
-    while (source_node < g.numNodes() && node_marks[source_node])
+    while (source_node < g.size() && node_marks[source_node])
       ++source_node;
   }
   return restrictToIndices(g, nodes_in_lcc);
@@ -68,10 +68,10 @@ Graph graph_utils::restrictToIndices(const Graph& g,
   typedef typename Graph::Node_t Node;
   typedef typename Graph::Arc_t Arc;
   // Create indicator and index-shift function.
-  vector<uint> remove(g.numNodes(), 1);
+  vector<uint> remove(g.size(), 1);
   vector<uint> index_shift(remove.size());
   for (uint i: node_indices) {
-    assert(i < g.numNodes());
+    assert(i < g.size());
     remove[i] = 0;
   }
   std::partial_sum(remove.begin(), remove.end(), index_shift.begin());
@@ -93,8 +93,7 @@ Graph graph_utils::restrictToIndices(const Graph& g,
     }
   }
   Graph res(filtered_nodes, filtered_arcs);
-  printf("Removed %lu nodes. %lu remain.\n", g.numNodes() - res.numNodes(),
-     res.numNodes());
+  printf("Removed %lu nodes. %lu remain.\n", g.size() - res.size(), res.size());
   return res;
 }
 

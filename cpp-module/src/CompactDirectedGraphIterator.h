@@ -22,7 +22,7 @@ class _AccessMediator {
  public:
   ArcIterator<A> begin() const;
   ArcIterator<A> end() const;
-  const std::string debugString() const;
+  const std::string string() const;
 
  private:
   // C'tor. Only CompactDirectedGraph should be able to instantiate this class.
@@ -79,10 +79,10 @@ ArcIterator<A> _AccessMediator<A>::end() const {
 
 
 template<class A>
-const std::string _AccessMediator<A>::debugString() const {
+const std::string _AccessMediator<A>::string() const {
   std::ostringstream os;
   for (size_t i = _begin; i < _end; ++i) {
-    os << ((i != _begin) ? ", " : "") << _target->at(i).debugString();
+    os << ((i != _begin) ? ", " : "") << _target->at(i).string();
   }
   return os.str();
 }
@@ -92,7 +92,8 @@ const std::string _AccessMediator<A>::debugString() const {
 // ArcIterator
 
 template<class A>
-ArcIterator<A>::ArcIterator(const vector<A>* const target, const size_t state)
+ArcIterator<A>::ArcIterator(const std::vector<A>* const target,
+  const size_t state)
   : _target(target)
   , _state(state) { }
 

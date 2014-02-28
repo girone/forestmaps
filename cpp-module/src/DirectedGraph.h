@@ -23,11 +23,12 @@ class DirectedGraph {
   DirectedGraph(const std::vector<N>& nodes,
       const std::vector<std::vector<A>>& arcs);
 
-  size_t numNodes() const { return _arcs.size(); }
+  // Returns the size (#nodes).
+  size_t size() const { return _arcs.size(); }
   const N& node(uint node) const;
   const std::vector<A>& arcs(uint node) const;
 
-  std::string getSummaryString() const;
+  std::string string() const;
 
  protected:
   std::vector<std::vector<A> > _arcs;  // size = #nodes.
@@ -43,7 +44,7 @@ class DirectedGraph {
 
 template<class N, class A>
 const std::vector<A>& DirectedGraph<N, A>::arcs(uint node) const {
-  assert(node < numNodes());
+  assert(node < size());
   return _arcs[node];
 }
 
@@ -59,22 +60,22 @@ DirectedGraph<N, A>::DirectedGraph(
 
 template<class N, class A>
 const N& DirectedGraph<N, A>::node(uint node) const {
-  assert(node < numNodes());
+  assert(node < size());
   return _nodes[node];
 }
 
 
 template <class N, class A>
-std::string DirectedGraph<N, A>::getSummaryString() const {
+std::string DirectedGraph<N, A>::string() const {
   std::ostringstream os;
   os << "{" << _nodes.size() << ", ";
   for (auto it = _arcs.begin(); it != _arcs.end(); ++it) {
     if (it != _arcs.begin()) os << ", ";
-    os << "[";
+    os << _nodes[it - _arcs.begin()].string() << ":[";
     const auto& arcs = *it;  // NOLINT
     for (auto arcIt = arcs.begin(); arcIt != arcs.end(); ++arcIt) {
       if (arcIt != arcs.begin()) os << ", ";
-      os << (*arcIt).getSummaryString();
+      os << (*arcIt).string();
     }
     os << "]";
   }

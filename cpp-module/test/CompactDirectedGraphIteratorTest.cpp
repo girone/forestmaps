@@ -12,11 +12,11 @@
 using std::ostream;
 using std::vector;
 
-// Define any arc class.
+// Define some arc class.
 class Arc {
  public:
   Arc(size_t id) : headNodeId(id) { }  // NOLINT
-  std::string debugString() const { return std::to_string(headNodeId); }
+  std::string string() const { return std::to_string(headNodeId); }
  private:
   size_t headNodeId;
 };
@@ -34,13 +34,12 @@ TEST(CompactDirectedGraphIteratorTest, range_based_for_loop) {
 
   for (int i: {0, 1, 2, 3, 4}) {
     for (const Arc& arc: g.arcs(i)) {
-//       std::cout << arc.debugString() << std::endl;
+//       std::cout << arc.string() << std::endl;
     }
   }
-  EXPECT_EQ("", g.arcs(0).debugString());
-  EXPECT_EQ("11, 12, 13", g.arcs(1).debugString());
-  EXPECT_EQ("21, 22", g.arcs(2).debugString());
-  EXPECT_EQ("", g.arcs(3).debugString());
-  EXPECT_EQ("41, 42, 43", g.arcs(4).debugString());
+  EXPECT_EQ("", g.arcs(0).string());
+  EXPECT_EQ("11, 12, 13", g.arcs(1).string());
+  EXPECT_EQ("21, 22", g.arcs(2).string());
+  EXPECT_EQ("", g.arcs(3).string());
+  EXPECT_EQ("41, 42, 43", g.arcs(4).string());
 }
-

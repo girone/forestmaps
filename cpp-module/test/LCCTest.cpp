@@ -14,13 +14,14 @@ class TestNode {
  public:
   TestNode(int id) : id(id) { }  // NOLINT
   int id;
+  const std::string string() const { return std::to_string(id); }
 };
 
 class TestArc {
  public:
   TestArc(int head) : headNodeId(head) { }  // NOLINT
   int headNodeId;
-  const string getSummaryString() const { return std::to_string(headNodeId); }
+  const std::string string() const { return std::to_string(headNodeId); }
 };
 
 /*    A ---- B      F      G
@@ -44,34 +45,34 @@ class GraphUtilTest : public ::testing::Test {
 
 // _____________________________________________________________________________
 TEST_F(GraphUtilTest, self_test) {
-  EXPECT_EQ("{7, [1, 2], [0], [0, 3], [2], [5], [4], []}",
-            g.getSummaryString());
+  EXPECT_EQ("{7, 0:[1, 2], 1:[0], 2:[0, 3], 3:[2], 4:[5], 5:[4], 6:[]}",
+            g.string());
 }
 
 // _____________________________________________________________________________
 TEST_F(GraphUtilTest, restrictGraph) {
   TestGraph a = graph_utils::restrictToIndices(g, {A ,B, C, D, E, F, G});
-  EXPECT_EQ("{7, [1, 2], [0], [0, 3], [2], [5], [4], []}",
-            a.getSummaryString());
+  EXPECT_EQ("{7, 0:[1, 2], 1:[0], 2:[0, 3], 3:[2], 4:[5], 5:[4], 6:[]}",
+            a.string());
 
   TestGraph b = graph_utils::restrictToIndices(g, {G});
-  EXPECT_EQ("{1, []}", b.getSummaryString());
+  EXPECT_EQ("{1, 6:[]}", b.string());
 
   TestGraph c = graph_utils::restrictToIndices(g, {E, F});
-  EXPECT_EQ("{2, [1], [0]}", c.getSummaryString());
+  EXPECT_EQ("{2, 4:[1], 5:[0]}", c.string());
 
   TestGraph d = graph_utils::restrictToIndices(g, {A, C, E});
-  EXPECT_EQ("{3, [1], [0], []}", d.getSummaryString());
+  EXPECT_EQ("{3, 0:[1], 2:[0], 4:[]}", d.string());
 
   TestGraph e = graph_utils::restrictToIndices(g, {});
-  EXPECT_EQ("{0, }", e.getSummaryString());
+  EXPECT_EQ("{0, }", e.string());
 
   TestGraph f = graph_utils::restrictToIndices(g, {A, B, C, D});
-  EXPECT_EQ("{4, [1, 2], [0], [0, 3], [2]}", f.getSummaryString());
+  EXPECT_EQ("{4, 0:[1, 2], 1:[0], 2:[0, 3], 3:[2]}", f.string());
 }
 
 // _____________________________________________________________________________
 TEST_F(GraphUtilTest, lcc) {
   TestGraph a = graph_utils::lcc(g);
-  EXPECT_EQ("{4, [1, 2], [0], [0, 3], [2]}", a.getSummaryString());
+  EXPECT_EQ("{4, 0:[1, 2], 1:[0], 2:[0, 3], 3:[2]}", a.string());
 }
