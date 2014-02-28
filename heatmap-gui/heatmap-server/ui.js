@@ -45,7 +45,7 @@ function data_bounds(data) {
 };
 
 
-function init(){
+function init() {
     map = new OpenLayers.Map('heatmapArea', {
         projection: new OpenLayers.Projection("EPSG:4326"),
         displayProjection: new OpenLayers.Projection("EPSG:4326"),
@@ -77,15 +77,8 @@ function init(){
         return 15;
     };
 
-    map.zoomToMaxExtent();
-    map.zoomTo(6);
-    lastRequestExtent = map.getExtent();
-
-    // Load initial data from server
-    //get_heatmap_extract("");
-    allowCentering = true
-    lastRequestTimeStamp = 0;
-    get_heatmap_raster("");
+    // Select initial dataset
+    select_dataset("ro");
 }
 
 
@@ -94,19 +87,10 @@ function get_current_map_extent() {
 }
 
 
-// Avoids inconsistent updates. If set, no ajax heatmapRequest will be sent.
-var allowNewHeatmapRequest = true;
-
-
 // Updates the heatmap with json data (lat, lon, count)
 function update_heatmap(data) {
     var transformedHeatmapData = transform_data(data);
     heatmap.setDataSet(transformedHeatmapData);
-    if (data.data.length) {
-        allowNewHeatmapRequest = false;
-        //map.zoomToExtent(data_bounds(data.data).transform(map.projection, layer.projection));
-        allowNewHeatmapRequest = true;
-    }
     set_heatmap_point_radius(data.radius);
 }
 
@@ -144,18 +128,16 @@ function milliseconds() {
 
 
 function get_heatmap_extract(bbox) {
-    if (allowNewHeatmapRequest) {
-        var timestamp = milliseconds();
-        if (lastRequestExtent != map.getExtent()) {
-            if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
-                $.ajax({
-                    url: url + "?heatmapRequest=" + bbox,
-                    dataType: "jsonp"
-                });
-                lastRequestTimeStamp = timestamp;
-                lastRequestExtent = map.getExtent();
-                // console.log("Requesting data inside " + lastRequestExtent.transform(layer.projection,map.projection).toBBOX())
-            }
+    var timestamp = milliseconds();
+    if (lastRequestExtent != map.getExtent()) {
+        if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
+            $.ajax({
+                url: url + "?heatmapRequest=" + bbox,
+                dataType: "jsonp"
+            });
+            lastRequestTimeStamp = timestamp;
+            lastRequestExtent = map.getExtent();
+            // console.log("Requesting data inside " + lastRequestExtent.transform(layer.projection,map.projection).toBBOX())
         }
     }
 }
@@ -246,12 +228,9 @@ function heatmap_request_callback(json) {
         update_heatmap(data);
         if (allowCentering) {
             allowCentering = false;
-            /*forceRequest = true;*/
-            map.zoomToExtent(
-                data_bounds(data.data).transform(map.projection,
-                                                 layer.projection)
-            );
-            /*forceRequest = false;*/
+            var bounds = data_bounds(data.data).transform(map.projection,
+                                                          layer.projection)
+            map.zoomToExtent(bounds);
         }
     }
 }
@@ -316,12 +295,10 @@ function request_dataset_bounds_callback(data) {
     var bounds = new OpenLayers.Bounds();
     bounds.extend(new OpenLayers.LonLat(data.minLon, data.minLat));
     bounds.extend(new OpenLayers.LonLat(data.maxLon, data.maxLat));
-    datasetExtent = new OpenLayers.Bounds(bounds);
+    datasetExtent = bounds;
     datasetExtent.transform(map.projection, layer.projection);
-    // allowRequests = false;
     allowCentering = true;  // Allow centering for this request.
     map.zoomToExtent(datasetExtent);
-    // console.log(map.zoom)
 }
 
 window.onload = function() {

@@ -131,6 +131,7 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 return
         else:
             message = self.process_query(parsed_path.query)
+            self.send_headers("Content-type", "application/javascript")
         self.send_response(200)
         self.end_headers()
         self.wfile.write(message)
