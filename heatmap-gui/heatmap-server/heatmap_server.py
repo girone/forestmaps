@@ -3,23 +3,19 @@
 Author: Jonas Sternisko.
 
 """
-import threading
-import webbrowser
-import BaseHTTPServer
-import SimpleHTTPServer
-import urlparse
-import pickle
+import threading, webbrowser, BaseHTTPServer, SimpleHTTPServer
+import pickle, gc, urlparse, math
 from collections import defaultdict
 from heatmap import Heatmap, HeatmapFactory, compute_longitude_stepsize
 from timer import Timer
 
-import math
 
 FILE = 'index.html'
 PORT = 8080
 
 
 shortNameToIndex = {"ro" : 0, "ch" : 1, "at" : 2, "de" : 3}
+
 
 def normalize_zoomlvl(lvl):
     if lvl < 6:
@@ -29,8 +25,10 @@ def normalize_zoomlvl(lvl):
     else:
         return lvl - 6
 
+
 def dd():  # module-level definition required for pickle
     return defaultdict(Heatmap)
+
 
 class HeatmapDatabase(object):
     """Stores the heatmap data."""
@@ -69,9 +67,15 @@ class HeatmapDatabase(object):
         """Computes the raster for each zoomlevel."""
         # parse the original graph data, map edge weights to nodes
         heatmap = heatmap_setup([graphFilenames[i]], [edgeHeatFilenames[i]])[0]
+        gc.collect()
 
         # create the raster for each zoom level
-        for (level, minLon, minLat, maxLon, maxLat) in levelsAndBBoxes:
+        for index, levelAndBounds in enumerate(reversed(levelsAndBBoxes)):
+            if index > 0:
+                hm = hmRaster  # recursively build from previous level
+            else:
+                hm = heatmap
+            (level, minLon, minLat, maxLon, maxLat) = levelAndBounds
             print "Creating the raster for level", level
             # compute step size from local scope (js map at zoom level)
             bbox = minLon, minLat, maxLon, maxLat
@@ -89,12 +93,12 @@ class HeatmapDatabase(object):
             globalXResolution = math.ceil((lonEnd - lonStart) / lonFraction)
             print "globalYResolution", globalYResolution
             print "globalXResolution", globalXResolution
-            rasterData, latFrac = heatmap.rasterize(heatmap.leftBottomRightTop,
-                                              (globalXResolution,
-                                               globalYResolution))
-            hm = HeatmapFactory.construct_from_nparray(rasterData)
-            hm.latFraction = latFrac
-            self.rasterHeatmaps[i][normalize_zoomlvl(level)] = hm
+            rasterData, latFrac = hm.rasterize(heatmap.leftBottomRightTop,
+                                               (globalXResolution,
+                                                globalYResolution))
+            hmRaster = HeatmapFactory.construct_from_nparray(rasterData)
+            hmRaster.latFraction = latFrac
+            self.rasterHeatmaps[i][normalize_zoomlvl(level)] = hmRaster
 
 gHeatmapDB = HeatmapDatabase()
 
@@ -302,15 +306,17 @@ def read_graph_file(filename):
 def heatmap_setup(graphFileNames, edgeHeatsFileNames):
     heatmaps = []
     for graphFile, heatsFile in zip(graphFileNames, edgeHeatsFileNames):
-        print "Constructing heatmap from " + graphFile + "..."
+        print "Reading graph from " + graphFile + "..."
         nodes, edges = read_graph_file(graphFile)
         heats = []
+        print "Reading heats from " + heatsFile + "..."
         with open(heatsFile) as f2:
             for line in f2:
                 heats.append(float(line.strip()))
         assert len(heats) == len(edges) and "Number of heats and edges must equal."
         ss, tt = zip(*edges)
         edges = zip(ss, tt, heats)
+        print "Constructing heatmap from data..."
         heatmaps.append(HeatmapFactory.construct_from_graph(nodes, edges))
     return heatmaps
 

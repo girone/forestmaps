@@ -53,6 +53,7 @@ class HeatmapFactory(object):
         lats, lons, flags = zip(*nodes)
         hm.leftBottomRightTop = [min(lons), min(lats), max(lons), max(lats)]
         # remove duplicate edges caused by bidirectionality of the graph
+        print "removing duplicates..."
         tmp = set([])
         for (s, t, w) in edges:
             if s < t:
@@ -62,6 +63,7 @@ class HeatmapFactory(object):
         edges = list(tmp)
 
         # Map weights to nodes
+        print "mapping/summing weights..."
         heat = [0.] * len(nodes)
         for (s, t, cost) in edges:
             count = float(cost)
@@ -72,6 +74,7 @@ class HeatmapFactory(object):
                 heat[nodeIndex] += count
         #hm.maximum = max(heat)
         # Visualization scales better with this: Choose median of non-zero.
+        print "final steps..."
         intensities = np.array(sorted(heat))
         intensities = intensities[intensities[:]>0]
         hm.maximum = intensities[len(intensities)/2]
@@ -137,34 +140,42 @@ class Heatmap(object):
         latStart = (math.floor(minLat / latFraction) - 0.5) * latFraction
         lonStart = (math.floor(minLon / lonFraction) - 0.5) * lonFraction
         xres = math.ceil((maxLon + 0.5 * lonFraction - lonStart) / lonFraction)
+        latEnd = maxLat + 0.5 * latFraction
+        lonEnd = maxLon + 0.5 * lonFraction
 
         # initialize coordinates of the raster points
-        coords = np.zeros([yres+2, xres+2, 2])
-        lat = latStart
-        y = 0
-        while y < coords.shape[0]:
-            lon = lonStart
-            x = 0
-            while x < coords.shape[1]:
-                coords[y,x] = (lat,lon)
-                lon += lonFraction
-                x += 1
-            lat += latFraction
-            y += 1
+        print "lats"
+        lats = np.arange(latStart, latEnd, latFraction)
+        print "lons"
+        #lons = np.linspace(minLon, maxLon, num=xres, endpoint=True)
+        lons = np.linspace(lonStart, lonEnd, num=xres+1, endpoint=True)
+        print "bla"
+        lons, lats = np.meshgrid(lons, lats)
+        raster = np.dstack([lats, lons, np.zeros([yres+1,xres+1])])
+        lats, lons = [], []
 
-        raster = np.zeros([yres+2,xres+2])
-        i = 0
-        while i < len(self.heatmap) and self.heatmap[i][0] < latStart:
-            i += 1  # could use exponential or binary search here
-        while i < len(self.heatmap) and self.heatmap[i][0] < maxLat + 0.5 * latFraction:
+        # initialize raster values: collect points which fall into each bin
+        print "initialize..."
+        heatBins = raster[:,:,2]
+        a = 0
+        print "summing up..."
+        num = len(self.heatmap)
+        while a < num and self.heatmap[a][0] < latStart:
+            a += 1  # could use exponential or binary search here
+        latOffset = 0.5 * latFraction - latStart
+        lonOffset = 0.5 * lonFraction - lonStart
+        for i in range(a, num):
             lat, lon, heat = self.heatmap[i]
-            if lon >= lonStart and lon < maxLon + 0.5 * lonFraction:
-                ly = (lat + 0.5 * latFraction - latStart) / latFraction
-                lx = (lon + 0.5 * lonFraction - lonStart) / lonFraction
-                raster[ly,lx] += heat
-            i += 1
-        #print np.dstack([coords, raster])[raster[:] > 0]
-        return np.dstack([coords, raster])[raster[:] > 0], latFraction
+            if lat > latEnd:
+                break
+            if lon >= lonStart and lon < lonEnd:
+                ly = (lat + latOffset) / latFraction
+                lx = (lon + lonOffset) / lonFraction
+                heatBins[ly,lx] += heat
+            if i % 1000 == 0:
+                print i, len(self.heatmap)
+        print "filtering..."
+        return raster[heatBins[:] > 0], latFraction
 
 
 
