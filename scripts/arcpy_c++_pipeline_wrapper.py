@@ -193,6 +193,12 @@ def parse_and_dump(env):
 
 
 def call_subprocess(prog, args):
+    """Calls an external program and waits for it it finish.
+
+    The return code and output cannot be fetched at the same time. So we
+    require a successfull program to have a newline with "OK" at the end
+    of its output.
+    """
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
@@ -215,11 +221,18 @@ def call_subprocess(prog, args):
         msg("Error occured.")
         msg(e.output)
         raise
+    if "OK" in [s.strip() for s in output.split("\n")[-2:]]:
+        returnCode = 0
+    else:
+        returnCode = 1
     msg("=====================")
-    msg("Subprocess has finished, its output was:")
+    msg("Subprocess has finished {0}, its output was:".format(
+        "successfully" if returnCode == 0 else "with an error"))
     msg(output)
     timer.stop_timing()
     msg("=====================")
+    if returnCode != 0:
+        exit(1)
     return output
 
 

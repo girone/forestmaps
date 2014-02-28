@@ -423,10 +423,7 @@ int main(int argc, char** argv) {
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(res.first, filename);
 
-  for (size_t i = 0; i < res.first.size(); ++i) {
-    // DEBUG
-    if (res.first[i] > 30000) {
-      std::cout << util::join(" ", i, ":", res.first[i]) << std::endl;
-    }
-  }
-
+  // Message to exernal callers which can't fetch the return code.
+  std::cout << std::endl << "OK" << std::endl;
+  return 0;
+}

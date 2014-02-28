@@ -79,5 +79,8 @@ int main(int argc, char** argv) {
   std::cout << "Writing the attractivenesses to " << filename << std::endl;
   util::dump_vector(result, filename);
   delete algorithm;
+
+  // Message to exernal callers which can't fetch the return code.
+  std::cout << std::endl << "OK" << std::endl;
   return 0;
 }

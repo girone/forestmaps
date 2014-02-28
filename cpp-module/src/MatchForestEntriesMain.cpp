@@ -71,5 +71,7 @@ int main(int argc, char** argv) {
             << filename << std::endl;
   util::dump_vector(combined, filename);
 
+  // Message to exernal callers which can't fetch the return code.
+  std::cout << std::endl << "OK" << std::endl;
   return 0;
 }
