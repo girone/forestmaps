@@ -67,9 +67,10 @@ def reachability_analysis(graph, sources, targets, cost_limit=60*60):
   reachable_targets = defaultdict(list)
   avg = 0.
   p = Progress("Reachability analysis.", len(sources))
+  search = Dijkstra(graph)
+  search.set_cost_limit(cost_limit)
+  print "Reachability cost limit:", cost_limit
   for count, node in enumerate(sources):
-    search = Dijkstra(graph)
-    search.set_cost_limit(cost_limit)
     res = search.run(node)
     for id in targets:
       if res[id] != sys.maxint:

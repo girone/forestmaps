@@ -29,7 +29,7 @@ print n, len(g.nodes)
 import contraction
 positions = [nodeinfo[id].pos for id in g.nodes]
 c = contraction.ClusterContractionAlgorithm(g, positions,
-    intra_dist=30.0, inter_dist=35.)
+    intra_dist=30.0, inter_dist=50.)
 c.contract_graph(exclude_nodes=set(wep_nodes))
 print n, len(g.nodes)
 

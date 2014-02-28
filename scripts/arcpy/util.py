@@ -1,6 +1,7 @@
 ''' util.py : Contains helper functions. '''
 import time
 import sys
+from math import ceil
 
 try:
   import arcpy
@@ -36,9 +37,9 @@ class Timer(object):
 
 class Progress(object):
   ''' A progress measuring tool, which abstracts from ArcUI and console. '''
-  def __init__(self, task_description, total_steps, resolution=100):
+  def __init__(self, task_description, total_steps, resolution=100.):
     self.total_steps = int(total_steps)
-    self.resolution = resolution
+    self.resolution = float(resolution)
     self.completed = 0
     if HAVE_ARCPY_UI:
       arcpy.SetProgressor("step", task_description, 0, total_steps,
@@ -52,10 +53,13 @@ class Progress(object):
     if steps_completed < 0:
       self.completed += 1
       steps_completed = self.completed
-    if steps_completed % (self.total_steps / self.resolution) == 0:
+    if steps_completed % ceil(self.total_steps / self.resolution) == 0:
       self.progress_visualization(steps_completed)
     if steps_completed == self.total_steps:
       self.finish()
+
+  def step(self):
+    self.progress()
 
   def progress_visualization(self, steps_completed):
     ''' Visualizes the progress. '''

@@ -1,18 +1,19 @@
-""" forestentrydetection
+""" forestentrydetection.py
 
-    This script performs a set of tasks:
-    - classify forest entry points 'WEP'
-    - classify arcs which are inside the forest
-    - generate population grid points
+This script performs a set of tasks:
+- classify forest entry points 'WEP'
+- classify arcs which are inside the forest
+- generate population grid points
 
-    Usage:
-    python forestentrydetection.py <OSMFile> [<MAXSPEED>] ["ATKIS"]
+Usage:
+python forestentrydetection.py <OSMFile> [<MAXSPEED>] ["ATKIS"]
 
-    The optional "ATKIS" flag tells the script that the OSM data was converted
-    from ATKIS data.
+The optional "ATKIS" flag tells the script that the OSM data was converted from
+ATKIS data.
 
-    Copyright 2013: Institut fuer Informatik
-    Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+Copyright 2013: Institut fuer Informatik
+Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+
 """
 
 from PIL import Image, ImageDraw
@@ -63,11 +64,11 @@ def select_wep(open_highway_nodes, forestal_highway_nodes, graph, osm_id_map):
   return weps
 
 
-def create_population_grid(boundary_polygons, 
-                           forest_polygons, 
+def create_population_grid(boundary_polygons,
+                           forest_polygons,
                            resolution=None,
                            grid_point_distance=None):
-  ''' Creates the population grid points. 
+  ''' Creates the population grid points.
 
   Points are distributed in a rectangular grid inside the area of the
   boundary_polygons minus the forest_polygons. The resolution can be specified
@@ -96,14 +97,14 @@ def create_grid_points(bbox, resolution, grid_point_distance):
   xmin, ymin = bbox[0]
   if resolution:
     step = min_side / (resolution + 1)
-  else: 
-    if w < 180:  
+  else:
+    if w < 180:
       # we are working on (lat, lon) coordinates, determine radial step size
       p0, p1 = bbox
       p1_p = [p1[0], p0[1]]  # project p1 to same latitude as p0
       step = (grid_point_distance / great_circle_distance(p0, p1_p)) * w
       print "step = {0}".format(step)
-    else:  
+    else:
       # Gauss-Kruger (east, north) coordinates in meters
       step = grid_point_distance
   grid_points = []
@@ -136,7 +137,7 @@ def filter_point_grid(points, regions, operation='intersect'):
 
 
 def classify_forest(node_ids, ways_by_type, graph, nodes, osm_id_map,
-      filename_base):
+                    filename_base):
   ''' Creates forest polygons and detects forest entries WE in the data. '''
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())

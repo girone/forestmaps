@@ -12,7 +12,7 @@ Procedure:
 '''
 import os
 import arcpy
-from util import Timer
+from util import Timer, msg
 
 
 def main():
@@ -42,10 +42,14 @@ def main():
   # TODO(Jonas): implement this
   #forest_fids = set(road_features_array[road_features_array['wanderweg'] == 1]['fid'])
 
-  if arcpy.management.GetCount(road_dataset) < 25e4:
-    tmp1, tmp2 = mem + "dissolved", mem + "buffered"
+  if False and int(arcpy.management.GetCount(road_dataset).getOutput(0)) < 25e4:
+    workspace = mem
+    msg("Using in_memory workspace.")
   else:
-    tmp1, tmp2 = path + "dissolved.shp", path + "buffered.shp"
+    workspace = path
+    msg("Using disk workspace.")
+  tmp1, tmp2 = workspace + "dissolved.shp", workspace + "buffered.shp"
+  arcpy.env.workspace = workspace
 
   t.start_timing("Dissolve forest polygons for faster clipping...")
   arcpy.management.Dissolve(forest_dataset, tmp1)
@@ -61,8 +65,11 @@ def main():
     arcpy.management.Delete(forest_roads)
   arcpy.analysis.Clip(road_dataset, tmp2, forest_roads)
   t.stop_timing()
-  arcpy.management.Delete(tmp1)
-  arcpy.management.Delete(tmp2)
+  try:
+    arcpy.management.Delete(tmp1)
+    arcpy.management.Delete(tmp2)
+  except e:
+    msg(e)
 
   ''' If ArcMap is active, show the new data. '''
   if arcpy.GetParameterAsText(0):
