@@ -287,17 +287,22 @@ def determine_bounds(graphFileNames):
     minLat = 90
     maxLon = -180
     maxLat = -90
+    print "Determining data set bounds..."
     for f in graphFileNames:
-        nodes, _ = read_graph_file(f)
-        lats, lons, _ = zip(*nodes)
-        tmp = min(lats)
-        minLat = tmp if tmp < minLat else minLat
-        tmp = max(lats)
-        maxLat = tmp if tmp > maxLat else maxLat
-        tmp = min(lons)
-        minLon = tmp if tmp < minLon else minLon
-        tmp = max(lons)
-        maxLon = tmp if tmp > maxLon else maxLon
+        print f, "..."
+        with open(f) as f1:
+            for line in f1:
+                parts = line.strip().split(" ")
+                if len(parts) == 4:  # node line
+                    slat, slon, _, _ = parts
+                    lat = float(slat)
+                    lon = float(slon)
+                    minLat = min(minLat, lat)
+                    minLon = min(minLon, lon)
+                    maxLat = max(maxLat, lat)
+                    maxLon = max(maxLon, lon)
+                elif len(parts) == 3:  # first edge line
+                    break
     print "Dataset bounds are ", minLon, minLat, maxLon, maxLat
     return minLon, minLat, maxLon, maxLat
 
