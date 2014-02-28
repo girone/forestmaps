@@ -52,11 +52,11 @@ speed_table = {"motorway"       : 110, \
                "steps"          : 3}
 
 
-def type_to_speed(typee):
-  if typee in speed_table:
-    return speed_table[typee]
+def type_to_speed(type):
+  if type in speed_table:
+    return speed_table[type]
   else:
-    #print "type '" + typee + "' unknown."
+    #print "type '" + type + "' unknown."
     return 0
 
 
@@ -118,13 +118,13 @@ def read_osmfile(filename, maxspeed):
       if stripped.startswith('<tag'):
         res = p_waytag.match(stripped)
         if res:
-          k, v = res.group(1), res.group(2)
-          if k == 'highway':
-            way_type = v
+          key, val = res.group(1), res.group(2)
+          if key == 'highway':
+            way_type = val
             if way_type in speed_table:
               ways_by_type['highway'].append(way_id)
-          if (k == 'landuse' and v == 'forest') or  \
-             (k == 'natural' and v == 'wood'):
+          if (key == 'landuse' and val == 'forest') or  \
+             (key == 'natural' and val == 'wood'):
             ways_by_type['forest_delim'].append(way_id)
       elif stripped.startswith('<nd'):
         node_id = int(stripped.split("ref=\"")[1].split("\"")[0])
@@ -135,6 +135,9 @@ def read_osmfile(filename, maxspeed):
             and ways_by_type['highway'][-1] is way_id:
           edges = expand_way_to_edges(node_list)
           v = type_to_speed(way_type)
+          # HACK for walking: do not allow to walk on fast roads (separate
+          # pavement is assumed)
+          v = 0 if maxspeed == 5 and v > 50 else v
           v = v if v <= maxspeed else maxspeed
           if v != 0:
             way_nodes[way_id] = node_list
@@ -151,6 +154,8 @@ def read_osmfile(filename, maxspeed):
               t = calculate_edge_cost(nodes[e[0]], nodes[e[1]], v)
               graph.add_edge(x, y, t)
               graph.add_edge(y, x, t)
+          else:  # v == 0
+            ways_by_type['highway'].pop()
         elif len(ways_by_type['forest_delim']) \
             and ways_by_type['forest_delim'][-1] is way_id:
           way_nodes[way_id] = node_list
