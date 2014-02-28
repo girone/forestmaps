@@ -43,27 +43,27 @@ class Graph(object):
       for elem in remove:
         edges.pop(elem, None)
 
-class OsmGraph(Graph):
-  ''' Adds a mapping from osm-id to node id to the graph. '''
-  def __init__(self):
-    super(OsmGraph, self).__init__()
-    self.osm_id_map = {}
-    self.inv_osm_id_map = {}
-
-  def add_osm_edge(self, s, t, c):
-    if s not in self.osm_id_map:
-      ids = len(self.osm_id_map)
-      self.osm_id_map[s] = ids
-      self.inv_osm_id_map[ids] = s
-    else:
-      ids = self.osm_id_map[s]
-    if t not in self.osm_id_map:
-      idt = len(self.osm_id_map)
-      self.osm_id_map[t] = idt
-      self.inv_osm_id_map[idt] = t
-    else:
-      idt = self.osm_id_map[t]
-    super(OsmGraph, self).add_edge(ids, idt, c)
+## class OsmGraph(Graph):
+##   ''' Adds a mapping from osm-id to node id to the graph. '''
+##   def __init__(self):
+##     super(OsmGraph, self).__init__()
+##     self.osm_id_map = {}
+##     self.inv_osm_id_map = {}
+## 
+##   def add_osm_edge(self, s, t, c):
+##     if s not in self.osm_id_map:
+##       ids = len(self.osm_id_map)
+##       self.osm_id_map[s] = ids
+##       self.inv_osm_id_map[ids] = s
+##     else:
+##       ids = self.osm_id_map[s]
+##     if t not in self.osm_id_map:
+##       idt = len(self.osm_id_map)
+##       self.osm_id_map[t] = idt
+##       self.inv_osm_id_map[idt] = t
+##     else:
+##       idt = self.osm_id_map[t]
+##     super(OsmGraph, self).add_edge(ids, idt, c)
     
 
 
@@ -87,15 +87,15 @@ class TestGraph(unittest.TestCase):
     self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, {0: {2: 2}, " \
         "2: {3: 1}, 3: {}})")
 
-  def test_osmgraph(self):
-    A, B, C = 599, 132, 17
-    g = OsmGraph()
-    g.add_osm_edge(A, B, 5)
-    g.add_osm_edge(A, C, 10)
-    g.add_osm_edge(B, C, 2)
-    print g.nodes
-    print g.edges
-    print g.osm_id_map
+    ##  def test_osmgraph(self):
+    ##    A, B, C = 599, 132, 17
+    ##    g = OsmGraph()
+    ##    g.add_osm_edge(A, B, 5)
+    ##    g.add_osm_edge(A, C, 10)
+    ##    g.add_osm_edge(B, C, 2)
+    ##    print g.nodes
+    ##    print g.edges
+    ##    print g.osm_id_map
 
 
 def main():

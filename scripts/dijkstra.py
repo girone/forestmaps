@@ -63,17 +63,17 @@ class TestDijkstra(unittest.TestCase):
     sp = d2.run(A)
     print sp == [0, 4, 2, 3, sys.maxint]
 
-  def test_osmgraph(self):
-    from graph import OsmGraph
-    A, B, C = 599, 132, 17
-    g = OsmGraph()
-    g.add_osm_edge(A, B, 5)
-    g.add_osm_edge(A, C, 10)
-    g.add_osm_edge(B, C, 2)
-    search = Dijkstra(g)
-    self.assertEqual(g.osm_id_map[A], 0)
-    res = search.run(g.osm_id_map[A])
-    print res
+##  def test_osmgraph(self):
+##    from graph import OsmGraph
+##    A, B, C = 599, 132, 17
+##    g = OsmGraph()
+##    g.add_osm_edge(A, B, 5)
+##    g.add_osm_edge(A, C, 10)
+##    g.add_osm_edge(B, C, 2)
+##    search = Dijkstra(g)
+##    self.assertEqual(g.osm_id_map[A], 0)
+##    res = search.run(g.osm_id_map[A])
+##    print res
 
 def main():
   ''' Tests this module. '''

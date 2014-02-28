@@ -20,7 +20,7 @@ import scipy
 from scipy.spatial import qhull
 import math
 from grid import Grid
-from graph import Graph, OsmGraph, Edge
+from graph import Graph, Edge
 from dijkstra import Dijkstra
 
 
@@ -47,6 +47,8 @@ speed_table = {"motorway"       : 110, \
                "tertiary_link"  : 5, \
                "path"           : 4, \
                "steps"          : 3}
+
+
 def type_to_speed(typee):
   if typee in speed_table:
     return speed_table[typee]
@@ -74,6 +76,7 @@ def read_osmfile(filename):
       - a mapping {way type -> [list of way ids]}
       - a bidirectional graph as a map {node_id -> set([successors])}
       - a dictionary of nodes {node_id -> (lon, lat)}
+      - a mapping {osm id -> graph node index}
   """
   def expand_way_to_edges(way_node_list):
     """ For a list of way nodes, this adds arcs between successors.
@@ -93,7 +96,8 @@ def read_osmfile(filename):
   p_waytag = re.compile('\D*k="(\w+)" v="(\w+)"')
   way_nodes = {}
   ways_by_type = {'forest_delim': [], 'highway': []}
-  graph = OsmGraph()
+  graph = Graph()
+  osm_id_map = {}
   state = 'none'
   for line in f:
     stripped = line.strip()
@@ -129,10 +133,19 @@ def read_osmfile(filename):
           for e in edges:
             v = type_to_speed(way_type)
             if v != 0:
+              if e[0] not in osm_id_map:
+                osm_id_map[e[0]] = len(graph.nodes)
+              x = osm_id_map[e[0]]
+              if e[1] not in osm_id_map:
+                osm_id_map[e[1]] = len(graph.nodes) 
+              y = osm_id_map[e[1]]
+              if x == y:
+                y += 1
+                osm_id_map[e[1]] = y
               t = calculate_edge_cost(nodes[e[0]], nodes[e[1]], v)
-              graph.add_osm_edge(e[0], e[1], t)
-              graph.add_osm_edge(e[1], e[0], t)
-  return way_nodes, ways_by_type, graph, nodes
+              graph.add_edge(x, y, t)
+              graph.add_edge(y, x, t)
+  return way_nodes, ways_by_type, graph, nodes, osm_id_map
 
 
 def bounding_box(points):
@@ -200,13 +213,14 @@ def lcc(nodes, graph, threshold):
   return set(remaining), removed
 
 
-def select_wep(open_highway_nodes, forestal_highway_nodes, graph):
+def select_wep(open_highway_nodes, forestal_highway_nodes, graph, osm_id_map):
   ''' Selects nodes as WEP which are outside the forest and point into it. '''
   weps = set()
+  inverse_id_map = {value : key for (key, value) in osm_id_map.items()}
   for osm_id in open_highway_nodes:
-    node_id = graph.osm_id_map[osm_id]
+    node_id = osm_id_map[osm_id]
     for other_node_id in graph.edges[node_id].keys():
-      other_osm_id = graph.inv_osm_id_map[other_node_id]
+      other_osm_id = inverse_id_map[other_node_id]
       if other_osm_id in forestal_highway_nodes:
         weps.add(osm_id)
         break
@@ -274,7 +288,7 @@ def sort_hull(hull, points):
 
 def classify_forest(osmfile):
   print 'Reading nodes and ways from OSM and creating the graph...'
-  node_ids, ways_by_type, digraph, nodes = read_osmfile(osmfile)
+  node_ids, ways_by_type, digraph, nodes, osm_id_map = read_osmfile(osmfile)
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
   print 'Computing the convex hull...'
@@ -303,7 +317,8 @@ def classify_forest(osmfile):
   #open_highway_nodes.union(removed)
 
   print 'Select WEPs...'
-  weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph)
+  weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph, \
+      osm_id_map)
   print str(len(weps)) + ' WEPs'
 
   print 'Creating the population grid...'
@@ -325,7 +340,7 @@ def classify_forest(osmfile):
     r = 30
     visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
   visual_grid.show()
-  return weps, forestal_highway_nodes, population, digraph
+  return weps, forestal_highway_nodes, population, digraph, osm_id_map
 
 
 def main():
@@ -334,7 +349,8 @@ def main():
     exit(1)
   osmfile = sys.argv[1]
 
-  weps, forestal_highway_nodes, population, graph = classify_forest(osmfile)
+  weps, forestal_highway_nodes, population, graph, osm_id_map = \
+      classify_forest(osmfile)
   # print 'Writing output...'
   # f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
   # for p in weps:
@@ -360,7 +376,7 @@ def main():
     print 'Running time-restricted Dijkstra %d of %d...' % (count+1, len(weps))
     search = Dijkstra(graph)
     search.set_cost_limit(60 * 60)  # 1 hour
-    res = search.run(graph.osm_id_map[node])
+    res = search.run(osm_id_map[node])
     avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
   avg /= len(weps)
   print 'In average, %f of %d nodes have been settled.' \
