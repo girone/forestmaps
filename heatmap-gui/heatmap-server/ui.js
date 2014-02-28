@@ -44,6 +44,7 @@ function data_bounds(data) {
 
 
 function init(){
+  console.log("init called()")
     map = new OpenLayers.Map('heatmapArea', {
         projection: new OpenLayers.Projection("EPSG:4326"),
         displayProjection: new OpenLayers.Projection("EPSG:4326"),
@@ -75,18 +76,16 @@ function init(){
         return 17;
     };
 
-
     map.zoomToMaxExtent();
     map.zoomTo(6);
     lastRequestExtent = map.getExtent();
 
     // Load initial data from server
     //get_heatmap_extract("");
-
-
-    //$.getJSON( "dummy.json", function( data ) {
-        //update_heatmap(data);
-    //});
+    allowCentering = true
+    lastRequestTimeStamp = 0;
+    paramOfLastRequest = "none"
+    get_heatmap_raster("");
 }
 
 
@@ -134,7 +133,8 @@ function set_heatmap_point_scale(targetRadius) {
 //var url = "http://sambesi.informatik.uni-freiburg.de:8080/index.html";
 var hostname = window.location.hostname;
 var port = window.location.port;
-var url = "http://" + hostname + ":" + port + "/"
+// var url = "http://" + hostname + ":" + port + "/"
+var url = "http://" + hostname + ":" + 8080 + "/"
 var lastRequestTimeStamp = 0;
 var paramOfLastRequest = "none"
 
@@ -357,11 +357,6 @@ $(document).on({
 
 
 $(document).ready(function(){
-    allowCentering = true
-    lastRequestTimeStamp = 0;
-    paramOfLastRequest = "none"
-    get_heatmap_raster("");
-
     // Show only home.
     $('#about').hide();
 
@@ -382,3 +377,4 @@ $(document).ready(function(){
     });
     //$('img.simzoom').addpowerzoom(); //add zoom effect to images with CSS class "simzoom"
 });
+
