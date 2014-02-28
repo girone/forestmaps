@@ -217,16 +217,19 @@ def parse_and_dump(env):
     Returns the mapping from forest graph arcs to shapefile FIDs.
     """
     t = Timer()
-    t.start_timing("Creating road graph from the data...")
+    t.start_timing("Dumping road data...")
     speed = 5
     dump_graph_feature_class(env.paramShpRoads, roadFcDump, speed)
+    t.stop_timing()
+    msg("Creating graph...")
     call_subprocess(scriptDir + "ReadGraphFromFeatureClassDumpMain.exe",
             roadFcDump + " " + str(speed) + " " + roadGraphFile)
-    t.stop_timing()
 
-    t.start_timing("Creating forest road graph from the data...")
+    t.start_timing("Dumping forest road data...")
     speed = 5
     dump_graph_feature_class(env.paramShpForestRoads, forestFcDump, speed)
+    t.stop_timing()
+    msg("Creating graph...")
     call_subprocess(scriptDir + "ReadGraphFromFeatureClassDumpMain.exe",
             forestFcDump + " " + str(speed) + " " + forestGraphFile + " " 
             + arcMappingFile)
@@ -235,7 +238,6 @@ def parse_and_dump(env):
         for line in f:
             a, b, fid = line.strip().split(" ")
             forestArcToFID[(int(a), int(b))] = int(fid)
-    t.stop_timing()
 
     t.start_timing("Creating population points...")
     population_groups, inhabitants = create_population(env.paramShpSettlements,
@@ -310,8 +312,9 @@ def call_subprocess(prog, args):
     return output
 
 
-def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
-    """Adds a column to the dataset in shp and inserts the values.
+def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID, 
+                          edgeWeightFile):
+    """Adds a column to the dataset (shp-file or geoDB) and inserts the values.
 
     Needs graph file as input to map from arcs to FIDs.
     """
@@ -336,12 +339,14 @@ def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID, edgeWeight
             weights.append(float(line.strip()))
     assert len(weights) == len(edges)
 
-    # TODO(Jonas): Fix the mapping of edge weights to multi-edge shapes.
-    # Workaround / HACK:
+    # The undirected edges of the road network are represented by two directed
+    # arcs in the graphs. So we get two edge weights wa and wb, meaning "wa
+    # people are taking this way in one direction and wb people in the
+    # opposite". The sum of both weights is the weight of the undirected edge.
     FIDtoWeight = defaultdict(list)
     for e, w in zip(edges, weights):
         FIDtoWeight[arcToFID[e]].append(w)
-    FIDtoWeight = {fid: max(weights) for fid, weights in FIDtoWeight.items()}
+    FIDtoWeight = {fid: sum(weights) for fid, weights in FIDtoWeight.items()}
 
     arcpy.management.AddField(shp, columnName, "FLOAT")
     fields = [f.name.lower() for f in arcpy.ListFields(shp)]
