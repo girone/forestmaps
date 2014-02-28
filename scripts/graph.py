@@ -46,6 +46,39 @@ class Graph(object):
       for elem in remove:
         edges.pop(elem, None)
 
+  def connected_component(self, node, nodes):
+    ''' Determines the component (set of connected nodes) of @node such that
+        every node of the component is contained in @nodes. 
+    '''
+    component = set()
+    queue = [node]
+    while len(queue):
+      top = queue.pop()
+      component.add(top)
+      for adjacent_node in self.edges[top].keys():
+        if adjacent_node in nodes and adjacent_node not in component:
+          queue.append(adjacent_node)
+    assert len(component) == len(set(component))
+    return component
+
+  def lcc(self, nodes, threshold):
+    ''' Filters the @nodes such that only those which form a connected component
+        in the @graph of size larger than @threshold remain.
+    '''
+    node_set = set(nodes)
+    remaining = []
+    removed = []
+    while len(node_set):
+      node = node_set.pop()
+      component = connected_component(node, node_set)
+      node_set -= component
+      if len(component) >= threshold:
+        remaining.extend(component)
+      else:
+        removed.extend(component)
+    assert len(remaining) == len(set(remaining))
+    return set(remaining), removed
+
 
 import unittest
 class TestGraph(unittest.TestCase):

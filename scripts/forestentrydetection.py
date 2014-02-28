@@ -190,37 +190,6 @@ def classify(highway_nodes, nodes, grid):
   return forestal_highway_nodes, open_highway_nodes
 
 
-def lcc(nodes, graph, threshold):
-  ''' Filters the @nodes such that only those which form a connected component
-      in the @graph of size larger than @threshold remain.
-  '''
-  def get_component(node, nodes, graph):
-    ''' Determines the component (set of connected nodes) of @node. '''
-    component = set()
-    queue = [node]
-    while len(queue):
-      top = queue.pop()
-      component.add(top)
-      for adjacent_node in graph.edges[top].keys():
-        if adjacent_node in nodes and adjacent_node not in component:
-          queue.append(adjacent_node)
-    assert len(component) == len(set(component))
-    return component
-  node_set = set(nodes)
-  remaining = []
-  removed = []
-  while len(node_set):
-    node = node_set.pop()
-    component = get_component(node, node_set, graph)
-    node_set -= component
-    if len(component) >= threshold:
-      remaining.extend(component)
-    else:
-      removed.extend(component)
-  assert len(remaining) == len(set(remaining))
-  return set(remaining), removed
-
-
 def select_wep(open_highway_nodes, forestal_highway_nodes, graph, osm_id_map):
   ''' Selects nodes as WEP which are outside the forest and point into it. '''
   weps = set()
@@ -313,7 +282,7 @@ def classify_forest(osmfile, maxspeed=130):
   print 'Restrict forests to large connected components...'
   # turn this off, when fast results are needed
   node_idx = [osm_id_map[e] for e in forestal_highway_nodes]
-  node_idx, removed = lcc(node_idx, digraph, 500)
+  node_idx, removed = digraph.lcc(node_idx, 500)
   inverse_id_map = {value : key for (key, value) in osm_id_map.items()}
   forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
   open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))
