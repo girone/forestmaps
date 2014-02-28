@@ -137,6 +137,7 @@ void AdjacencyListGraph<N, A>::read_in(const string& filename) {
   size_t numNodes, numArcs;
   input >> numNodes >> numArcs;
   std::cout << "#nodes: " << numNodes << ", #arcs: " << numArcs << std::endl;
+  std::cout << "Reading the graph..." << std::endl;
 
   string buffer;
   getline(input, buffer);  // finishes current line

@@ -117,15 +117,16 @@ template<class G>
 const uint Dijkstra<G>::no_target = std::numeric_limits<unsigned int>::max();
 
 template<class G>
-Dijkstra<G>::Dijkstra(const G& graph) : _graph(graph) {
-  _nodesToBeSettledMarks = NULL;
-  _numNodesToBeSettled   = 0;
-  _ignore                = NULL;
-  _costLimit             = infinity;
-  _hopLimit              = 0;
+Dijkstra<G>::Dijkstra(const G& graph)
+  : _graph(graph)
+  , _nodesToBeSettledMarks(NULL)
+  , _numNodesToBeSettled(0)
+  , _ignore(NULL)
+  , _costLimit(infinity)
+  , _hopLimit(0)
+  , _numSettledNodes(0) {
   // init member arrays
   resetMemberArraysFull();
-  _numSettledNodes = 0;
 }
 
 template<class G>
@@ -250,7 +251,7 @@ int Dijkstra<G>::shortestPath(const vector<uint>& S, uint t) {
 
   while (!pq.empty()) {
     // Get the node with the lowest tentative distance.
-    pq_elem x = pq.top();
+    const pq_elem x = pq.top();
     const uint xIndex   = x.second;
     const int xCosts = x.first;
     pq.pop();
@@ -273,7 +274,7 @@ int Dijkstra<G>::shortestPath(const vector<uint>& S, uint t) {
     // Relax the outgoing arcs xIndex --> yIndex.
     for (const auto& arc: _graph.arcs(xIndex)) {
       uint yIndex = arc.target;
-      if (_ignore && _ignore->at(yIndex)) { continue; }
+      if (_ignore && (*_ignore)[yIndex]) { continue; }
       if (!_settled[yIndex]) {
         // Compute the tentative distance.
         int g = _costs[xIndex] + arc.get_cost();
@@ -281,7 +282,7 @@ int Dijkstra<G>::shortestPath(const vector<uint>& S, uint t) {
         int f = g + h;
         if (_costs[yIndex] > g) {
           _costs[yIndex] = g;
-          pq.push(pq_elem(f, yIndex));
+          pq.emplace(f, yIndex);
           _origins[yIndex] = xIndex;  // remember origin node
           if (limited) { _touchedNodes.push_back(yIndex); }
         }

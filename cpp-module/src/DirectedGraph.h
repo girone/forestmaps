@@ -71,9 +71,9 @@ class Graph : public OffsetListGraph<A> {
   // Default C'tor.
   Graph() : OffsetListGraph<A>() { }
   // Construct from already known offset vector o.
-  Graph(const vector<A>& a, const vector<size_t>& offset, const vector<N>& n);
+  Graph(const vector<A>& ar, const vector<size_t>& offset, const vector<N>& n);
   // Construct from list of arcs and nodes. Offsets will be calculated.
-  Graph(const vector<A>& arc, const vector<N>& nodes);
+  Graph(const vector<A>& arcs, const vector<N>& nodes);
 
   // Reads the graph from a file. The filename has the format
   //  #nodes
