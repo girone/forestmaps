@@ -29,6 +29,8 @@ ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
 
 columnName = "EdgeWeight"
+kWALKING_SPEED = 5.  # TODO(Jonas): Set this to 4 km/h. Is 5 for comparison of
+                     # outcome with older values
 
 def set_paths(argv, env):
     """  """
@@ -77,7 +79,22 @@ def shape_to_polygons(lines, idKeyword):
 
 
 def dump_graph_feature_class(dataset, outfile, max_speed):
-    """ TODO DOCU"""
+    """Reads a road feature class, preprocesses and dumps it to a file.
+
+    Preprocesses the feature class such that sequences of way parts are
+    represented as one way, maintaining the total distance / speed / cost along
+    the way.
+    """
+    def write_line(f, index, coords, cost, weight):
+        """Writes index, coordinates, cost and optional weight to a file."""
+        f.write("{0} {1} {2} {3} ".format(index, coords[0], coords[1], cost))
+        if weight != -1:
+            f.write("{0} ".format(weight))
+        f.write("\n")
+    def finish_way_segment(f, i, coords1, coordsN, dist, type_, w):
+        time = dist / (atkis_graph.determine_speed(type_, max_speed) / 3.6)
+        write_line(f, i, coords1, time, w)
+        write_line(f, i, coordsN, time, w)
     # In file-geodatabases the id has another name than in plain feature classes
     field_names = [field.name.lower() for field in arcpy.ListFields(dataset)]
     idKeyword = "fid" if "fid" in field_names else "objectid"
@@ -89,7 +106,7 @@ def dump_graph_feature_class(dataset, outfile, max_speed):
     if clsKeyword in field_names:
         fields.append(clsKeyword)
     else:
-        way_type = 87003  # "Fussgaengerzone" == pedestrian area
+        wayType = 87003  # "Fussgaengerzone" == pedestrian area
     # Read edge weights if present
     weightKeyword = "wert"
     if weightKeyword in field_names:
@@ -97,7 +114,6 @@ def dump_graph_feature_class(dataset, outfile, max_speed):
     else:
         weightKeyword = None
     largeRoads = atkis_graph.ATKIS_LARGE_ROAD_CLASSES
-    lastIndex = None
 
     total = int(arcpy.management.GetCount(dataset).getOutput(0))
     count = 0
@@ -107,28 +123,42 @@ def dump_graph_feature_class(dataset, outfile, max_speed):
     # the arcs and the distances (or use the predefined 'shape_len' field) and
     # dump only the simplified arcs. --> saves Output time and input to the C++
     # script becomes even faster.
+    previousIndex = None
     with arcpy.da.SearchCursor(dataset, fields, explode_to_points=True) as rows:
         with open(outfile, "w") as f:
             for row in rows:
                 if len(fields) == 3:
-                    index, coords, way_type = row
+                    index, coords, wayType = row
                 elif weightKeyword:
-                    index, coords, way_type, weight = row
+                    index, coords, wayType, weight = row
                 else:  # len(fields) == 2
                     index, coords = row
 
-                # ignore large roads when walking
-                if not (max_speed == 5 and way_type in largeRoads):
-                    f.write("{0} {1} {2} ".format(index, coords[0], coords[1]))
-                    if len(fields) > 2:
-                        f.write("{0} ".format(way_type))
-                    if weightKeyword:
-                        f.write("{0} ".format(weight))
-                    f.write("\n")
-                if index != lastIndex:
+                if index == previousIndex:
+                    dist += atkis_graph.distance(previousCoords, coords)
+                else:  # index != previousIndex
+                    # ignore large roads when walking
+                    if previousIndex and not (max_speed == kWALKING_SPEED and 
+                                              previousWayType in largeRoads):
+                        finish_way_segment(f, previousIndex, 
+                                firstCoords, previousCoords, dist, previousWayType,
+                                (previousWeight if weightKeyword else -1))
+                    dist = 0
+                    firstCoords = coords
                     count += 1
                     p.progress(count)
-                lastIndex = index
+                previousIndex = index
+                previousCoords = coords
+                previousWayType = wayType
+                if weightKeyword:
+                    previousWeight = weight
+            # finish the last segment
+            if previousIndex and not (max_speed == kWALKING_SPEED and 
+                                      previousWayType in largeRoads):
+                if weightKeyword:
+                    finish_way_segment(f, previousIndex, 
+                            firstCoords, previousCoords, dist, previousWayType,
+                            (previousWeight if weightKeyword else -1))
 
     #"""Creates a graph from ATKIS data stored as FeatureClass in a shapefile.
 
@@ -172,7 +202,7 @@ def create_population(fc, distance):
     return populations, inhabitants
 
 
-def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
+def read_graph_and_dump_it(shpFile, filename, maxSpeed=kWALKING_SPEED):
     """Dumps the feature class to a file, from where a graph in C++ is read."""
     dump_graph_feature_class(shpFile, maxSpeed, filename)
     ###
@@ -218,21 +248,18 @@ def parse_and_dump(env):
     """
     t = Timer()
     t.start_timing("Dumping road data...")
-    speed = 5
-    dump_graph_feature_class(env.paramShpRoads, roadFcDump, speed)
+    dump_graph_feature_class(env.paramShpRoads, roadFcDump, kWALKING_SPEED)
     t.stop_timing()
     msg("Creating graph...")
     call_subprocess(scriptDir + "ReadGraphFromFeatureClassDumpMain.exe",
-            roadFcDump + " " + str(speed) + " " + roadGraphFile)
+            roadFcDump + " " + roadGraphFile)
 
     t.start_timing("Dumping forest road data...")
-    speed = 5
-    dump_graph_feature_class(env.paramShpForestRoads, forestFcDump, speed)
+    dump_graph_feature_class(env.paramShpForestRoads, forestFcDump, kWALKING_SPEED)
     t.stop_timing()
     msg("Creating graph...")
     call_subprocess(scriptDir + "ReadGraphFromFeatureClassDumpMain.exe",
-            forestFcDump + " " + str(speed) + " " + forestGraphFile + " " 
-            + arcMappingFile)
+            forestFcDump + " " + forestGraphFile + " " + arcMappingFile)
     with open(arcMappingFile) as f:
         forestArcToFID = {}
         for line in f:
@@ -348,6 +375,7 @@ def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID,
         FIDtoWeight[arcToFID[e]].append(w)
     FIDtoWeight = {fid: sum(weights) for fid, weights in FIDtoWeight.items()}
 
+    arcpy.management.DeleteField(shp, columnName)
     arcpy.management.AddField(shp, columnName, "FLOAT")
     fields = [f.name.lower() for f in arcpy.ListFields(shp)]
     idKeyword = "fid" if "fid" in fields else "objectid"
@@ -470,15 +498,15 @@ def main():
             populationFile + " " + ttfFile + " " + parkingLotsFile + " " + 
             entryPopularityFile)
     # debug
-    with open(entryPopularityFile) as f:
-        entrypointPopulation = []
-        for line in f:
-            s = line.strip()
-            entrypointPopulation.append(float(s))
-        offset = add_column(entrypointPopulation, "populati",
-                            env.paramShpEntrypoints)
-        offset = add_column(entrypointPopulation[offset:], "populati",
-                            env.paramShpParking)
+    #with open(entryPopularityFile) as f:
+    #    entrypointPopulation = []
+    #    for line in f:
+    #        s = line.strip()
+    #        entrypointPopulation.append(float(s))
+    #    offset = add_column(entrypointPopulation, "populati",
+    #                        env.paramShpEntrypoints)
+    #    offset = add_column(entrypointPopulation[offset:], "populati",
+    #                        env.paramShpParking)
 
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryAndParkingXYRFFile + " " +
@@ -497,3 +525,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# TODO(Jonas): cleanup this file
+
