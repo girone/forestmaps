@@ -4,7 +4,38 @@ Contains the Heatmap class.
 
 """
 import numpy as np
-from math import floor, ceil
+import math
+
+def great_circle_distance((lat0, lon0), (lat1, lon1)):
+    """In meters, after http://en.wikipedia.org/wiki/Great-circle_distance."""
+    to_rad = math.pi / 180.
+    r = 6371000.785
+    dLat = (lat1 - lat0) * to_rad
+    dLon = (lon1 - lon0) * to_rad
+    a = math.sin(dLat / 2.) * math.sin(dLat / 2.)
+    a += (math.cos(lat0 * to_rad) * math.cos(lat1 * to_rad) *
+          math.sin(dLon / 2) * math.sin(dLon / 2))
+    return 2 * r * math.asin(math.sqrt(a))
+
+def gcd(a, b):
+    """Shorthand for great_circle_distance(a,b)."""
+    return great_circle_distance(a, b)
+
+
+def compute_longitude_stepsize(bbox, latitudeStepSize):
+    """
+
+    For a given coordinate bounding box and latitude step size, this computes
+    the according longitude step size such that the raster defined by the two
+    step sizes is approximately equidistant.
+
+    """
+    minLon, minLat, maxLon, maxLat = bbox
+    latStepDistance = gcd((maxLat, minLon), (maxLat - latitudeStepSize, minLon))
+    distancePerLonDegreeAtMaxLat = gcd((maxLat, minLon), (maxLat, minLon + 1.0))
+    longitudeStepSize = latStepDistance / distancePerLonDegreeAtMaxLat
+    return longitudeStepSize
+
 
 class Heatmap(object):
     def __init__(self, nodes, edges):
@@ -66,14 +97,18 @@ class Heatmap(object):
             return filtered
 
     def rasterize(self, bbox, (xres,yres)=(18,12)):  #=(640,)
-        """Returns a raster discretizing the intensities inside the bbox."""
+        """Returns a raster discretizing the intensities inside the bbox.
+
+        The yres is important, xres is computed from it.
+
+        """
         minLon, minLat, maxLon, maxLat = bbox
         latFraction = (maxLat - minLat) / (yres - 1.)
-        lonFraction = latFraction  # (maxLon - minLon) / (xres - 1.)
+        lonFraction = compute_longitude_stepsize(bbox, latFraction)
 
-        latStart = floor(minLat / latFraction) * latFraction - latFraction
-        lonStart = floor(minLon / lonFraction) * lonFraction - lonFraction
-        xres = ceil((maxLon + 0.5 * lonFraction - lonStart) / lonFraction)
+        latStart = math.floor(minLat / latFraction) * latFraction - latFraction
+        lonStart = math.floor(minLon / lonFraction) * lonFraction - lonFraction
+        xres = math.ceil((maxLon + 0.5 * lonFraction - lonStart) / lonFraction)
         coords = np.zeros([yres+2, xres+2, 2])
 
 
