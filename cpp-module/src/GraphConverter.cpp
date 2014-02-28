@@ -38,5 +38,22 @@ ForestRoadGraph convert_graph(const SimplificationGraph& input) {
   return ForestRoadGraph(arclist, offsets, input.get_nodes());
 }
 
-
+// _____________________________________________________________________________
+// inverse construction
+template<>
+RoadGraph convert_graph(const SimplificationGraph& input) {
+  vector<RoadGraph::Arc_t> arclist;
+  vector<size_t> offsets = {0};
+  for (size_t node = 0; node < input.num_nodes(); ++node) {
+    for (const ForestArc& arc: input.arcs(node)) {
+      RoadGraph::Arc_t roadArc;
+      roadArc.source = arc.source;
+      roadArc.target = arc.target;
+      roadArc.cost = arc.get_cost();
+      arclist.push_back(roadArc);
+    }
+    offsets.push_back(arclist.size());
+  }
+  return RoadGraph(arclist, offsets, input.get_nodes());
+}
 

@@ -65,6 +65,7 @@ SimplificationGraph GraphSimplificator::extract_simplified_graph(
 
 // _____________________________________________________________________________
 SimplificationGraph GraphSimplificator::simplify(const set<uint>* dontContract) {
+  std::cout << "Simplifying the graph..." << std::endl;
   initialize_mapping();
 
   // Iteratively contract nodes with exactly two non-contracted successors.
@@ -127,11 +128,6 @@ bool GraphSimplificator::contract_node(size_t node,
         _representedIds[bIndex].begin(),
         _representedIds[bIndex].end());
     ++_arcCount;
-    // DEBUG
-    if (_representedIds[arcIdOfShortcut].empty()) {
-      std::cout << " union is empty after adding shortcut for " << aIndex << " " << bIndex << std::endl;
-      exit(1);
-    }
   }
   _representedIds.erase(aIndex);
   _representedIds.erase(bIndex);

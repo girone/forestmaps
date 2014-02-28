@@ -6,6 +6,8 @@
 #include "./Dijkstra.h"
 #include "./DirectedGraph.h"
 #include "./EdgeAttractivenessModel.h"
+#include "./GraphSimplificator.h"
+#include "./GraphConverter.h"
 #include "./Util.h"
 #include "./ForestUtil.h"
 #include "./Timer.h"
@@ -323,6 +325,28 @@ void print_usage() {
 }
 
 // _____________________________________________________________________________
+RoadGraph read_and_simplify_graph(const string& filename,
+                                  vector<int>* entryNodeIds) {
+  // Read the original graph
+  SimplificationGraph input;
+  input.read_in(filename);
+
+  // Simplify the graph.
+  GraphSimplificator simplificator(&input);
+  set<uint> doNotContract(entryNodeIds->begin(), entryNodeIds->end());
+  SimplificationGraph simplified = simplificator.simplify(&doNotContract);
+
+  // Shift the forest entry indices.
+  const vector<int>& shift = simplificator.index_shift();
+  std::transform(entryNodeIds->begin(), entryNodeIds->end(),
+                 entryNodeIds->begin(),
+                 [shift](int i) { return i - shift[i]; });
+
+  // Return the converted graph.
+  return convert_graph<SimplificationGraph, RoadGraph>(simplified);
+}
+
+// _____________________________________________________________________________
 int main(int argc, char** argv) {
   if (argc != 7) {
     print_usage();
@@ -335,17 +359,6 @@ int main(int argc, char** argv) {
   string parkFile = argv[5];
   string outfile = argv[6];
 
-  // Read the graph. The file has the graph format
-  //  #nodes
-  //  #edges
-  //  x y (node0)
-  //  x y (node1)
-  //  ...
-  //  source target cost (arc0)
-  //  source target cost (arc1)
-  //  ...
-  RoadGraph graph;
-  graph.read_in(graphFile);
 
   // Read in the parking lots. Format is:
   //  lat0 lon0 rank0 population0
@@ -367,6 +380,21 @@ int main(int argc, char** argv) {
   vector<int> fepNodeIndices(fepAndParkingCols[2].begin(),
                              fepAndParkingCols[2].end() - numParking);
 
+  // Read the graph. The file has the graph format
+  //  #nodes
+  //  #edges
+  //  x y (node0)
+  //  x y (node1)
+  //  ...
+  //  source target cost (arc0)
+  //  source target cost (arc1)
+  //  ...
+  // Internally, the graph is simplified and the entry indices are shifted.
+//   RoadGraph graph = read_and_simplify_graph(graphFile, &fepNodeIndices);
+  // NOTE(Jonas): The simplification is still buggy in this part. Some index
+  // problem remains. The speed advantage is not that large, so I leave it.
+  RoadGraph graph;
+  graph.read_in(graphFile);
 
   // Read the population nodes. The file has the format:
   //  lat0 lon0 population0
