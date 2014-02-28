@@ -14,6 +14,7 @@
 
 
 namespace util {
+
 using std::string;
 using std::ostringstream;
 using std::vector;
@@ -25,6 +26,29 @@ string join(const string& connector, const I& iterable) {
   for (auto it = iterable.begin(); it < iterable.end(); ++it)
     os << (it != iterable.begin() ? connector : "") << *it;
   return os.str();
+}
+
+// Join again. Variadic template version to support lists of scalars.
+// TODO(Jonas): Does not yet work with only one argument, because the iterable
+// version is called then. Fix this.
+template<class First, class... Types>
+string join(const string& connector, const First& first, const Types&... input) {
+  //const unsigned int size = sizeof...(Types);
+  ostringstream os;
+  os << first;
+  _append_to_stream(os, connector, input...);
+  return os.str();
+}
+
+// Adds variable number of arguments to a stream separated by connector.
+ostringstream& _append_to_stream(ostringstream& os, const string& connector);
+template<class First, class... Rest>
+ostringstream& _append_to_stream(ostringstream& os, const string& connector,
+                                 const First& first, Rest&... rest) {
+  os << connector;
+  os << first;
+  _append_to_stream(os, connector, rest...);
+  return os;
 }
 
 // Converts the input type to the output type.

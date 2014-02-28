@@ -8,6 +8,7 @@
 using std::string;
 using std::vector;
 
+
 // _____________________________________________________________________________
 TEST(UtilTest, convert) {
   {
@@ -18,6 +19,26 @@ TEST(UtilTest, convert) {
     EXPECT_EQ("3.1", util::convert<string>("3.1"));
     EXPECT_EQ("3.1", util::convert<string>(3.1));
   }
+}
+
+// _____________________________________________________________________________
+TEST(UtilTest, join) {
+  vector<int> ints = {0, 1, 2, 3};
+  EXPECT_EQ("0<=>1<=>2<=>3", util::join("<=>", ints));
+
+  EXPECT_EQ("", util::join("<=>", vector<float>()));
+}
+
+// _____________________________________________________________________________
+TEST(UtilTest, join_variadic) {
+  // Just one argument TODO(Jonas): This does not work yet.
+//   EXPECT_EQ("42", util::join(", ", 42));
+
+  // Some arguments
+  EXPECT_EQ("42, 42", util::join(", ", 42, 42));
+
+  // Some more arguments of different type.
+  EXPECT_EQ("0, 1.5, 2.3", util::join(", ", 0, 1.5, 2.3f));
 }
 
 // _____________________________________________________________________________

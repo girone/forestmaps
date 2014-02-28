@@ -4,4 +4,8 @@
 
 namespace util {
 
+ostringstream& _append_to_stream(ostringstream& os, const string& connector) {
+  return os;
+}
+
 }  // namespace util
