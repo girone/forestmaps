@@ -12,13 +12,10 @@
 #include "./Tree2d.h"
 
 using std::pair;
+using std::cout;
+using std::endl;
 
 #define SQR(x) ((x)*(x))
-
-// the file where the population count using the car is written to.
-//const string carPopulationFile = "car_population.tmp.txt";
-// The forest entry locations extended with the parking lot locations.
-const string extendedEntryFile = "forest_entries_plus_parking_xyrf.tmp.txt";
 
 // The user studies revealed these numbers:
 const float kUserShareBicycle = 13 / 124.f;
@@ -229,7 +226,6 @@ int reachability_analysis(const RoadGraph& graph,
     float share = (fepPop[i] + fepPopBike[i]) / mapped;
     fepPop[i] += share * unmapped;
   }
-  std::cout << "mapped/unmapped: " << mapped << " " << unmapped << std::endl;
 
   // Add bicycle to walking populations.
   for (size_t i = 0; i < fepIndices.size(); ++i) {
@@ -240,18 +236,18 @@ int reachability_analysis(const RoadGraph& graph,
   float totalPopulation = util::sum(populations);
   if (differ(totalPopulation * (1.f - kUserShareWalking - kUserShareBicycle),
              totalPopulation - (mapped + unmapped))) {
-    std::cout << "Remaining unmapped populations differ from quota: "
+    cout << "Remaining unmapped populations differ from quota: "
               << (1.f - kUserShareWalking - kUserShareBicycle) * totalPopulation
               << " vs. "
-              << totalPopulation - (mapped + unmapped) << std::endl;
+              << totalPopulation - (mapped + unmapped) << endl;
     //assert(false && "See stdout above.");
   }
   if (differ(totalPopulation * (kUserShareWalking + kUserShareBicycle),
              mapped + unmapped)) {
-    std::cout << "Mapped walking and biking populations differ from quota: "
+    cout << "Mapped walking and biking populations differ from quota: "
               << (kUserShareWalking + kUserShareBicycle) * totalPopulation
               << " vs. "
-              << mapped + unmapped << std::endl;
+              << mapped + unmapped << endl;
     //assert(false && "See stdout above.");
   }
 
@@ -262,9 +258,9 @@ int reachability_analysis(const RoadGraph& graph,
   }
   /*{
     std::ofstream ofs(carPopulationFile);
-    ofs << carPopulation << std::endl;
-    std::cout << "Car population written to '" << carPopulationFile << "'."
-              << std::endl;
+    ofs << carPopulation << endl;
+    cout << "Car population written to '" << carPopulationFile << "'."
+              << endl;
   }*/
   fepPopulationOut->swap(fepPop);
   return carPopulation;
@@ -299,9 +295,9 @@ vector<float> distribute_car_population(
 
   float mappedParkingPopulation = util::sum(parkingPopulations);
   if (differ(population, mappedParkingPopulation)) {
-    std::cout << "Input population for parking differs from mapped population: "
+    cout << "Input population for parking differs from mapped population: "
               << population << " vs. "
-              << mappedParkingPopulation << std::endl;
+              << mappedParkingPopulation << endl;
   }
   return parkingPopulations;
 }
@@ -309,20 +305,21 @@ vector<float> distribute_car_population(
 
 // _____________________________________________________________________________
 void print_usage() {
-  std::cout <<
-  "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes> <Preferences> "
-  "<ParkingLots> <OutputFile>\n"
+  cout <<
+  "Usage: ./NAME <GraphFile> <ForestEntriesAndParkingXYRF> <PopulationNodes> "
+  "<Preferences> <ParkingLots> <OutputFile>\n"
   "  GraphFile -- ...\n"
-  "  ForestEntriesXYRF -- Forest entries with latitude, longitude, Road graph "
-  "index, Forest graph index\n"
+  "  ForestEntriesAndParkingXYRF -- Forest entries and parking lots with "
+  "latitude, longitude, Road graph index, Forest graph index\n"
   "  PopulationNodes -- ...\n"
   "  Preferences -- User study data as 2-column text file. First column "
   "contains upper bounds (in minutes), its last value denotes the cost limit "
   "for searches. The second column contains shares in [0,1], which sum up to "
   "at most 1.\n"
-  "  ParkingLots -- Location (latitude, longitude) of the parking lots.\n"
-  "  OutputFile -- Path and name of the ouput file.\n"
-            << std::endl;
+  "  ParkingLots -- Location (latitude, longitude), rank and population of "
+  "the parking lots.\n"
+  "  OutputFile -- Path and name of the ouput file for populations.\n"
+       << endl;
 }
 
 // _____________________________________________________________________________
@@ -332,7 +329,7 @@ int main(int argc, char** argv) {
     exit(0);
   }
   string graphFile = argv[1];
-  string fepFile = argv[2];
+  string fepAndParkingFile = argv[2];
   string popFile = argv[3];
   string prefFile = argv[4];
   string parkFile = argv[5];
@@ -350,13 +347,25 @@ int main(int argc, char** argv) {
   RoadGraph graph;
   graph.read_in(graphFile);
 
+  // Read in the parking lots. Format is:
+  //  lat0 lon0 rank0 population0
+  //  lat1 lon1 rank1 population1
+  //  ...
+  vector<vector<float> > parkingLots = util::read_column_file<float>(parkFile);
+  assert(parkingLots.size() == 4);
+  int numParking = parkingLots[0].size();
+
   // Read the forest entries. The file has the format
   //  lat0 lon0 nodeId0
-  //  nodeId1
+  //  lat1 lon1 nodeId1
   //  ...
-  vector<vector<float> > fepCols = util::read_column_file<float>(fepFile);
-  assert(fepCols.size() > 2);
-  vector<int> fepNodeIndices(fepCols[2].begin(), fepCols[2].end());
+  // with N lines of which the first are forest entries and the last N-M are
+  // parking lots, where M = |parkFile|.
+  vector<vector<float> > fepAndParkingCols =
+      util::read_column_file<float>(fepAndParkingFile);
+  assert(fepAndParkingCols.size() > 2);
+  vector<int> fepNodeIndices(fepAndParkingCols[2].begin(),
+                             fepAndParkingCols[2].end() - numParking);
 
 
   // Read the population nodes. The file has the format:
@@ -394,19 +403,13 @@ int main(int argc, char** argv) {
       graph, fepNodeIndices, population, populationNodeIndices, preferences,
       &fepPopulation);
 
+  // PARKING LOTS
 
   // The population of parking lots is computed separately from the regular
   // forest entries: With higher rank they get a higher share of the car
   // population. Optionally the population can be used as given in the input.
   // Finally, the population of the parking lots is added to nodes of the graph,
   // such as if they were regular forest entries.
-
-  // Read in the parking lots. Format is:
-  //  lat0 lon0 rank0 population0
-  //  lat1 lon1 rank1 population1
-  //  ...
-  vector<vector<float> > parkingLots = util::read_column_file<float>(parkFile);
-  assert(parkingLots.size() == 4);
 
   bool useParkingLotPopulationFromInput = false;
   vector<float> parkingPopulations;
@@ -416,30 +419,15 @@ int main(int argc, char** argv) {
     parkingPopulations = distribute_car_population(carPopulation, parkingLots);
   }
 
-  vector<int> parkingNodeIndices =
-      map_xy_locations_to_closest_node(parkingLots[0], parkingLots[1], graph);
-
   // Add the parking populations to the forest entry population.
   fepPopulation.insert(fepPopulation.end(),
                        parkingPopulations.begin(), parkingPopulations.end());
-  // Add the parking positions to the forest_entries_xyrf file. The subsequent
-  // attractiveness module uses the 4th column, i.e. the forest graph node id.
-  assert(parkingNodeIndices.size() == parkingPopulations.size());
-  {
-    std::ofstream ofs(extendedEntryFile);
-    for (size_t i = 0; i < fepCols[0].size(); ++i) {
-      ofs << fepCols[0][i] << " " << fepCols[1][i] << " "
-          << fepCols[2][i] << " " << fepCols[3][i] << std::endl;
-    }
-    for (size_t i = 0; i < parkingNodeIndices.size(); ++i) {
-      ofs << "-1.0 -1.0 -1 " << parkingNodeIndices[i] << std::endl;
-    }
-  }
 
-  std::cout << "Writing entry point popularity to " << outfile << std::endl;
+  // Output.
+  cout << "Writing entry point popularity to " << outfile << endl;
   util::dump_vector(fepPopulation, outfile);
 
   // Message to external callers which can't fetch the return code.
-  std::cout << std::endl << "OK" << std::endl;
+  cout << endl << "OK" << endl;
   return 0;
 }

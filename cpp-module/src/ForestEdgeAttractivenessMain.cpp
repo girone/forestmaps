@@ -5,38 +5,27 @@
 #include "./ForestUtil.h"
 #include "./EdgeAttractivenessModel.h"
 
-
-using std::unordered_map;
 using std::vector;
-
-
-const int kPARAM_MAX_FOREST_TIME = 120 * 60;  // tour time in seconds
 
 
 void print_usage() {
   std::cout <<
-  "Usage: ./Program <ForestGraphFile> <EntriesXYRF> <EntryPopulation> <Preferences> <Approach> <OutputFile>\n"
+  "Usage: ./Program <ForestGraphFile> <EntryAndParkingXYRF> <EntryPopulation> "
+  "<Preferences> <Approach> <OutputFile>\n"
   "  ForestGraphFile -- ...\n"
-  "  EntriesXYRF -- ...\n"
-  "  EntryPopulation -- ...\n"
-  "  Preferences -- 2-column table with time intervals (upper bounds) and share in [0,1]. The last interval bound also defines the maximum search radius.\n"
-  "  Approach -- selects the attractiveness modelling approach. 0 for Flooding, 1 for Via-Edge\n"
+  "  EntryAndParkingXYRF -- Contains position (X,Y) and graph node indices "
+  "(Road, Forest) for forest entries and parking lots. Both are treated "
+  "equally by this module.\n"
+  "  EntryPopulation -- Population numbers of the forest entries and parking "
+  "lots.\n"
+  "  Preferences -- 2-column table with time intervals (upper bounds) and "
+  "share in [0,1]. The last interval bound also defines the maximum search "
+  "radius.\n"
+  "  Approach -- selects the attractiveness modelling approach. 0 for "
+  "Flooding, 1 for Via-Edge\n"
   "  OutputFile -- Is what you think it is.\n"
             << std::endl;
 }
-/*
- *
- * TODO(Jonas): Have population counts as output.
- *
- * Proceed as follows: Store for each edge a list of pairs with possible tour
- * starting forest entry points and the according weight of the edge in the
- * tour. After the selected approach has finished, sort the list of each edge
- * by the weights, and normalize all weights relative to their maximum. Then
- * the populations of the forest entries is distributed according to the
- * normalized weights.
- *
- * TODO(Jonas): Talk to Hannah about this later on.
- */
 
 // _____________________________________________________________________________
 int main(int argc, char** argv) {

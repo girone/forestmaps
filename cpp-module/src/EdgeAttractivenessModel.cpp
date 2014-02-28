@@ -157,7 +157,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
   vector<float> nodeAttractiveness(_graph.num_nodes(), 0.f);
   distribute(_popularities, contribution, &nodeAttractiveness);
 
-  // Convert to arc attractivenesses: Each arc gets the attractiveness of its target.
+  // Node -> Arc: Each arc gets the attractiveness of its target node.
   const vector<ForestRoadGraph::Arc_t>& arcs = _graph.arclist();
   for (size_t i = 0; i < arcs.size(); ++i) {
     _aggregatedEdgeAttractivenesses[i] = nodeAttractiveness[arcs[i].target];

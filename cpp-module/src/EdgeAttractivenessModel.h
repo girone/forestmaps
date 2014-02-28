@@ -51,7 +51,7 @@ class EdgeAttractivenessModel {
  protected:
   const ForestRoadGraph& _graph;
   const vector<int>& _forestEntries;
-  const vector<vector<float>>& _preferences;  // User preferences for time in forest (tif)
+  const vector<vector<float>>& _preferences;
   Map _popularities;
   const int _maxCost;
   vector<float> _aggregatedEdgeAttractivenesses;

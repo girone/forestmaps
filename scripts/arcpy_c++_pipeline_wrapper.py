@@ -19,7 +19,6 @@ entryXYFile         = "forest_entries_xy.tmp.txt"
 populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
-#carPopulationFile   = "car_population.tmp.txt"  # population available for car
 entryAndParkingXYRFFile = "forest_entries_plus_parking_xyrf.tmp.txt"
 parkingLotsFile     = "parking_lot_positions.tmp.txt"
 edgeWeightFile      = "edge_weights.tmp.txt"
@@ -35,7 +34,7 @@ def set_paths(argv, env):
     msg("############# scriptDir is " + scriptDir)
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
-    global ttfFile, tifFile, carPopulationFile, parkingLotsFile
+    global ttfFile, tifFile, parkingLotsFile, entryAndParkingXYRFFile
     # converted inputs are created at the input data's location
     tmpDir = env.path + "\\"
     roadGraphFile       = tmpDir + roadGraphFile
@@ -49,8 +48,8 @@ def set_paths(argv, env):
     entryXYRFFile       = tmpDir + entryXYRFFile
     entryPopularityFile = tmpDir + entryPopularityFile
     edgeWeightFile      = tmpDir + edgeWeightFile
-    carPopublationFile  = tmpDir + carPopulationFile
     parkingLotsFile     = tmpDir + parkingLotsFile
+    entryAndParkingXYRFFile = tmpDir + entryAndParkingXYRFFile
 
 
 def shape_to_polygons(lines, idKeyword):
@@ -215,10 +214,11 @@ def call_subprocess(prog, args):
             if not line:
                 break
             if line.startswith("Progress: "):
-                msg(line.strip())
+                #msg(line.strip())
+                pass
             else:
-                msg("Read from pipe.")
                 output += line
+            msg(line.strip())
     except subprocess.CalledProcessError as e:
         msg("Error occured.")
         msg(e.output)
@@ -228,9 +228,9 @@ def call_subprocess(prog, args):
     else:
         returnCode = 1
     msg("=====================")
-    msg("Subprocess has finished {0}, its output was:".format(
+    msg("Subprocess has finished {0}.".format(
         "successfully" if returnCode == 0 else "with an error"))
-    msg(output)
+    #msg(output)
     timer.stop_timing()
     msg("=====================")
     if returnCode != 0:
@@ -359,8 +359,8 @@ def create_raster(env, columnName, rasterPixelSize=20):
 
 
 def add_column(data, fieldname, outputShp):
-    """Add a new column with values from a list."""
-    assert len(data) == int(arcpy.management.GetCount(outputShp).getOutput(0))
+    """Add a new column with values from a list. Returns the last index."""
+    assert len(data) >= int(arcpy.management.GetCount(outputShp).getOutput(0))
     index = 0
     arcpy.management.AddField(outputShp, fieldname, "FLOAT")
     with arcpy.da.UpdateCursor(outputShp, [fieldname]) as cursor:
@@ -368,6 +368,7 @@ def add_column(data, fieldname, outputShp):
             entry[0] = data[index]
             cursor.updateRow(entry)
             index += 1
+    return index
 
 
 def main():
@@ -386,11 +387,11 @@ def main():
 
     call_subprocess(scriptDir + "MatchForestEntriesMain.exe",
             roadGraphFile + " " + forestGraphFile + " " + entryXYFile + " " +
-            entryXYRFFile)
+            parkingLotsFile + " " + entryAndParkingXYRFFile)
 
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
-            roadGraphFile + " " + entryXYRFFile + " " +
-            populationFile + " " + ttfFile + " " + parkingLotsFile + " "+ 
+            roadGraphFile + " " + entryAndParkingXYRFFile + " " +
+            populationFile + " " + ttfFile + " " + parkingLotsFile + " " + 
             entryPopularityFile)
     # debug
     with open(entryPopularityFile) as f:
@@ -398,7 +399,10 @@ def main():
         for line in f:
             s = line.strip()
             entrypointPopulation.append(float(s))
-        add_column(entrypointPopulation, "populati", env.paramShpEntrypoints)
+        offset = add_column(entrypointPopulation, "populati",
+                            env.paramShpEntrypoints)
+        offset = add_column(entrypointPopulation[offset:], "populati",
+                            env.paramShpParking)
 
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryAndParkingXYRFFile + " " +

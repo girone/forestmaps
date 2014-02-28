@@ -32,8 +32,16 @@ ostream& operator<<(std::ostream& os, const XYRF& a) {
 
 
 void print_usage() {
-  std::cout << "Usage: ./program <graphR> <graphF> <ForestEntriesXY> <outfile>"
-            << std::endl;
+  string s;
+  s = "Maps forest entries and parking lot positions to nodes in the graphs.\n"
+      " Usage: ./program <graphR> <graphF> <ForestEntriesXY> <ParkingLotsXY> "
+      "<outfile>\n"
+      " <graphR> -- \n"
+      " <graphF> -- \n"
+      " <ForestEntriesXY> -- Locations (x, y) of the forest entries\n"
+      " <ParkingLotsXY> -- Locations (x, y) of the parking lots\n"
+      " <outfile> -- Path to the output file. \n";
+  std::cout << s << std::endl;
 }
 
 
@@ -43,7 +51,7 @@ void print_usage() {
 // as a new file containing each forest entry point's location and corresponding
 // road and forest graph node index.
 int main(int argc, char** argv) {
-  if (argc != 5) {
+  if (argc != 6) {
     print_usage();
     exit(1);
   }
@@ -51,12 +59,13 @@ int main(int argc, char** argv) {
   graphR.read_in(argv[1]);
   graphF.read_in(argv[2]);
   vector<vector<float> > fepXY = util::read_column_file<float>(argv[3]);
+  assert(fepXY.size() >= 2);
   const vector<float>& xx = fepXY[0];
   const vector<float>& yy = fepXY[1];
 
   // Map entry points to road graph node indices.
-  vector<int> indexF = map_xy_locations_to_closest_node(xx, yy, graphF);
   vector<int> indexR = map_xy_locations_to_closest_node(xx, yy, graphR);
+  vector<int> indexF = map_xy_locations_to_closest_node(xx, yy, graphF);
 
   // Combine and dump.
   vector<XYRF> combined;
@@ -66,8 +75,23 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < xx.size(); ++i) {
     combined.push_back(XYRF(xx[i], yy[i], indexR[i], indexF[i]));
   }
-  string filename = argv[4];  // "forest_entries_xyrf.tmp.txt";
-  std::cout << "Writing forest entry locations and r/f graph indices to "
+
+  // The same for parking lots.
+  vector<vector<float> > parkingXY = util::read_column_file<float>(argv[4]);
+  assert(parkingXY.size() >= 2);
+  const vector<float>& pxx = parkingXY[0];
+  const vector<float>& pyy = parkingXY[1];
+  indexR = map_xy_locations_to_closest_node(pxx, pyy, graphR);
+  indexF = map_xy_locations_to_closest_node(pxx, pyy, graphF);
+  assert(indexF.size() == indexR.size() && indexR.size() == pxx.size() &&
+         pxx.size() == pyy.size());
+  for (size_t i = 0; i < pxx.size(); ++i) {
+    combined.push_back(XYRF(pxx[i], pyy[i], indexR[i], indexF[i]));
+  }
+
+  // Output.
+  string filename = argv[5];  // "forest_entries_xyrf.tmp.txt";
+  std::cout << "Writing forest entry locations and graph indices to "
             << filename << std::endl;
   util::dump_vector(combined, filename);
 
