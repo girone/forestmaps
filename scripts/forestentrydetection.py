@@ -307,8 +307,11 @@ def classify_forest(osmfile):
 
   print 'Restrict forests to large connected components...'
   # turn this off, when fast results are needed
-  #forestal_highway_nodes, removed = lcc(forestal_highway_nodes, digraph, 100)
-  #open_highway_nodes.union(removed)
+  node_idx = [osm_id_map[e] for e in forestal_highway_nodes]
+  node_idx, removed = lcc(node_idx, digraph, 500)
+  inverse_id_map = {value : key for (key, value) in osm_id_map.items()}
+  forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
+  open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))
 
   print 'Select WEPs...'
   weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph, \
