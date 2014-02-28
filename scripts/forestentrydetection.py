@@ -63,22 +63,49 @@ def select_wep(open_highway_nodes, forestal_highway_nodes, graph, osm_id_map):
   return weps
 
 
-def create_population_grid(boundary_polygon, forest_polygons, resolution = 100):
-  bbox = bounding_box(boundary_polygon)
-  grid_points = create_grid_points(bbox, resolution)
-  grid_points = filter_point_grid(grid_points, [boundary_polygon], 'intersect')
+def create_population_grid(boundary_polygons, 
+                           forest_polygons, 
+                           resolution=None,
+                           grid_point_distance=None):
+  ''' Creates the population grid points. 
+
+  Points are distributed in a rectangular grid inside the area of the
+  boundary_polygons minus the forest_polygons. The resolution can be specified
+  either by the number of points along the smaller side of the bounding box of
+  all polygons, or by the distance between every two points.
+
+  '''
+  bbox = bounding_box(boundary_polygons)
+  grid_points = create_grid_points(bbox, resolution, grid_point_distance)
+  grid_points = filter_point_grid(
+      grid_points,
+      [boundary_polygons] if len(boundary_polygons) == 1 else boundary_polygons,
+      'intersect')
   grid_points = filter_point_grid(grid_points, forest_polygons, 'difference')
   return grid_points
 
 
-def create_grid_points(bbox, resolution):
+def create_grid_points(bbox, resolution, grid_point_distance):
   ''' Creates a point grid for a region with @resolution many points along the
-      smaller side of @bbox.
+      smaller side of @bbox or @grid_point_distance meters between every pair of
+      neighboring points.
   '''
+  assert bool(resolution) != bool(grid_point_distance)  # Specify exactly one!
   w, h = width_and_height(bbox)
   min_side = min(w, h)
   xmin, ymin = bbox[0]
-  step = min_side / (resolution + 1)
+  if resolution:
+    step = min_side / (resolution + 1)
+  else: 
+    if w < 180:  
+      # we are working on (lat, lon) coordinates, determine radial step size
+      p0, p1 = bbox
+      p1_p = [p1[0], p0[1]]  # project p1 to same latitude as p0
+      step = (grid_point_distance / great_circle_distance(p0, p1_p)) * w
+      print "step = {0}".format(step)
+    else:  
+      # Gauss-Kruger (east, north) coordinates in meters
+      step = grid_point_distance
   grid_points = []
   for i in range(1, int(math.ceil(h / step))):
     for j in range(1, int(math.ceil(w / step))):
@@ -95,8 +122,8 @@ def filter_point_grid(points, regions, operation='intersect'):
   '''
   assert operation in ['intersect', 'difference']
   bbox = bounding_box(points + [p for region in regions for p in region])
-  bbox = (bbox[0], (bbox[1][0] * 1.01, bbox[1][1]*1.01))
-  grid = Grid(bbox)
+  bbox = (bbox[0], [bbox[1][0] * 1.01, bbox[1][1]*1.01])
+  grid = Grid(bbox, grid_size=(1024, 860))
   for poly in regions:
     grid.fill_polygon(poly)
   if operation is 'intersect':
@@ -113,6 +140,7 @@ def classify_forest(node_ids, ways_by_type, graph, nodes, osm_id_map,
   ''' Creates forest polygons and detects forest entries WE in the data. '''
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
+  print bbox
 
   print 'Computing the convex hull...'
   if visualize:
@@ -148,7 +176,7 @@ def classify_forest(node_ids, ways_by_type, graph, nodes, osm_id_map,
   forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
   open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))
 
-  nodeinfo = {osm_id_map[osm_id] : NodeInfo(osm_id, nodes[osm_id]) 
+  nodeinfo = {osm_id_map[osm_id] : NodeInfo(osm_id, nodes[osm_id])
               for osm_id in highway_node_ids}
 
   # This does not work properly and does not bring the expected benefit.
@@ -168,7 +196,7 @@ def classify_forest(node_ids, ways_by_type, graph, nodes, osm_id_map,
   #  if delete[node] == 0:
   #    for to, edge in graph.edges[node].items():
   #      if delete[to] == 0:
-  #        shifted_graph.add_edge(node - index_shift[node], 
+  #        shifted_graph.add_edge(node - index_shift[node],
   #            to - index_shift[to], edge.cost)
   #graph = shifted_graph
   #osm_id_map = \
@@ -176,11 +204,11 @@ def classify_forest(node_ids, ways_by_type, graph, nodes, osm_id_map,
   #ind = set([inverse_id_map[n] for n in graph.nodes if delete[node] == 0])
   #forestal_highway_nodes &= ind
   #open_highway_nodes &= ind
-  #print 'Removed %d nodes, new size is %d.' % (n - graph.size(), 
+  #print 'Removed %d nodes, new size is %d.' % (n - graph.size(),
   #    graph.size())
 
   print 'Select WEPs...'
-  weps = select_wep(open_highway_nodes, forestal_highway_nodes, graph, 
+  weps = select_wep(open_highway_nodes, forestal_highway_nodes, graph,
       osm_id_map)
   print str(len(weps)) + ' WEPs'
 
@@ -216,7 +244,7 @@ def main():
     print ''' No osm file specified! '''
     exit(1)
   std_osm = True
-  if "ATKIS" in sys.argv: 
+  if "ATKIS" in sys.argv:
     std_osm = False
     sys.argv.remove("ATKIS")
     print ' - Using ATKIS interpreter.'
@@ -226,22 +254,22 @@ def main():
 
   print 'Reading nodes and ways from OSM and creating the graph...'
   node_ids, ways_by_type, graph, nodes, osm_id_map = osm_parse.read_file(
-      osmfile, maxspeed, interpret=osm_parse.Std_OSM_way_tag_interpreter 
+      osmfile, maxspeed, interpret=osm_parse.Std_OSM_way_tag_interpreter
       if std_osm else osm_parse.ATKIS_to_OSM_way_tag_interpreter)
 
   print len(graph.nodes), graph.size(), sum([len(edges) for edges in
     graph.edges.values()])
 
-  filename_base = os.path.splitext(osmfile)[0] 
+  filename_base = os.path.splitext(osmfile)[0]
   weps, forestal_highway_nodes, population, nodeinfo = classify_forest(
       node_ids, ways_by_type, graph, nodes, osm_id_map, filename_base)
 
   print 'Writing output...'
   filename = filename_base + "." + str(maxspeed) + "kmh"
   for data, extension in zip(
-      [weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, 
-       nodeinfo], 
-      ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes', 
+      [weps, forestal_highway_nodes, population, graph, osm_id_map, nodes,
+       nodeinfo],
+      ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes',
        'nodeinfo']
       ):
     f = open(filename + "." + extension + ".out", 'w')
