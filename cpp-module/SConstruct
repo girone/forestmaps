@@ -152,11 +152,12 @@ if not (target_set in ['main', 'test', 'all']):
           target_set
     Exit(1)
 
-
-# Always compile with gperftools profiler support (uses fast tcmalloc)
-env.Append(LIBS=['profiler', 'tcmalloc'])
-env.Append(LIBPATH=['lib/gperftools-2.0/.libs'])
-env.Append(CXXFLAGS=' -fno-omit-frame-pointer')
+profile = int(ARGUMENTS.get('profile', 1))
+# compile with gperftools profiler support (uses fast tcmalloc)
+if profile or build_mode is 'release':
+  env.Append(LIBS=['profiler', 'tcmalloc'])
+  env.Append(LIBPATH=['lib/gperftools-2.0/.libs'])
+  env.Append(CXXFLAGS=' -fno-omit-frame-pointer')
 
 # select OpemMP parallelization flag
 omp = bool(int(ARGUMENTS.get('omp', 1)))

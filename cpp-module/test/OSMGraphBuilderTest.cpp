@@ -5,13 +5,13 @@
 #include <fstream>
 #include <string>
 
-#include "./OSMGraph.h"
-#include "./OSMGraphBuilder.h"
+#include "../src/OSMGraph.h"
+#include "../src/OSMGraphBuilder.h"
 
 using std::string;
 
 
-const char TEST_FILE_NAME[] = "OSMGraphBuilderTest.TMP.osm";
+const char TEST_FILE_NAME[] = "tmp/OSMGraphBuilderTest.TMP.osm";
 
 // _____________________________________________________________________________
 void writeTestFile() {

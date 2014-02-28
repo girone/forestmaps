@@ -1,0 +1,4 @@
+[Project]
+Manager=KDevCMakeManager
+Name=cpp-module
+VersionControl=
