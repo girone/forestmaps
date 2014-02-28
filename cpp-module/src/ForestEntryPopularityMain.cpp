@@ -110,7 +110,7 @@ void print_usage() {
 
 // _____________________________________________________________________________
 int main(int argc, char** argv) {
-  if (argc != 4) {
+  if (argc != 5) {
     print_usage();
     exit(0);
   }

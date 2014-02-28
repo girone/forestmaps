@@ -13,7 +13,6 @@ import pickle
 
 from grid import Grid, bounding_box
 from graph import Graph, Edge, NodeInfo
-import convexhull
 
 # find Polygon library on machines without admin rights
 libpath = os.path.abspath(
@@ -141,6 +140,7 @@ def classify_forest(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId, filenam
     if visualize:
         visualGrid = Grid(bbox, mode="RGB")
     boundaryFilename = filenameBase + ".boundary.out"
+    import convexhull
     if os.path.exists(boundaryFilename):
         hull = convexhull.load(boundaryFilename)
     else:

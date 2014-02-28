@@ -42,6 +42,9 @@ namespace util {
   template<class T>
   vector<vector<T> > read_column_file(const string& filename) {
     std::ifstream ifs(filename);
+    if (!ifs.good()) {
+      printf("File not found: %s\n", filename.c_str());
+    }
     assert(ifs.good());
     // determine the number of columns from the first line
     vector<vector<T> > columns;

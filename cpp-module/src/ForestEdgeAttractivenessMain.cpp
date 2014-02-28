@@ -25,7 +25,7 @@ void print_usage() {
 
 // _____________________________________________________________________________
 int main(int argc, char** argv) {
-  if (argc != 5) {
+  if (argc != 6) {
     print_usage();
     exit(1);
   }
@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
   }
   for (float share: preferences[1]) {
     if (share < 0 || share > 1) {
-      std::cout << "Wront preference values: share " << share
+      std::cout << "Wrong preference values: share " << share
                 << " is not in [0,1]." << std::endl;
       exit(1);
     }
@@ -57,11 +57,11 @@ int main(int argc, char** argv) {
   EdgeAttractivenessModel* algorithm;
   if (approach == 0) {
     algorithm = new FloodingModel(
-        forestGraph, forestEntries, entryPopulation, preferences, kPARAM_MAX_FOREST_TIME);
+        forestGraph, forestEntries, entryPopulation, preferences, preferences[1].back());
     std::cout << "Selected Flooding Approach." << std::endl;
   } else if (approach == 1) {
     algorithm = new ViaEdgeApproach(
-        forestGraph, forestEntries, entryPopulation, preferences, kPARAM_MAX_FOREST_TIME);
+        forestGraph, forestEntries, entryPopulation, preferences, preferences[1].back());
     std::cout << "Selected Via Edge Approach." << std::endl;
   } else {
     std::cout << "Invalid approach selector." << std::endl;

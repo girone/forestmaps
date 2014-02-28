@@ -11,11 +11,6 @@ using std::ostream;
 using std::vector;
 
 
-void print_usage() {
-  std::cout << "Usage: ./program <graphR> <graphF> <ForestEntriesXY>"
-            << std::endl;
-}
-
 // Represents X, Y coordinates and index in _R_oad and _F_orest graph.
 struct XYRF {
   XYRF(float x, float y, int r, int f) {
@@ -34,6 +29,13 @@ ostream& operator<<(std::ostream& os, const XYRF& a) {
   os << a.X << " " << a.Y << " " << a.R << " " << a.F;
   return os;
 }
+
+
+void print_usage() {
+  std::cout << "Usage: ./program <graphR> <graphF> <ForestEntriesXY>"
+            << std::endl;
+}
+
 
 // This reads in the road graph, forest road graph and the locations of the
 // forest entries points. Via a KDTree, the entry points are matched to the

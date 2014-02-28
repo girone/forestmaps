@@ -173,6 +173,9 @@ struct CompareArcs {
 template<class N, class A>
 void Graph<N, A>::read_in(const string& filename) {
   std::ifstream input(filename);
+  if (!input.good()) {
+    std::cout << "File not found: " << filename << std::endl;
+  }
   assert(input.good() && "File not found.");
 
   size_t numNodes, numArcs;

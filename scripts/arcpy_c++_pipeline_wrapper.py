@@ -20,6 +20,8 @@ populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
 edgeWeightFile      = "edge_weights.tmp.txt"
+ttfFile             = "preferences_TTF.txt"
+tifFile             = "preferences_TIF.txt"
 
 columnName = "EdgeWeight"
 
@@ -163,8 +165,9 @@ def call_subprocess(prog, args):
     timer = Timer()
     timer.start_timing("Calling " + prog + " with arguments '" + args + "'")
     try:
-        output = subprocess.check_output(prog + " " + args)  # shell=False
+        output = subprocess.check_output(prog + " " + args, stderr=subprocess.STDOUT)  # shell=False
     except subprocess.CalledProcessError as e:
+        msg("Error occured.")
         msg(e.output)
         raise
     msg("Subprocess has finished, its output was:")
@@ -290,14 +293,15 @@ def main():
     set_paths(sys.argv)
     env = AlgorithmEnvironment()
     forestArcToFID = parse_and_dump(env)
-
-    call_subprocess("MatchForestEntriesMain.exe",
+    msg("scriptDir = " + scriptDir)
+    call_subprocess(scriptDir + "MatchForestEntriesMain.exe",
             roadGraphFile + " " + forestGraphFile + " " + entryXYFile)
-    call_subprocess("ForestEntryPopularityMain.exe",
-            roadGraphFile + " " + entryXYRFFile + " " + populationFile)
-    call_subprocess("ForestEdgeAttractivenessMain.exe",
+    call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
+            roadGraphFile + " " + entryXYRFFile + " " + populationFile + " " +
+            ttfFile)
+    call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryXYRFFile + " " + entryPopularityFile +
-            " " + str(env.paramValAlgorithm))
+            " " + tifFile + " " + str(env.paramValAlgorithm))
 
     add_column(env.paramShpForestRoads, columnName, forestGraphFile, forestArcToFID,
             edgeWeightFile)
