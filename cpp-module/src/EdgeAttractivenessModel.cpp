@@ -7,7 +7,6 @@
 #include "./Dijkstra.h"
 #include "./Util.h"
 
-using std::accumulate;
 using std::lower_bound;
 using std::upper_bound;
 using std::endl;
@@ -193,32 +192,3 @@ void ViaEdgeApproach::evaluate(
   }
 }
 
-// _____________________________________________________________________________
-bool EdgeAttractivenessModel::check_preferences(
-    const vector<vector<float> >& preferences) {
-  using std::endl;
-  for (size_t i = 1; i < preferences[0].size(); ++i) {
-    if (preferences[0][i] <= preferences[0][i-1]) {
-      std::cout << "Wrong prefence intervals: upper bound " << preferences[0][i]
-                << " is less than or equal its predecessor." << std::endl;
-      exit(1);
-    }
-  }
-
-  for (float share: preferences[1]) {
-    if (share < 0 || share > 1) {
-      std::cout << "Wrong preference values: share " << share
-                << " is not in [0,1]." << std::endl;
-      exit(1);
-    }
-  }
-
-  float sum = accumulate(preferences[1].begin(), preferences[1].end(), 0.f);
-  if (sum >= 1.0000001f) {
-    std::cout << "Sum of preference category shares is greater than 1:" << endl;
-    std::cout << sum << std::endl;
-    exit(1);
-  }
-
-  return true;
-}

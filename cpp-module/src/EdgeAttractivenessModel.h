@@ -40,10 +40,6 @@ class EdgeAttractivenessModel {
   // Returns the result.
   vector<float> result() const { return _aggregatedEdgeAttractivenesses; }
 
-  // Checks the user preferences read from a text file for correct values.
-  static bool check_preferences(const vector<vector<float> >& preferences);
-
-
  protected:
   const RoadGraph& _graph;
   const vector<int>& _forestEntries;

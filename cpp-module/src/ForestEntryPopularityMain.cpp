@@ -9,6 +9,7 @@
 #include "./EdgeAttractivenessModel.h"
 #include "./Tree2d.h"
 #include "./Util.h"
+#include "./ForestUtil.h"
 
 #define SQR(x) ((x)*(x))
 
@@ -300,7 +301,7 @@ int main(int argc, char** argv) {
   // be considered for forest entries within 30 min, and 40% for those within
   // between 0.5h and 1h.
   vector<vector<float>> preferences = util::read_column_file<float>(prefFile);
-  assert(EdgeAttractivenessModel::check_preferences(preferences));
+  assert(forest::check_preferences(preferences));
   float cumsum = 0;
   for (auto it = preferences[1].rbegin(); it != preferences[1].rend(); ++it) {
     cumsum += *it;

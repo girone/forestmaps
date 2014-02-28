@@ -2,6 +2,7 @@
 #include <vector>
 #include "./DirectedGraph.h"
 #include "./Util.h"
+#include "./ForestUtil.h"
 #include "./EdgeAttractivenessModel.h"
 
 
@@ -53,7 +54,7 @@ int main(int argc, char** argv) {
   string outfile = argv[6];
 
   // Check preferences & convert from minutes to seconds.
-  assert(EdgeAttractivenessModel::check_preferences(preferences));
+  assert(forest::check_preferences(preferences));
   std::for_each(preferences[0].begin(), preferences[0].end(),
                 [](float& x) { x*=60; });
   const int costLimit = preferences[0].back();
