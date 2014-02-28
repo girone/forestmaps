@@ -60,8 +60,8 @@ class Grid:
     self.updated = False
     # set up transformation matrix (linear mapping for homogeneous coordinates)
     tx, ty = -input_space[0][0], -input_space[0][1]
-    sx = (grid_size[0] - 1) / (input_space[1][0] - input_space[0][0])
-    sy = (grid_size[1] - 1) / (input_space[1][1] - input_space[0][1])
+    sx = (grid_size[0] - 1.) / (input_space[1][0] - input_space[0][0])
+    sy = (grid_size[1] - 1.) / (input_space[1][1] - input_space[0][1])
     self.transformation = np.matrix( ((sx, 0, sx*tx),
                                       (0, sy, sy*ty),
                                       (0, 0, 1)) );
@@ -70,9 +70,9 @@ class Grid:
     ''' Plots the grid as image. '''
     import matplotlib.pyplot as plt
     plt.figure()
-    plt.gca().invert_yaxis()
     ax = plt.subplot(111)
     ax.imshow(self.img)
+    #plt.gca().invert_yaxis()
     plt.show()
 
   def transform(self, point):
