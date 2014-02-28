@@ -15,30 +15,34 @@ import sys
 from graph import Graph, Edge, NodeInfo
 
 
-OSMSpeedTable = {'motorway'       : 110,
-                 'trunk'          : 110,
-                 'primary'        : 70,
-                 'secondary'      : 60,
-                 'tertiary'       : 50,
-                 'motorway_link'  : 50,
-                 'trunk_link'     : 50,
-                 'primary_link'   : 50,
-                 'secondary_link' : 50,
-                 'road'           : 40,
-                 'unclassified'   : 40,
-                 'residential'    : 30,
-                 'unsurfaced'     : 30,
-                 'cycleway'       : 25,
-                 'living_street'  : 10,
-                 'bridleway'      : 5,
-                 'service'        : 5,
-                 'OTHER'          : 0,
-                 'track'          : 5,
-                 'footway'        : 5,
-                 'pedestrian'     : 5,
-                 'tertiary_link'  : 5,
-                 'path'           : 4,
-                 'steps'          : 3}
+OSMWayTypesAndSpeed = [('motorway'       , 130),
+                       ('motorway_link'  , 130),
+                       ('trunk'          , 120),
+                       ('trunk_link'     , 120),
+                       ('primary'        , 120),
+                       ('primary_link'   , 120),
+                       ('secondary'      , 80),
+                       ('secondary_link' , 80),
+                       ('tertiary'       , 80),
+                       ('tertiary_link'  , 70),
+                       ('unclassified'   , 50),
+                       ('road'           , 50),
+                       ('residential'    , 45),
+                       ('living_street'  , 30),
+                       ('service'        , 30),
+                       ('track'          , 30),
+                       ('path'           , 5),
+                       ('unsurfaced'     , 30),
+                       ('cycleway'       , 25),
+                       ('bridleway'      , 5),
+                       ('OTHER'          , 0),
+                       ('footway'        , 5),
+                       ('pedestrian'     , 5),
+                       ('steps'          , 3)]
+
+OSMSpeedTable = dict(OSMWayTypesAndSpeed)
+OSMWayTypeToId = {v[0] : id
+                  for id, v in enumerate(reversed(OSMWayTypesAndSpeed))}
 
 ATKISSpeedTable = {164001 : 110,
                    164003 : 70,
@@ -144,10 +148,13 @@ class OSMParser(object):
         return (float(match.group(2)), float(match.group(3)),
                 int(match.group(1)))
 
-    def compute_cost_between_ids(self, osmIdA, osmIdB, wayClass):
+    def compute_dist_between_ids(self, osmIdA, osmIdB, wayClass):
         (latA, lonA, _) = self.osmNodes[self.osm_id_to_index(osmIdA)]
         (latB, lonB, _) = self.osmNodes[self.osm_id_to_index(osmIdB)]
-        s = great_circle_distance((latA, lonA), (latB, lonB))
+        return great_circle_distance((latA, lonA), (latB, lonB))
+
+    def compute_cost_between_ids(self, osmIdA, osmIdB, wayClass):
+        s = self.compute_dist_between_ids(osmIdA, osmIdB, wayClass)
         v = type_to_speed(wayClass, OSMSpeedTable)
         v = v if v <= self.maxSpeed else self.maxSpeed
         t = s / (v / 3.6)
@@ -162,10 +169,12 @@ class OSMParser(object):
             osmIdA = wayNodeIdList[i]
             osmIdB = wayNodeIdList[j]
             wayClass = self.currentHighwayCategory
-            cost = self.compute_cost_between_ids(osmIdA, osmIdB, wayClass)
-            edges.append((wayNodeIdList[i], wayNodeIdList[j], cost))
+            labels = [self.compute_dist_between_ids(osmIdA, osmIdB, wayClass),
+                      self.compute_cost_between_ids(osmIdA, osmIdB, wayClass),
+                      OSMWayTypeToId[wayClass]]
+            edges.append((wayNodeIdList[i], wayNodeIdList[j], labels))
             if bidirectional:
-                edges.append((wayNodeIdList[j], wayNodeIdList[i], cost))
+                edges.append((wayNodeIdList[j], wayNodeIdList[i], labels))
         return edges
 
     def read_node_line(self, line, state):
@@ -285,8 +294,8 @@ class OSMParser(object):
     def translate_osm_edges(self, highwayNodes, osmHighwayEdges):
         """Replaces osm node ids in edges with corresponding node indices."""
         mapping = {osm : index for index, (_,_,osm) in enumerate(highwayNodes)}
-        return [(mapping[s], mapping[t], cost)
-                for (s, t, cost) in osmHighwayEdges]
+        return [(mapping[s], mapping[t], label)
+                for (s, t, label) in osmHighwayEdges]
 
     def translate_osm_to_node_polygons(self, osmNodeIdPolygons):
         """Replaces osm node ids with coordinates."""
@@ -389,6 +398,7 @@ def read_file(filename, maxspeed, interpret=OSMWayTagInterpreter):
 
 
 def dump_graph(nodes, edges, filename=None, nodeFlags=None):
+    from itertools import izip
     """Writes output to some target, stdout by default."""
     if filename:
         with open(filename + ".graph.txt", "w") as f:
@@ -399,12 +409,13 @@ def dump_graph(nodes, edges, filename=None, nodeFlags=None):
                     (lat, lon, osm_id) = node
                     f.write("{0} {1} {2}\n".format(lat, lon, osm_id))
             else:
-                for node, flag in zip(nodes, nodeFlags):
+                for node, flag in izip(nodes, nodeFlags):
                     (lat, lon, osm_id) = node
                     f.write("{0} {1} {2} {3}\n".format(lat, lon, osm_id, flag))
             for edge in edges:
-                s, t, cost = edge
-                f.write("{0} {1} {2}\n".format(s, t, cost))
+                s, t, labels = edge
+                labelsAsString = " ".join([str(l) for l in labels])
+                f.write("{0} {1} {2}\n".format(s, t, labelsAsString))
     else:
         print len(nodes)
         print len(edges)
@@ -412,8 +423,9 @@ def dump_graph(nodes, edges, filename=None, nodeFlags=None):
             (lat, lon, osm_id) = node
             print lat, lon#, osm_id
         for edge in edges:
-            s, t, cost = edge
-            print s, t, cost
+            s, t, labels = edge
+            labelsAsString = " ".join([str(l) for l in labels])
+            print "{0} {1} {2}\n".format(s, t, labelsAsString)
 
 
 def main():
