@@ -351,10 +351,9 @@ def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID,
     # arcs in the graphs. So we get two edge weights wa and wb, meaning "wa
     # people are taking this way in one direction and wb people in the
     # opposite". The sum of both weights is the weight of the undirected edge.
-    FIDtoWeight = defaultdict(list)
+    FIDtoWeight = defaultdict(float)
     for e, w in zip(edges, weights):
-        FIDtoWeight[arcToFID[e]].append(w)
-    FIDtoWeight = {fid: sum(weights) for fid, weights in FIDtoWeight.items()}
+        FIDtoWeight[arcToFID[e]] += w
 
     arcpy.management.DeleteField(shp, columnName)
     arcpy.management.AddField(shp, columnName, "FLOAT")
