@@ -129,12 +129,15 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 self.copyfile(f, self.wfile)
                 f.close()
                 return
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(message)
         else:
             message = self.process_query(parsed_path.query)
-            self.send_headers("Content-type", "application/javascript")
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(message)
+            self.send_response(200)
+            self.send_header("Content-type", "application/javascript")
+            self.end_headers()
+            self.wfile.write(message)
         return
 
     def process_query(self, query):
@@ -171,7 +174,9 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
     def datasetBoundsRequest(self, dataset, opt=[]):
         """Requests the bounds of a dataset. Returns JSON."""
-        print "datasetBoundsRequest() called with dataset=", dataset
+        if not gHeatmapDB.initialized:
+            print "Initializing the server: Requesting initialization from user."
+            return self.format_initialize_request()
         bounds = gLocalBounds[shortNameToIndex[dataset]]
         (minLon, minLat, maxLon, maxLat) = bounds
         return ('request_dataset_bounds_callback({\n' +
