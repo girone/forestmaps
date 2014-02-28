@@ -12,26 +12,16 @@ import atkis_graph
 from fep_weight_computation import connect_population_to_graph, reachability_analysis
 
 
-def create_road_graph(road_dataset):
+def create_road_graph(road_dataset, max_speed):
   ''' Creates a graph from ATKIS data stored as FeatureClass in a shapefile. '''
   lines_threshold = 1e6
   msg(str(arcpy.management.GetCount(road_dataset)) + " <?> " + str(lines_threshold))
   if arcpy.management.GetCount(road_dataset) < lines_threshold:
-    ''' For faster performance and reliable field order, it is recommended that
-        the list of fields be narrowed to only those that are actually needed.
-        NOTE(Jonas): That is indeed much faster (factor 10)!
-    '''
-    sr = arcpy.Describe(road_dataset).spatialReference
-    # Convention: Field names are lowercase.
-    road_points_array = arcpy.da.FeatureClassToNumPyArray(
-        road_dataset, ["fid", "shape", "klasse", "wanderweg", "shape_leng"],
-        spatial_reference=sr, explode_to_points=True)
-    #_, index = np.unique(road_points_array['fid'], return_index=True)
-    #road_features_array = road_points_array[index]
-
-    graph, coord_map = atkis_graph.create_graph_from_numpy_array(road_points_array)
+    graph, coord_map = atkis_graph.create_graph_via_numpy_array(road_dataset,
+                                                                max_speed)
   else:
-    graph, coord_map = atkis_graph.create_from_feature_class(road_dataset)
+    graph, coord_map = atkis_graph.create_from_feature_class(road_dataset,
+                                                             max_speed)
   msg("The graph has %d nodes and %d edges." % (len(graph.nodes),
       sum([len(edge_set) for edge_set in graph.edges.values()])))
 
@@ -105,6 +95,7 @@ def create_population(settlement_dataset,
     layer = arcpy.mapping.Layer(path + "pp_layer.lyr")
     arcpy.mapping.AddLayer(dataframe, layer, "TOP")
   msg("There are %d populations." % len(population_nodes))
+  return population_nodes
 
 
 path = "C:\\Data\\freiburg_city_clipped\\"
@@ -142,11 +133,12 @@ def main():
     pass
 
   t.start_timing("Creating graph from the data...") 
-  graph, coord_map = create_road_graph(road_dataset)
+  graph, coord_map = create_road_graph(road_dataset, max_speed=5)
   t.stop_timing()
 
   t.start_timing("Creating population points...")
-  create_population(settlement_dataset, coord_map, graph, point_distance=200)
+  population_nodes = create_population(settlement_dataset, coord_map, graph, 
+                                       point_distance=200)
   t.stop_timing()
 
   arr4 = arcpy.da.FeatureClassToNumPyArray(entrypoint_dataset, ["fid", "shape"])
@@ -159,7 +151,7 @@ def main():
       len(fep_node_ids), len(arr4['shape']) - len(fep_node_ids)))
 
   t.start_timing("Reachability analysis...")
-  reachability_analysis(graph, fep_node_ids, population_nodes)
+  reachable_feps = reachability_analysis(graph, fep_node_ids, population_nodes)
   t.stop_timing()
 
 #  t.start_timing("Computing distance to nearest forest entry...")

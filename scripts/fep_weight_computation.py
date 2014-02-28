@@ -16,6 +16,7 @@ from collections import defaultdict
 
 from graph import Graph
 from dijkstra import Dijkstra
+from util import Progress
 
 
 def load_data(osmfile, maxspeed):
@@ -65,6 +66,7 @@ def reachability_analysis(graph, sources, targets, cost_limit=60*60):
   '''
   reachable_targets = defaultdict(list)
   avg = 0.
+  p = Progress("Reachability analysis.", len(sources))
   for count, node in enumerate(sources):
     search = Dijkstra(graph)
     search.set_cost_limit(cost_limit)
@@ -72,10 +74,8 @@ def reachability_analysis(graph, sources, targets, cost_limit=60*60):
     for id in targets:
       if res[id] != sys.maxint:
         reachable_targets[id].append((node, res[id]))  # (source, dist)
-    sys.stdout.write("\r%.2f%%" % (100. * (count + 1) / len(sources)))
     avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
-    from util import msg
-    msg("%.1f%% done" % (100. * (count+1) / len(sources)))
+    p.progress()
   print ''
   avg /= len(sources)
   print 'In average, %.1f of %d nodes have been settled.' \
