@@ -15,18 +15,11 @@ import numpy as np
 import re
 import sys
 import os.path
+import math
 from collections import defaultdict
-
-
-def expand_way_to_edges(way_node_list):
-  """ For a list of way nodes, this adds bidirectional arcs between successors.
-  """
-  edges = []
-  size = len(way_node_list)
-  for i, j in zip(range(size-1), range(1,size)):
-    edges.append((way_node_list[i], way_node_list[j]))
-    edges.append((way_node_list[j], way_node_list[i]))
-  return edges
+import scipy
+from scipy.spatial import qhull
+from grid import Grid
 
 
 def map_way_ids_to_nodes(osmfile):
@@ -35,6 +28,14 @@ def map_way_ids_to_nodes(osmfile):
       - a mapping {way type -> [list of way ids]}
       - a bidirectional graph as a map {node_id -> set([successors])}
   """
+  def expand_way_to_edges(way_node_list):
+    """ For a list of way nodes, this adds bidirectional arcs between successors.
+    """
+    edges = []
+    size = len(way_node_list)
+    for i, j in zip(range(size-1), range(1,size)):
+      edges.append((way_node_list[i], way_node_list[j]))
+    return edges
   f = open(osmfile)
   p = re.compile('\D*k="(\w+)" v="(\w+)"')
   way_nodes = {}
@@ -67,6 +68,7 @@ def map_way_ids_to_nodes(osmfile):
           edges = expand_way_to_edges(node_list)
           for e in edges:
             graph[e[0]].add(e[1])
+            graph[e[1]].add(e[0])
   return way_nodes, way_types, graph
 
 
@@ -83,58 +85,43 @@ def read_nodes(osmfile):
   return nodes
 
 
-def visualize(data):
-  ''' Views an image '''
-  import matplotlib.pyplot as plt
-  plt.figure()
-  ax = plt.subplot(111)
-  ax.imshow(data)
-  plt.show()
+def bounding_box(points):
+  xmax = ymax = float(-sys.maxint)
+  xmin = ymin = float(sys.maxint)
+  for point in points:
+    if xmax < point[0]:
+      xmax = point[0]
+    if xmin > point[0]:
+      xmin = point[0]
+    if ymax < point[1]:
+      ymax = point[1]
+    if ymin > point[1]:
+      ymin = point[1]
+  return ((xmin, ymin), (xmax, ymax))
 
 
-def compute_forest_grid(forest_delim, way_nodes, nodes, \
-    (resx, resy) = (10240, 8600)):
+def width_and_height(bbox):
+  return (bbox[1][0] - bbox[0][0]), (bbox[1][1] - bbox[0][1])
+
+
+def compute_forest_grid(forest_polygons, bbox, (resx, resy) = (10240, 8600)):
   ''' Computes a grid (array) distinguishing forest and open ground. '''
-  def dimensions(polygons):
-    xmax = ymax = float(-sys.maxint)
-    xmin = ymin = float(sys.maxint)
-    for poly in polygons:
-      for point in poly:
-        if xmax < point[0]:
-          xmax = point[0]
-        if xmin > point[0]:
-          xmin = point[0]
-        if ymax < point[1]:
-          ymax = point[1]
-        if ymin > point[1]:
-          ymin = point[1]
-    return [xmin, xmax, ymin, ymax]
-  def width_and_height(dimensions):
-    assert len(dimensions) == 4
-    return (dimensions[1] - dimensions[0]), (dimensions[3] - dimensions[2])
   # compute scale
-  [xmin, xmax, ymin, ymax] = dimensions([nodes.values()])
-  width, height = width_and_height([xmin, xmax, ymin, ymax])
+  width, height = width_and_height(bbox)
   resx, resy = 10240, 8600
   scale = min(float(resx/width), float(resy/height))
-  # collect polygons
-  forest_polygons = []
-  for way_id in forest_delim:
-    poly = []
-    for node_id in way_nodes[way_id]:
-      poly.append(nodes[node_id])
-    forest_polygons.append(poly)
   scaled_polygons = []
+  ((xmin, ymin), (xmax, ymax)) = bbox
   for poly in forest_polygons:
     # Point tuples contain (lon, lat). Use (minlon, maxlat) as reference point
     # (0,0) of the coordinate system.
     scaled_polygons.append(scale_and_shift(poly, scale, xmin, ymax))
-  # fill the grid
+  # fill the forest_grid
   img = Image.new("F", (resx, resy), 0)
   draw = ImageDraw.Draw(img)
   for poly in scaled_polygons:
     draw.polygon(poly, fill=255)
-  return np.asarray(img), (scale, xmin, xmax, ymin, ymax), scaled_polygons
+  return np.asarray(img), (scale, bbox), scaled_polygons
 
 
 def scale_and_shift(polygon, scale, xmin, ymin):
@@ -146,24 +133,19 @@ def scale_and_shift(polygon, scale, xmin, ymin):
   return scaled
 
 
-def classify(way_types, way_nodes, nodes, grid, \
-    (scale, xmin, xmax, ymin, ymax)):
-  ''' TODO(jonas): Document this! '''
+def classify(highway_nodes, nodes, grid):
+  ''' Classifies highway nodes whether they are in the forest or on open 
+      terrain.
+  '''
   def to_idx((x, y)):
     ''' image: (x,y) vs. array: (row,col) with x = col, y = row '''
     return (y, x)
-  # detect highway nodes which are inside the forest
-  highway_nodes = set()
-  for way_id in way_types['highway']:
-    for node_id in way_nodes[way_id]:
-      highway_nodes.add(node_id)
   # classify using the grid
   forestal_highway_nodes = set()
   open_highway_nodes = set()
   for node_id in highway_nodes:
     lon, lat = nodes[node_id]
-    [(x, y)] = scale_and_shift([(lon, lat)], scale, xmin, ymax)
-    if grid[to_idx((x,y))] > 0:
+    if grid.test((lon, lat)):
       forestal_highway_nodes.add(node_id)
     else:
       open_highway_nodes.add(node_id)
@@ -201,6 +183,7 @@ def lcc(nodes, graph, threshold):
   assert len(remaining) == len(set(remaining))
   return set(remaining), removed
 
+
 def select_wep(open_highway_nodes, forestal_highway_nodes, graph):
   ''' Selects nodes as WEP which are outside the forest and point into it. '''
   weps = set()
@@ -212,6 +195,59 @@ def select_wep(open_highway_nodes, forestal_highway_nodes, graph):
   return weps
 
 
+def create_population_grid(boundary_polygon, forest_polygons, resolution = 100):
+  bbox = bounding_box(boundary_polygon)
+  grid_points = create_grid_points(bbox, resolution)
+  grid_points = filter_point_grid(grid_points, [boundary_polygon], 'intersect')
+  grid_points = filter_point_grid(grid_points, forest_polygons, 'difference')
+  return grid_points
+
+
+def create_grid_points(bbox, resolution):
+  ''' Creates a point grid for a region with @resolution many points along the
+      smaller side of @bbox. 
+  '''
+  w, h = width_and_height(bbox)
+  min_side = min(w, h)
+  xmin, ymin = bbox[0]
+  step = min_side / (resolution + 1)
+  grid_points = []
+  for i in range(1, int(math.ceil(h / step))):
+    for j in range(1, int(math.ceil(w / step))):
+      grid_points.append((j*step + xmin, i*step + ymin))  # (lon,lat) ~ (x,y)
+  return grid_points
+
+
+def filter_point_grid(points, regions, operation='intersect'):
+  ''' 
+  Filters @points by applying @operation with @regions using a grid.
+  Operations:
+    'intersect' : returns @points which lie inside @regions
+    'difference': returns @points which do not lie inside @regions
+  '''
+  assert operation in ['intersect', 'difference']
+  bbox = bounding_box(points + [p for region in regions for p in region])
+  bbox = (bbox[0], (bbox[1][0] * 1.01, bbox[1][1]*1.01))
+  grid = Grid(bbox)
+  for poly in regions:
+    grid.fill_polygon(poly) 
+  if operation is 'intersect':
+    return [p for p in points if grid.test(p) != 0]
+  else:
+    return [p for p in points if grid.test(p) == 0]
+
+def sort_hull(hull, vecs):
+  ''' Sorts the points of a convex hull by their angle to the center point. '''
+  ps = set()
+  for x, y in hull:
+    ps.add(x)
+    ps.add(y)
+  ps = np.array(list(ps))
+  center = vecs[ps].mean(axis=0)
+  A = vecs[ps] - center
+  return vecs[ps[np.argsort(np.arctan2(A[:,1], A[:,0]))]]
+
+
 def main():
   if len(sys.argv) != 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
     print ''' No osm file specified! '''
@@ -220,41 +256,62 @@ def main():
   resx, resy = 10240, 8600
 
   print 'Reading ways from OSM and creating the graph...'
-  way_nodes, way_types, digraph = map_way_ids_to_nodes(osmfile)
+  node_ids, way_types, digraph = map_way_ids_to_nodes(osmfile)
   forest_delim = way_types['forest_delim']
 
   print 'Reading nodes from OSM...'
   nodes = read_nodes(osmfile)
+  bbox = bounding_box(nodes.values())
+  print 'Computing the convex hull...'
+  visual_grid = Grid(bbox, mode="RGB")
+  points = [list(p) for p in nodes.values()]
+  hull = scipy.spatial.qhull.Delaunay(points).convex_hull
+  hull = sort_hull(hull, np.array(points))
+  visual_grid.fill_polygon(hull, color="#EEEEEE")
   
   print 'Creating forest grid from polygons...'
-  grid, aspect, scaled_polygons = \
-      compute_forest_grid(forest_delim, way_nodes, nodes, (resx, resy))
+  # TODO(Jonas): Rework the modularization of the next two methods.
+  forest_polygons = \
+      [[nodes[id] for id in node_ids[way_id]] for way_id in forest_delim]
+  #forest_grid, aspect = compute_forest_grid(forest_polygons, bbox, (resx, resy))
+  forest_grid = Grid(bbox)
+  for poly in forest_polygons:
+    forest_grid.fill_polygon(poly)
   
   print 'Classifying highway nodes...'
+  highway_node_ids = \
+      set([id for way_id in way_types['highway'] for id in node_ids[way_id]])
   forestal_highway_nodes, open_highway_nodes = \
-      classify(way_types, way_nodes, nodes, grid, aspect)
-  # filter forest nodes such that only large connected components form a forest
+      classify(highway_node_ids, nodes, forest_grid)
+
   print 'Restrict forests to large connected components...'
+  # turn this off, when fast results are needed
   forestal_highway_nodes, removed = lcc(forestal_highway_nodes, digraph, 100)
   open_highway_nodes.union(removed)
 
   print 'Select WEPs...'
   weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph)
-  print str(len(forestal_highway_nodes)) + ' nodes inside the forest'
-  print str(len(open_highway_nodes)) + ' nodes on open ground'
   print str(len(weps)) + ' WEPs'
 
+  print '''Creating the population grid...'''
+  xmin, ymin = bbox[0]
+  xmax, ymax = bbox[1]
+  dummy = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
+  boundary_polygon = hull
+  grid = create_population_grid(boundary_polygon, forest_polygons, 10)
+
   print 'Visualizing the result...'
-  (scale, xmin, xmax, ymin, ymax) = aspect
-  img = Image.new("RGB", (resx, resy), 1)
-  draw = ImageDraw.Draw(img)
-  for poly in scaled_polygons:
-    draw.polygon(poly, fill="#00DD00")
+  for poly in forest_polygons:
+    visual_grid.fill_polygon(poly, color="#00DD00")
   for node_id in weps:
-    [(x, y)] = scale_and_shift([nodes[node_id]], scale, xmin, ymax)
+    x, y = visual_grid.transform(nodes[node_id])
     r = 10
-    draw.ellipse((x-r,y-r,x+r,y+r), fill="#BB1111")
-  visualize(img)
+    visual_grid.draw.ellipse((x-r,y-r,x+r,y+r), fill="#BB1111")
+  for (x,y) in grid:
+    (x, y) = visual_grid.transform((x,y))
+    r = 30
+    visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
+  visual_grid.show()
 
   print 'Writing output...'
   f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
