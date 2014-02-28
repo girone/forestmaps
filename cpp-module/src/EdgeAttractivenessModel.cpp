@@ -113,9 +113,11 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       // Map cost * 2 with the preferences, adjust popularity share accordingly.
       float share = sum_of_user_shares_after(2.f * cost);
       // TODO(Jonas): Some scaling factor could/should be added below:
-      float gain = share / cost;
-      // NOTE(Jonas): The assertion does not hold as there may be duplicate
-      // forest entries.
+      // NOTE(Jonas): As a first scaling variant, increase the gain to minutes.
+      // NOTE(Jonas): Try also division by (cost + 60).
+      float gain = share / (cost + 60);
+      // NOTE(Jonas): The following assertion does not hold as there may be
+      // duplicate forest entries.
       // assert(contribution[fep][node] == 0 && "Duplicate fep/node?");
       contribution[fep][node] = gain;
     }

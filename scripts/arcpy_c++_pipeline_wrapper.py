@@ -19,7 +19,8 @@ entryXYFile         = "forest_entries_xy.tmp.txt"
 populationFile      = "populations.tmp.txt"
 entryXYRFFile       = "forest_entries_xyrf.tmp.txt"
 entryPopularityFile = "forest_entries_popularity.tmp.txt"
-carPopulationFile   = "car_population.tmp.txt"
+carPopulationFile   = "car_population.tmp.txt"  # population available for car
+parkingLotsFile     = "parking_lot_positions.tmp.txt"
 edgeWeightFile      = "edge_weights.tmp.txt"
 ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
@@ -33,7 +34,7 @@ def set_paths(argv, env):
     msg("############# scriptDir is " + scriptDir)
     global roadGraphFile, forestGraphFile, entryXYFile, populationFile
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
-    global ttfFile, tifFile, carPopulationFile
+    global ttfFile, tifFile, carPopulationFile, parkingLotsFile
     # converted inputs are created at the input data's location
     tmpDir = env.path + "\\"
     roadGraphFile       = tmpDir + roadGraphFile
@@ -48,6 +49,7 @@ def set_paths(argv, env):
     entryPopularityFile = tmpDir + entryPopularityFile
     edgeWeightFile      = tmpDir + edgeWeightFile
     carPopublationFile  = tmpDir + carPopulationFile
+    parkingLotsFile     = tmpDir + parkingLotsFile
 
 
 def shape_to_polygons(lines, idKeyword):
@@ -128,6 +130,17 @@ def read_graph_and_dump_it(shpFile, filename, maxSpeed=5):
     return arcToFID
 
 
+def read_and_dump_parking(parkingShp):
+    """Parses and dumps the parking lot locations."""
+    fields = [f.name.lower() for f in arcpy.ListFields(parkingShp)]
+    idKeyword = "fid" if "fid" in fields else "objectid"
+    array = arcpy.da.FeatureClassToNumPyArray(
+            parkingShp, [idKeyword, "shape"], explode_to_points=True)
+    with open(parkingLotsFile, "w") as f:
+        for entry in array:
+            f.write("{0} {1}\n".format(entry[1][0], entry[1][1]))
+
+
 def parse_and_dump(env):
     """Parses data from shapefiles, dumps it as plain text.
 
@@ -163,6 +176,10 @@ def parse_and_dump(env):
     with open(entryXYFile, "w") as f:
         for east, north in array['shape']:
             f.write("{0} {1}\n".format(east, north))
+    t.stop_timing()
+
+    t.start_timing("Parsing parking lot locations...")
+    read_and_dump_parking(env.paramShpParking)
     t.stop_timing()
 
     return forestArcToFID
@@ -270,6 +287,7 @@ class AlgorithmEnvironment(object):
                 self.paramShpForestRoads and
                 self.paramShpSettlements and
                 self.paramShpEntrypoints and
+                self.paramShpParking and 
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
@@ -336,7 +354,8 @@ def main():
             entryXYRFFile)
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
             roadGraphFile + " " + entryXYRFFile + " " +
-            populationFile + " " + ttfFile + " " + entryPopularityFile)
+            populationFile + " " + ttfFile + " " + parkingLotsFile + " "+ 
+            entryPopularityFile)
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryXYRFFile + " " +
             entryPopularityFile + " " + tifFile +

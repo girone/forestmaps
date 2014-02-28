@@ -287,6 +287,7 @@ void distribute_car_population_via_parking(
     if (nearest5.empty()) {
       pair<Tree2D::const_iterator, double> found = kdtree.find_nearest(ref);
       assert(found.first != kdtree.end() && "No nearest neighbor. Tree empty?");
+      std::cout << "Special case matched. Selecting nearest neighbor only." << std::endl;
       nearest5.push_back(*found.first);
     }
     vector<float> distances;
@@ -403,8 +404,8 @@ int main(int argc, char** argv) {
   //  ...
   // The population shares for people who cannot reach the forest is distributed
   // over all parking lots. The population of each parking lot is distributed
-  // over the 5 closest forest entries which are at most 500 meters (straight
-  // line) away.
+  // over the 5 closest forest entries which are at most 1000 meters (manhattan
+  // distance) away.
   vector<vector<float> > parkCoords = util::read_column_file<float>(parkFile);
   assert(parkCoords.size() == 2);
 
