@@ -47,6 +47,7 @@ class HeatmapFactory(object):
         indicates forest nodes (=1) and FEPs (=2).
         The input edges are a list of tuples (s, t).
         The input heats are a list of floats.
+        All input arrays are numpy arrays with 32bit integer and float values.
 
         """
         hm = Heatmap()

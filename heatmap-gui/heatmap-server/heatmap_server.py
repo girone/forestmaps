@@ -17,14 +17,18 @@ PORT = 8080
 
 shortNameToIndex = {"ro" : 0, "ch" : 1, "at" : 2, "de" : 3}
 
+gMinZoomLevel = 5
+gMaxZoomLevel = 14
+
 
 def normalize_zoomlvl(lvl):
-    if lvl < 6:
-        return 6
-    elif lvl > 16:
-        return 16
+    """For a given zoomlevel this returns the index in the layer index."""
+    if lvl < gMinZoomLevel:
+        return gMinZoomLevel
+    elif lvl > gMaxZoomLevel:
+        return gMaxZoomLevel
     else:
-        return lvl - 6
+        return lvl - gMinZoomLevel
 
 
 def dd():  # module-level definition required for pickle
@@ -226,6 +230,7 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         index = 0 if not opt else shortNameToIndex[opt['dataset']]
         zoomlvl = int(opt["zoomlevel"]) if "zoomlevel" in opt else 14
         lvl = normalize_zoomlvl(zoomlvl)
+        print "Returning data at zoomindex: ", zoomlevel
         hm = gHeatmapDB.rasterHeatmaps[index][lvl]
 
         if not leftBottomRightTop or leftBottomRightTop == '':

@@ -7,6 +7,8 @@ var selectedDataset = "ro";
 var point_radius = 50;  // px
 var kPOINT_RADIUS_METERS = 30.;
 var kPOINT_RADIUS_DEGREE = kPOINT_RADIUS_METERS / 111694.;
+var gMinZoomLevel = 5;
+var gMaxZoomLevel = 14;
 
 
 // Transforms the json (lat, lon, count) by applying the maps' projection.
@@ -44,7 +46,6 @@ function data_bounds(data) {
 
 
 function init(){
-  console.log("init called()")
     map = new OpenLayers.Map('heatmapArea', {
         projection: new OpenLayers.Projection("EPSG:4326"),
         displayProjection: new OpenLayers.Projection("EPSG:4326"),
@@ -123,7 +124,7 @@ function set_heatmap_point_scale(targetRadius) {
     if (scaleR < 0) { scaleR = 0; }
     if (scaleR > 7) { scaleR = 7; }
     if (map.zoom < 6) { scaleR = map.zoom - 1; }
-    console.log("setting point scale to " + Math.ceil(point_radius) + " + " + scaleR)
+    //console.log("setting point scale to " + Math.ceil(point_radius) + " + " + scaleR)
     point_radius = 1.5 * (Math.ceil(point_radius) + Math.sqrt(scaleR / 2) - 1);
     heatmap.heatmap.set("radius", point_radius)
 };
@@ -186,11 +187,11 @@ function get_heatmap_raster(bbox) {
     var timestamp = milliseconds();
     if (forceRequest ||
         (allowRequests && Math.abs(timestamp - lastRequestTimeStamp) > 500)) {
-        console.log("Requesting raster data inside " + bbox)
         var zoomlevel = 12;
         if (!(typeof map === "undefined")) {
             zoomlevel = map.zoom;
         }
+        console.log("Requesting raster data inside " + bbox + " with zoomlevel " + zoomlevel);
         $.ajax({
             url: url + "?heatmapRasterRequest=" + bbox + "&dataset=" + selectedDataset + "&zoomlevel=" + zoomlevel,
             dataType: "jsonp"
@@ -241,12 +242,12 @@ function heatmap_request_callback(json) {
         update_heatmap(data);
         if (allowCentering) {
             allowCentering = false;
-            forceRequest = true;
+            /*forceRequest = true;*/
             map.zoomToExtent(
                 data_bounds(data.data).transform(map.projection,
                                                  layer.projection)
             );
-            forceRequest = false;
+            /*forceRequest = false;*/
         }
     }
 }
@@ -257,7 +258,6 @@ function heatmap_request_callback(json) {
  *   maximumLatitude: d }
  */
 function heatmap_request_callback_initialize_me(json) {
-    console.log("Received 'heatmap_request_callback_initialize_me'.");
     var l = json.minimumLongitude;
     var b = json.minimumLatitude;
     var r = json.maximumLongitude;
@@ -271,7 +271,7 @@ function heatmap_request_callback_initialize_me(json) {
     var oldLvl = map.zoom, oldExtent = map.getExtent();
     var zoomLevelAndBBoxesString = "";
     map.zoomToExtent(bounds);
-    for (var lvl = 6; lvl <= 16; ++lvl) {
+    for (var lvl = gMinZoomLevel; lvl <= gMaxZoomLevel; ++lvl) {
         // determine the latitude and longitude step sizes to fit the resolution
         map.moveTo(bounds[0], lvl);
         var ext = get_current_map_extent().toBBOX();
@@ -280,7 +280,6 @@ function heatmap_request_callback_initialize_me(json) {
     map.zoomToExtent(oldExtent);
     map.zoomTo(oldLvl);
     allowRequests = true;
-    console.log("Sending initialization request with parameter '" + zoomLevelAndBBoxesString + "'");
     $.ajax({
         url: url + "?initializationRequest=" + zoomLevelAndBBoxesString,
         dataType: "jsonp"
@@ -315,10 +314,7 @@ function request_dataset_bounds_callback(data) {
     bounds.extend(new OpenLayers.LonLat(data.minLon, data.minLat));
     bounds.extend(new OpenLayers.LonLat(data.maxLon, data.maxLat));
     datasetExtent = bounds;
-    console.log(datasetExtent)
     datasetExtent.transform(map.projection, layer.projection);
-    console.log("After transformation:")
-    console.log(datasetExtent)
     map.zoomToExtent(datasetExtent);
     console.log("Zoomlevel for first request after changing dataset is: " + map.zoom);
     get_heatmap_raster(datasetExtent.toBBOX());
