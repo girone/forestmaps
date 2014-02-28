@@ -119,6 +119,17 @@ T sum(const vector<T>& iterable) {
   return std::accumulate(iterable.cbegin(), iterable.end(), initial);
 }
 
+// A hash function for pairs. Warning: The function probably creates a large
+// number of hash collisions.
+struct PairHash {
+ public:
+  size_t operator()(const std::pair<double, double>& x) const throw() {
+    std::hash<double> hasher;
+    size_t h = hasher(x.first + 2 * x.second);
+    return h;
+  }
+};
+
 }  // namespace util
 
 

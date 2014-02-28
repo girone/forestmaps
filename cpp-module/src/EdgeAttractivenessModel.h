@@ -102,11 +102,23 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
       const int w,
       const Dijkstra<ForestRoadGraph>& bwd,
       const Dijkstra<ForestRoadGraph>& fwd,
-      MapMap* contributions);
+      MapMap* contributions) const;
 
  private:
-  // Stores pairwise distances between forest entries.
+  void compute_distance_table(const ForestRoadGraph& g, const vector<int>& feps,
+                              const int maxCost);
+  void compute_counterarc_map(const ForestRoadGraph& g);
+  vector<int> determine_settled_forest_entries(
+      const Dijkstra<ForestRoadGraph>& dijkstra) const;
+  int get_counterpart(int arcIndex) const;
+  int get_distance(int forestEntry1, int forestEntry2) const;
+
+  // Stores pairwise distances between forest entries. Exploits symmetry and
+  // stores only entries with key1 <= key2.
   MapMap _distances;
+
+  // Maps arc index of a-->b indices to the index of b-->a
+  unordered_map<int, int> _arcIndexToCounterArcIndex;
 };
 
 #endif  // SRC_EDGEATTRACTIVENESSMODEL_H_

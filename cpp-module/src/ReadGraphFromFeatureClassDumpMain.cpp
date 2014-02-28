@@ -24,18 +24,9 @@ using std::map;
 
 #define SQR(x) ((x)*(x))
 
-struct Hash {
- public:
-  size_t operator()(const std::pair<double, double>& x) const throw() {
-    std::hash<double> hasher;
-    size_t h = hasher(x.first + 2 * x.second);
-    return h;
-  }
-};
-
-typedef unordered_map<pair<double, double>, int, Hash> CoordMap;
+typedef unordered_map<pair<double, double>, int, util::PairHash> CoordMap;
 //typedef map<pair<double, double>, int> CoordMap;
-typedef unordered_map<pair<int, int>, int, Hash> ArcToIdMap;
+typedef unordered_map<pair<int, int>, int, util::PairHash> ArcToIdMap;
 
 
 struct CostEdge {

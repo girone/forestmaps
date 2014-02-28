@@ -34,6 +34,7 @@ ForestRoadGraph read_and_simplify(
   adjGraph.read_in(filename);
 
   // Simplify chains of nodes.
+  cout << "Simplifying the graph..." << endl;
   GraphSimplificator simplifier(&adjGraph);
   set<uint> doNotContract(forestEntries.begin(), forestEntries.end());
   SimplificationGraph simple = simplifier.simplify(&doNotContract);
@@ -70,8 +71,6 @@ void write_output(const string& filename,
   assert(maxEdgeIndex > 0);
 
   vector<float> unpackedResult(maxEdgeIndex + 1, 0.f);
-  // TODO(Jonas): is the correspondence here correct? Index in
-  // offsetgraph._arclist to index in result?
   assert(result.size() == simplifiedGraph.arclist().size());
   int index = 0;
   for (const Arc& arc: simplifiedGraph.arclist()) {
@@ -124,6 +123,8 @@ int main(int argc, char** argv) {
   ForestRoadGraph simplifiedGraph = read_and_simplify(
       argv[1], forestEntries, &containedEdgeIds, &forestEntriesInSimplifiedGraph);
   assert(forestEntriesInSimplifiedGraph.size() == forestEntries.size());
+  cout << "#nodes: " << simplifiedGraph.num_nodes()
+       << " #arcs: " << simplifiedGraph.num_arcs() << endl;
 
   vector<float> entryPopulation = util::read_column_file<float>(argv[3])[0];
   vector<vector<float> > preferences = util::read_column_file<float>(argv[4]);
