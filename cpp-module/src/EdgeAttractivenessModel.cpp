@@ -1,11 +1,10 @@
 // Copyright 2014: Jonas Sternisko
 
 #include "./EdgeAttractivenessModel.h"
-#include <ctime>
 #include <algorithm>
-#include <iostream>
 #include "./Dijkstra.h"
 #include "./Util.h"
+#include "./Timer.h"
 
 using std::accumulate;
 using std::lower_bound;
@@ -108,10 +107,12 @@ vector<int> FloodingModel::compute_node_from_arc_weights(
 
 // _____________________________________________________________________________
 vector<float> FloodingModel::compute_edge_attractiveness() {
+  std::cout << "Starting..." << std::endl;
   // Prepare progress information
-  size_t total = 2 * _forestEntries.size();
+  size_t total = _forestEntries.size();
   size_t done = 0;
-  clock_t timestamp = clock();
+  Timer t;
+  t.start();
 
   vector<int> nodeWeights = compute_node_from_arc_weights(_graph);
 
@@ -143,10 +144,11 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
 
     // Progress
     done++;
-    if ((clock() - timestamp) / static_cast<float>(CLOCKS_PER_SEC) > 0.00001) {
-      timestamp = clock();
+    if (t.intermediate() / 1000 > 2) {
       printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
+      t.stop();
+      t.start();
     }
   }
 
@@ -172,6 +174,7 @@ ViaEdgeApproach::ViaEdgeApproach(
     const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
   // Compute pairwise distances between forest entries.
+  std::cout << "Setting up entry point distance table..." << std::endl;
   Dijkstra<ForestRoadGraph> dijkstra(g);
   dijkstra.set_cost_limit(maxCost);
   for (int fep1: feps) {
@@ -186,6 +189,7 @@ ViaEdgeApproach::ViaEdgeApproach(
 
 // _____________________________________________________________________________
 vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
+  std::cout << "Starting..." << std::endl;
   Dijkstra<ForestRoadGraph> fwd(_graph), bwd(_graph);
   // During the search from s and t, ignore the respective other node.
   vector<bool> nodesToIgnoreBwd(_graph.num_nodes(), false);
@@ -200,7 +204,8 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   // Prepare progress information
   size_t total = arcs.size();
   size_t done = 0;
-  clock_t timestamp = clock();
+  Timer timer;
+  timer.start();
   for (size_t arcIndex = 0; arcIndex < arcs.size(); ++arcIndex) {
     // Set up
     const ForestRoadGraph::Arc_t& arc = arcs[arcIndex];
@@ -226,10 +231,11 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
 
     // Progress
     done++;
-    if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
-      timestamp = clock();
+    if (timer.intermediate() / 1000 > 2) {
       printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
+      timer.stop();
+      timer.start();
     }
   }
   // ^^ TODO(Jonas): put to separate method

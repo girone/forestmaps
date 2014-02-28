@@ -1,7 +1,5 @@
 // Copyright 2011-2013: Jonas Sternisko
 
-#include <ctime>
-#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,6 +9,7 @@
 #include "./Tree2d.h"
 #include "./Util.h"
 #include "./ForestUtil.h"
+#include "./Timer.h"
 
 using std::accumulate;
 using std::pair;
@@ -85,7 +84,8 @@ pair<vector<double>, int> reachability_analysis(
   // Prepare progress information
   size_t total = 2 * fepIndices.size();
   size_t done = 0;
-  clock_t timestamp = clock();
+  Timer t;
+  t.start();
 
   // First round of Dijkstras: Analize reachability and determine frequency of
   // forest distance categories for each population point. For each population
@@ -116,14 +116,12 @@ pair<vector<double>, int> reachability_analysis(
       }
     }
 
-    // TODO(Jonas): Make the timing independent of CLOCKS_PER_SEC ... that does
-    // not correspond to Windows timings and is rather usweless there. Maybe
-    // the solution of IR lecture works for Win.
     done++;
-    if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
-      timestamp = clock();
+    if (t.intermediate() / 1000 > 2) {
       printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
+      t.stop();
+      t.start();
     }
   }
 
@@ -132,7 +130,8 @@ pair<vector<double>, int> reachability_analysis(
     float sumOfCosts = 0.f;
     float sumOfCostsBike = 0.f;
     for (size_t b = 0; b < buckets[i].size(); ++b) {
-      sumOfCosts += buckets[i][b] * bucketCostBounds[b];  // TODO(Jonas): Maybe better use the average instead of the upper bound.
+      // TODO(Jonas): Maybe better use the average instead of the upper bound.
+      sumOfCosts += buckets[i][b] * bucketCostBounds[b];
       sumOfCostsBike += bucketsBike[i][b] * bucketCostBoundsBike[b];
     }
     if (sumOfCosts > 0) {  // ==> sumOfCostsBike > 0 as well
@@ -181,10 +180,11 @@ pair<vector<double>, int> reachability_analysis(
     }
 
     done++;
-    if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
-      timestamp = clock();
+    if (t.intermediate() / 1000 > 2) {
       printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
+      t.stop();
+      t.start();
     }
   }
 
@@ -197,7 +197,8 @@ pair<vector<double>, int> reachability_analysis(
   float sumFepPop = accumulate(fepPop.begin(), fepPop.end(), 0.f);
   float mappedPopulation = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
-    mappedPopulation += reachesForestByWalking[i] * populations[i] * kUserShareWalking;
+    mappedPopulation += reachesForestByWalking[i] * populations[i]
+        * kUserShareWalking;
   }
   float normalizer = sumFepPop / mappedPopulation;
   for (size_t i = 0; i < fepPop.size(); ++i) {
@@ -207,7 +208,8 @@ pair<vector<double>, int> reachability_analysis(
   float sumFepPopBike = accumulate(fepPopBike.begin(), fepPopBike.end(), 0.f);
   float mappedPopulationBike = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
-    mappedPopulationBike += reachesForestByBicycle[i] * populations[i] * kUserShareBicycle;
+    mappedPopulationBike += reachesForestByBicycle[i] * populations[i]
+        * kUserShareBicycle;
   }
   normalizer = sumFepPopBike / mappedPopulationBike;
   for (size_t i = 0; i < fepPop.size(); ++i) {
@@ -218,7 +220,8 @@ pair<vector<double>, int> reachability_analysis(
   float unmapped = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
     unmapped += (!reachesForestByWalking[i] * kUserShareWalking +
-                 !reachesForestByBicycle[i] * kUserShareBicycle) * populations[i];
+                 !reachesForestByBicycle[i] * kUserShareBicycle)
+        * populations[i];
   }
   float mapped = mappedPopulation + mappedPopulationBike;
   for (size_t i = 0; i < fepIndices.size(); ++i) {
@@ -233,7 +236,9 @@ pair<vector<double>, int> reachability_analysis(
   }
 
   // Some post-checks of the calculations. Do the number match roughly?
-  float totalPopulation = accumulate(populations.begin(), populations.end(), 0.f);
+  float totalPopulation = accumulate(populations.begin(),
+                                     populations.end(),
+                                     0.f);
   if (differ(totalPopulation * (1.f - kUserShareWalking - kUserShareBicycle),
              totalPopulation - (mapped + unmapped))) {
     std::cout << "Remaining unmapped populations differ from quota: "
@@ -283,7 +288,9 @@ void distribute_car_population_via_parking(
   assert(parkingCoords.size() == 2);
   assert(parkingCoords[0].size() == parkingCoords[1].size());
   assert(forestEntryXY[0].size() == entryPointPopulation->size());
-  double populationBeforeParking = accumulate(entryPointPopulation->begin(), entryPointPopulation->end(), 0.f);
+  double populationBeforeParking = accumulate(entryPointPopulation->begin(),
+                                              entryPointPopulation->end(),
+                                              0.f);
   // The population is distributed equally over all parking spaces.
   size_t numParkingLots = parkingCoords[0].size();
   assert(numParkingLots > 0);
@@ -294,11 +301,11 @@ void distribute_car_population_via_parking(
   // TODO(Jonas): get fep-index, fep-position etc. right
   for (size_t i = 0; i < numParkingLots; ++i) {
     TreeNode ref(parkingCoords[0][i], parkingCoords[1][i], i);
-    vector<TreeNode> nearest5 = get_nearest_X_within_Y(kdtree, ref, 5, 1000.f, euclid);
+    vector<TreeNode> nearest5 = get_nearest_X_within_Y(kdtree, ref, 5, 1000.f,
+                                                       euclid);
     if (nearest5.empty()) {
       pair<Tree2D::const_iterator, double> found = kdtree.find_nearest(ref);
       assert(found.first != kdtree.end() && "No nearest neighbor. Tree empty?");
-      std::cout << "Special case matched. Selecting nearest neighbor only." << std::endl;
       nearest5.push_back(*found.first);
     }
     vector<float> distances;
@@ -332,18 +339,24 @@ void distribute_car_population_via_parking(
     std::cout << "Input population for parking differs from mapped population: "
               << population << " vs. "
               << mappedParkingPopulation - populationBeforeParking << std::endl;
-    std::cout << " = " << mappedParkingPopulation << " - " << populationBeforeParking  << std::endl;
+    std::cout << " = " << mappedParkingPopulation << " - "
+              << populationBeforeParking  << std::endl;
   }
 }
 
 // _____________________________________________________________________________
 void print_usage() {
   std::cout <<
-  "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes> <Preferences> <ParkingLots> <OutputFile>\n"
+  "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes> <Preferences> "
+  "<ParkingLots> <OutputFile>\n"
   "  GraphFile -- ...\n"
-  "  ForestEntriesXYRF -- Forest entries with latitude, longitude, Road graph index, Forest graph index\n"
+  "  ForestEntriesXYRF -- Forest entries with latitude, longitude, Road graph "
+  "index, Forest graph index\n"
   "  PopulationNodes -- ...\n"
-  "  Preferences -- User study data as 2-column text file. First column contains upper bounds (in minutes), its last value denotes the cost limit for searches. The second column contains shares in [0,1], which sum up to at most 1.\n"
+  "  Preferences -- User study data as 2-column text file. First column "
+  "contains upper bounds (in minutes), its last value denotes the cost limit "
+  "for searches. The second column contains shares in [0,1], which sum up to "
+  "at most 1.\n"
   "  ParkingLots -- Location (latitude, longitude) of the parking lots.\n"
   "  OutputFile -- Path and name of the ouput file.\n"
             << std::endl;

@@ -1,0 +1,56 @@
+// Copyright 2013, University of Freiburg,
+// Chair of Algorithms and Data Structures.
+// Authors: Björn Buchhold <buchholb>
+// Adaptions for using <chrono>: Jonas Sternisko <sternis>
+
+#ifndef TIMER_H_
+#define TIMER_H_
+
+#include <string>
+#include <chrono>
+
+using std::string;
+using namespace std::chrono;
+
+// NOTE(Jonas): chrono::duration::nanoseconds does not work with MinGW for Win7.
+// So I decided to stick with milliseconds resolution instead.
+class Timer {
+ public:
+
+  // Gets a readable timestamp as string.
+  //static string getTimeStamp();
+
+  // Resets the timer value to zero and starts the measurement.
+  void start();
+
+  // Cont.
+  void cont();
+
+  // Stops the measurement
+  void stop();
+
+  // Returns the time since start() in usec, continues.
+  double intermediate();
+
+  double getUSecs() const {
+    return _usecs.count() / 1000.;
+  }
+
+  double getMSecs() const {
+    return getUSecs();
+  }
+
+  double getSecs() const {
+    return getUSecs() * (1000);
+  }
+
+ private:
+  // Timer value.
+  milliseconds _usecs;
+  // Used by the gettimeofday command.
+  high_resolution_clock::time_point _tstart;
+  high_resolution_clock::time_point _tend;
+};
+
+
+#endif  // TIMER_H_

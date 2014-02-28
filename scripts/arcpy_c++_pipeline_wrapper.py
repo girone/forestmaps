@@ -356,15 +356,15 @@ def create_raster(env, columnName, rasterPixelSize=20):
     arcpy.mapping.AddLayer(dataframe, layer, "TOP")
 
 
-def add_column(inputData, fieldname, outputShp):
+def add_column(data, fieldname, outputShp):
     """Add a new column with values from a list."""
-    assert len(inputData) == arcpy.management.GetCount(outputShp).getOutput(0)
+    assert len(data) == int(arcpy.management.GetCount(outputShp).getOutput(0))
     index = 0
-    arpcpy.management.AddField(outputShp, fieldname, "FLOAT")
+    arcpy.management.AddField(outputShp, fieldname, "FLOAT")
     with arcpy.da.UpdateCursor(outputShp, [fieldname]) as cursor:
         for entry in cursor:
             entry[0] = data[index]
-            cursor.UpdateRow(entry)
+            cursor.updateRow(entry)
             index += 1
 
 
@@ -395,9 +395,8 @@ def main():
         entrypointPopulation = []
         for line in f:
             s = line.strip()
-            msg(s)
             entrypointPopulation.append(float(s))
-        add_column(entrypointPopulation, "Population", env.paramShpEntrypoints)
+        add_column(entrypointPopulation, "populati", env.paramShpEntrypoints)
 
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryXYRFFile + " " +

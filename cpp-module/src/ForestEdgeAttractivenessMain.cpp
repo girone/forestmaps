@@ -61,13 +61,13 @@ int main(int argc, char** argv) {
 
   EdgeAttractivenessModel* algorithm;
   if (approach == 0) {
+    std::cout << "Selected Flooding Approach." << std::endl;
     algorithm = new FloodingModel(
         forestGraph, forestEntries, entryPopulation, preferences, costLimit);
-    std::cout << "Selected Flooding Approach." << std::endl;
   } else if (approach == 1) {
+    std::cout << "Selected Via Edge Approach." << std::endl;
     algorithm = new ViaEdgeApproach(
         forestGraph, forestEntries, entryPopulation, preferences, costLimit);
-    std::cout << "Selected Via Edge Approach." << std::endl;
   } else {
     std::cout << "Invalid approach selector." << std::endl;
     exit(1);
