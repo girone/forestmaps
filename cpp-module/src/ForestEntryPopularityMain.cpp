@@ -112,7 +112,7 @@ pair<vector<double>, int> reachability_analysis(
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
-      printf("Progress: %zu of %zu, this is %5.1f%% \r\n",
+      printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
     }
   }
@@ -177,7 +177,7 @@ pair<vector<double>, int> reachability_analysis(
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
-      printf("Progress: %zu of %zu, this is %5.1f%% \r\n",
+      printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
     }
   }

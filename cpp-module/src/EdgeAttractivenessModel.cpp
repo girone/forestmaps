@@ -116,7 +116,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
     done++;
     if ((clock() - timestamp) / static_cast<float>(CLOCKS_PER_SEC) > 0.00001) {
       timestamp = clock();
-      printf("Progress: %zu of %zu, this is %5.1f%% \r\n",
+      printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
     }
   }
@@ -196,7 +196,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
-      printf("Progress: %zu of %zu, this is %5.1f%% \r\n",
+      printf("Progress: %i of %i, this is %5.1f%% \r\n",
              done, total, done * 100.f / total);
     }
   }
