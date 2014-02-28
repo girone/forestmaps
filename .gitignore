@@ -1,3 +1,6 @@
+demo/
+data
+*local
 core
 *.json
 .sconsign.dblite
@@ -19,4 +22,8 @@ core
 *.xcf
 *.o
 *.tmp.txt
+*.exe
+forestCode
+forestMaps
+doc/
 

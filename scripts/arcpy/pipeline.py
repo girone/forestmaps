@@ -26,8 +26,8 @@ COST_LIMIT_IN_FOREST = 60*60
 def create_road_graph(dataset, max_speed):
   ''' Creates a graph from ATKIS data stored as FeatureClass in a shapefile. '''
   lines_threshold = 1e6
-  msg(str(arcpy.management.GetCount(dataset)) + " <?> " + str(lines_threshold))
-  if False and arcpy.management.GetCount(dataset) < lines_threshold:
+  msg(str(arcpy.management.GetCount(dataset).getOutput(0)) + " <?> " + str(lines_threshold))
+  if False and arcpy.management.GetCount(dataset).getOutput(0) < lines_threshold:
     graph, coord_map = atkis_graph.create_graph_via_numpy_array(dataset,
                                                                 max_speed)
   else:
@@ -140,17 +140,13 @@ def map_fid_to_arc_weight(edges, edgeToFID):
     for s, targets in edges.items():
       for t, edge in targets.items():
         weight = edge.cost
-        if (s,t) in fidToWeight:
-          assert fidToWeight[(s,t)] == weight
-        #msg(weight)
         fidToWeight[edgeToFID[(s,t)]] = weight
-    #msg("########################")
     return fidToWeight
 
 
 def add_weight_column(dataset, fidToWeight):
     """Adds a column to the dataset and inserts the weights for each arc."""
-    arcpy.management.AddField(dataset, newFieldName, "FLOAT");
+    arcpy.management.AddField(dataset, newFieldName, "FLOAT")
     fields = ["fid", newFieldName]
     count = 0
     with arcpy.da.UpdateCursor(dataset, fields) as cursor:
