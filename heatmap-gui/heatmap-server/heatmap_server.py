@@ -109,7 +109,7 @@ def start_server():
 
 
 class Heatmap(object):
-    def __init__(self, nodes, edges, weights=None):
+    def __init__(self, nodes, edges, weights=None, nodeFlags=None):
         """Constructs the heatmap.
 
         The heatmap will be a set of coordinates and labels, one for each node.
@@ -120,7 +120,11 @@ class Heatmap(object):
         self.leftBottomRightTop = [min(lon), min(lat), max(lon), max(lat)]
         assert len(edges) == len(weights)
         if weights:
-            #edgeToWeigth = {(s,t) : w for (s,t,_),w in zip(edges, weights)}
+            # WORKAROUND: Fix missing edges with empty weight
+            for index, (edge, weight) in enumerate(zip(edges, weights)):
+                if edge == []:
+                    edges[index] = (0, 0, [])
+                    weights[index] = 0
             edges = [(s, t, w) for (s, t, _), w in zip(edges, weights)]
         else:
             # remove duplicate edges caused by bidirectionality of the graph
@@ -131,18 +135,23 @@ class Heatmap(object):
                 else:
                     tmp.add((t, s, labels[0]))
             edges = list(tmp)
-        #if weights:
-            #relabeledEdges = [(s, t, edgeToWeigth[(s,t)] + edgeToWeigth[(t,s)])
-                              #for (s, t, _) in edges]
-            #edges = relabeledEdges
+
         # Map weights to nodes
         heat = [0.] * len(nodes)
         for (s, t, cost) in edges:
             count = float(cost)
             for nodeIndex in [s, t]:
+                # WORKAROUND: Only sum up for forest nodes
+                assert nodeFlags
+                if nodeFlags[nodeIndex] == 0:
+                    continue
+                # ENDOF WORKAROUND
                 heat[nodeIndex] += count
         self.maximum = max(heat)
-        self.heatmap = sorted(zip(lat, lon, heat))  # sort by latitude
+        # Sort by latitude and throw away zero entries.
+        self.heatmap = sorted(zip(lat, lon, heat))
+        self.heatmap = [(lat, lon, heat) for (lat, lon, heat) in self.heatmap
+                        if heat != 0.]
 
     def extract(self, bbox):
         """Returns the part of the heat map data inside the bounding box."""
@@ -168,12 +177,36 @@ def read_weights(filename):
     with open(filename) as f:
         for line in f:
             weights.append(float(line.strip()))
-            print weights[-1]
     return weights
 
 
 def main():
     import sys, pickle
+    # WORKAROUND for changed edge order: Load also the popGraph file and determine
+    # determine the edge order
+    # FURTHERMORE the node labels are read from the popGraph file in order to
+    # restrict edge weights to the forest.
+    if len(sys.argv) < 5:
+        print "MUUUH"
+        exit(1)
+    nodeFlags = []
+    edgeMap = {}
+    with open(sys.argv[4]) as f:
+        index = 0
+        for line in f:
+            parts = line.strip().split(" ")
+            if len(parts) == 4:
+                # node line
+                _, _, _, flag = parts
+                nodeFlags.append(int(flag))
+            elif len(parts) == 3:
+                # edge line
+                s, t, _ = parts
+                edgeMap[(int(s), int(t))] = index
+                index += 1
+    # ENDOF WORKAROUND
+
+
     if len(sys.argv) < 3:
         print "Usage: python name.py <nodes.pickle> <edges.pickle> [<weight>]"
         print "       When called without the optional edge weight file,"
@@ -186,16 +219,28 @@ def main():
     with open(sys.argv[2]) as f:
         edges = pickle.load(f)
 
-    global heatmap
+    # WORKAROUND: Reorder edges
+    assert len(nodes) == len(nodeFlags)
+    print len(edgeMap), len(edges)
+    reordered = [[]] * len(edges)
+    for edge in edges:
+        (s, t, labels) = edge
+        index = edgeMap[(s,t)]
+        reordered[index] = edge
+    edges = reordered
+    # ENDOF WORKAROUND
 
+    global heatmap
     if len(sys.argv) > 3:
         print "###########LOADING WEIGHTS##############"
         weights = read_weights(sys.argv[3])
-        heatmap = Heatmap(nodes, edges, weights)
+        heatmap = Heatmap(nodes, edges, weights, nodeFlags)
     else:
         heatmap = Heatmap(nodes, edges)
+    for entry in heatmap.heatmap:
+        print entry
 
-    open_browser()
+    #open_browser()
     start_server()
 
 
