@@ -111,6 +111,7 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
   vector<int> determine_settled_forest_entries(
       const Dijkstra<ForestRoadGraph>& dijkstra) const;
   int get_counterpart(int arcIndex) const;
+  // Get the distance between two forest entries.
   int get_distance(int forestEntry1, int forestEntry2) const;
 
   // Stores pairwise distances between forest entries. Exploits symmetry and

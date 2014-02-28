@@ -4,14 +4,21 @@
 #include <unordered_map>
 #include "../src/EdgeAttractivenessModel.h"
 #include "../src/Util.h"
+#include "../src/ForestUtil.h"
 
 using std::unordered_map;
 using ::testing::Each;
 using ::testing::Gt;
 
+// Preferences
+//   800  0.5
+//  3000  0.5
+const vector<vector<float> > pref = {{800, 3000}, { 0.5,  0.5}};
 
-const vector<vector<float> > pref = {{150, 300},
-                                            { 50,  50}};
+// _____________________________________________________________________________
+TEST(EdgeAttractivenessModelTest, self) {
+  ASSERT_TRUE(forest::check_preferences(pref));
+}
 
 // A and D are forest entries:
 //   A -- B -- C -- D
@@ -19,11 +26,11 @@ const vector<vector<float> > pref = {{150, 300},
 TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
   ForestRoadGraph graph;
   graph.from_string(
-      "[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]"
+      "[4,6,{(1,700)},{(0,700)(2,700)},{(1,700)(3,700)},{(2,700)}]"
   );
   EXPECT_EQ(
-      "[4,6,{(0,1,[7,1,-1])},{(1,0,[7,1,-1])(1,2,[7,1,-1])},"
-      "{(2,1,[7,1,-1])(2,3,[7,1,-1])},{(3,2,[7,1,-1])}]",
+      "[4,6,{(0,1,[700,1,-1])},{(1,0,[700,1,-1])(1,2,[700,1,-1])},"
+      "{(2,1,[700,1,-1])(2,3,[700,1,-1])},{(3,2,[700,1,-1])}]",
       graph.to_string()
   );
 
@@ -31,7 +38,7 @@ TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
     // No entry points.
     vector<int> forestEntries = {};
     vector<float> entryPopularity = {};
-    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 3000);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(0.f));
@@ -41,7 +48,7 @@ TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
     // No population.
     vector<int> forestEntries = {0, 3};
     vector<float> entryPopularity = {0.f, 0.f};
-    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 3000);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(0.f));
@@ -61,7 +68,7 @@ TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
     // Realistic setting.
     vector<int> forestEntries = {0, 3};
     vector<float> entryPopularity = {100.f, 12.f};
-    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 3000);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(Gt(0.f)));
@@ -76,14 +83,15 @@ TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
 TEST(EdgeAttractivenessModelTest, FloodingApproach) {
   ForestRoadGraph graph;
   graph.from_string(
-      "[4,10,{(1,6)(2,9)(3,7)},{(0,6)(3,6)},{(0,9)(3,9)},{(0,7)(1,6)(2,9)}]"
+      "[4,10,{(1,600)(2,900)(3,700)},{(0,600)(3,600)},{(0,900)(3,900)},"
+      "{(0,700)(1,600)(2,900)}]"
   );
 
   {
     // No entry points.
     vector<int> forestEntries = {0, 3};
     vector<float> entryPopularity = {100.f, 100.f};
-    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    FloodingModel algorithm(graph, forestEntries, entryPopularity, pref, 3000);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(Gt(0.f)));
@@ -116,18 +124,20 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
   ForestRoadGraph graph;
   graph.from_string(
       "[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]"
+
   );
   EXPECT_EQ(
       "[4,6,{(0,1,[7,1,-1])},{(1,0,[7,1,-1])(1,2,[7,1,-1])},"
       "{(2,1,[7,1,-1])(2,3,[7,1,-1])},{(3,2,[7,1,-1])}]",
       graph.to_string()
   );
+  int lim = 3000;
 
   {
     // No entry points.
     vector<int> forestEntries = {};
     vector<float> entryPopularity = {};
-    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, lim);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(0.f));
@@ -137,7 +147,7 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
     // No population.
     vector<int> forestEntries = {0, 3};
     vector<float> entryPopularity = {0.f, 0.f};
-    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, lim);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(0.f));
@@ -157,7 +167,7 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
     // Realistic setting.
     vector<int> forestEntries = {0, 3};
     vector<float> entryPopularity = {100.f, 12.f};
-    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, lim);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(Gt(0.f)));
@@ -172,14 +182,16 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
 TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
   ForestRoadGraph graph;
   graph.from_string(
-      "[4,10,{(1,6)(2,9)(3,7)},{(0,6)(3,6)},{(0,9)(3,9)},{(0,7)(1,6)(2,9)}]"
+      "[4,10,{(1,600)(2,900)(3,700)},{(0,600)(3,600)},{(0,900)(3,900)},"
+      "{(0,700)(1,600)(2,900)}]"
   );
 
   {
     // No entry points.
     vector<int> forestEntries = {0, 3};
     vector<float> entryPopularity = {100.f, 100.f};
-    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, 300);
+    int lim = 5000;
+    ViaEdgeApproach algorithm(graph, forestEntries, entryPopularity, pref, lim);
     const vector<float> result = algorithm.compute_edge_attractiveness();
     ASSERT_EQ(result.size(), graph.num_arcs());
     EXPECT_THAT(result, Each(Gt(0.f)));
@@ -191,6 +203,7 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
       ss << arc.source << " " << arc.target << " " << result[i]
                 << std::endl;
     }
+    // The maximum attractiveness should be on the A-D path.
     EXPECT_EQ("0 1 77.865\n"
               "0 2 53.5338\n"
               "0 3 100\n"

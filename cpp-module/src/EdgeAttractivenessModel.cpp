@@ -50,7 +50,6 @@ void EdgeAttractivenessModel::normalize_contributions(MapMap* contributions) {
     if (cc->size()) {
       float max = std::max_element(cc->begin(), cc->end(), cmp)->second;
       if (max > 0.f) {
-        assert(max != 0. && "Avoid zero-division.");
         float normalizer = 1. / max;
         for (auto itit = cc->begin(); itit != cc->end(); ++itit) {
           itit->second *= normalizer;
@@ -69,7 +68,7 @@ void EdgeAttractivenessModel::distribute(
     const int entryPoint = it->first;
     const float population = it->second;
     auto fit = contr.find(entryPoint);
-    // Use an empty map if the entry point does not contribute to any edge.
+    // Use an empty map if the entry point does not contribute to any edge.   /////// TODO(Jonas): For via edge, try something more focused. And determine why it is so much slower than in the paper.
     const Map& shares = (fit == contr.end()) ? Map() : fit->second;
     for (auto it2 = shares.begin(); it2 != shares.end(); ++it2) {
       const int edgeIndex = it2->first;
@@ -239,6 +238,8 @@ int ViaEdgeApproach::get_counterpart(int arcIndex) const {
 }
 
 // _____________________________________________________________________________
+// This exploits the symmetry of the distance table. Only entries (a,b) with
+// a <= b are stored.
 int ViaEdgeApproach::get_distance(int forestEntry1, int forestEntry2) const {
   int a = forestEntry1 <= forestEntry2 ? forestEntry1 : forestEntry2;
   int b = forestEntry1 >  forestEntry2 ? forestEntry1 : forestEntry2;
@@ -272,9 +273,14 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   Timer timer;
   timer.start();
   for (size_t arcIndex = 0; arcIndex < arcs.size(); ++arcIndex) {
-    if (!examined[arcIndex]) {
+    const ForestRoadGraph::Arc_t& arc = arcs[arcIndex];
+    // In the new input data, the forest graph equals the road graph. In the
+    // via edge approach, we are only interested in edges within the forest.
+    // In the input data, these have a weight w > 0. So we focus on these edges.
+    // All other edges will get zero attractiveness anyway.
+    // Also ignore arcs which have been examined with their counter arc.
+    if (!examined[arcIndex] && arc.labels[1] > 0) {
       // Set up
-      const ForestRoadGraph::Arc_t& arc = arcs[arcIndex];
       int s = arc.source;
       int t = arc.target;
       int c = arc.labels[0];
@@ -372,13 +378,13 @@ void ViaEdgeApproach::evaluate(
       float gain = 0;
       const float share = sum_of_user_shares_after(routeCostViaThisEdge);
       if (fep1 == fep2) {
-        gain = share / (costsT[fep2] + 60.f);
+        gain = share * 60.f / (costsT[fep2] + 60.f);
       } else {
         const float distance = get_distance(fep1, fep2);
-        gain = share * distance / (routeCostViaThisEdge + 60.f);
+        gain = share * (distance + 60.f) / (routeCostViaThisEdge + 60.f);
       }
       float increase = w * gain;
-      if (increase > 0) {
+      if (increase > 0.f) {
         (*contributions)[fep1][edgeIndex] += increase;
       }
     }
