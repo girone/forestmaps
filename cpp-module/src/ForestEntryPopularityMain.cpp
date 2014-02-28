@@ -62,6 +62,9 @@ int reachability_analysis(const RoadGraph& graph,
                           const vector<float>& populations,
                           const vector<int>& populationIndices,
                           const vector<vector<float> >& preferences,
+                          float userShareWalking,
+                          float userShareBicycle,
+                          float userShareCar,
                           vector<double>* fepPopulationOut) {
   // TODO(Jonas): Split this method into multiple submethods.
   //
@@ -148,7 +151,7 @@ int reachability_analysis(const RoadGraph& graph,
         if (bucketCostBoundsBike[b] < sumOfCostsBike) {
           bucketsBike[i][b] = 1.f - bucketCostBoundsBike[b] / sumOfCostsBike;
         } else {
-          bucketsBike[i][b] = 1.f / SQR(b+1);
+          bucketsBike[i][b] = 1.f / SQR(b + 1);
         }
       }
     }
@@ -199,7 +202,7 @@ int reachability_analysis(const RoadGraph& graph,
   float mappedPopulation = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
     mappedPopulation += reachesForestByWalking[i] * populations[i]
-        * kUserShareWalking;
+        * userShareWalking;
   }
   float normalizer = sumFepPop / mappedPopulation;
   for (size_t i = 0; i < fepPop.size(); ++i) {
@@ -210,7 +213,7 @@ int reachability_analysis(const RoadGraph& graph,
   float mappedPopulationBike = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
     mappedPopulationBike += reachesForestByBicycle[i] * populations[i]
-        * kUserShareBicycle;
+        * userShareBicycle;
   }
   normalizer = sumFepPopBike / mappedPopulationBike;
   for (size_t i = 0; i < fepPop.size(); ++i) {
@@ -220,8 +223,8 @@ int reachability_analysis(const RoadGraph& graph,
   // Map those (bicycle+walking) who are not yet assigned to any forest entry.
   float unmapped = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
-    unmapped += (!reachesForestByWalking[i] * kUserShareWalking +
-                 !reachesForestByBicycle[i] * kUserShareBicycle)
+    unmapped += (!reachesForestByWalking[i] * userShareWalking +
+                 !reachesForestByBicycle[i] * userShareBicycle)
         * populations[i];
   }
   float mapped = mappedPopulation + mappedPopulationBike;
@@ -237,18 +240,18 @@ int reachability_analysis(const RoadGraph& graph,
 
   // Some post-checks of the calculations. Do the number match roughly?
   float totalPopulation = util::sum(populations);
-  if (differ(totalPopulation * (1.f - kUserShareWalking - kUserShareBicycle),
+  if (differ(totalPopulation * (1.f - userShareWalking - userShareBicycle),
              totalPopulation - (mapped + unmapped))) {
     cout << "Remaining unmapped populations differ from quota: "
-              << (1.f - kUserShareWalking - kUserShareBicycle) * totalPopulation
+              << (1.f - userShareWalking - userShareBicycle) * totalPopulation
               << " vs. "
               << totalPopulation - (mapped + unmapped) << endl;
     // assert(false && "See stdout above.");
   }
-  if (differ(totalPopulation * (kUserShareWalking + kUserShareBicycle),
+  if (differ(totalPopulation * (userShareWalking + userShareBicycle),
              mapped + unmapped)) {
     cout << "Mapped walking and biking populations differ from quota: "
-              << (kUserShareWalking + kUserShareBicycle) * totalPopulation
+              << (userShareWalking + userShareBicycle) * totalPopulation
               << " vs. "
               << mapped + unmapped << endl;
     // assert(false && "See stdout above.");
@@ -257,7 +260,7 @@ int reachability_analysis(const RoadGraph& graph,
   // Calculate the car share. It is considered separately.
   float carPopulation = 0.f;
   for (size_t i = 0; i < populations.size(); ++i) {
-    carPopulation += kUserShareCar * populations[i];
+    carPopulation += userShareCar * populations[i];
   }
   /*{
     std::ofstream ofs(carPopulationFile);
@@ -305,26 +308,6 @@ vector<float> distribute_car_population(
   return parkingPopulations;
 }
 
-
-// _____________________________________________________________________________
-void print_usage() {
-  cout <<
-  "Usage: ./NAME <GraphFile> <ForestEntriesAndParkingXYRF> <PopulationNodes> "
-  "<Preferences> <ParkingLots> <OutputFile>\n"
-  "  GraphFile -- ...\n"
-  "  ForestEntriesAndParkingXYRF -- Forest entries and parking lots with "
-  "latitude, longitude, Road graph index, Forest graph index\n"
-  "  PopulationNodes -- ...\n"
-  "  Preferences -- User study data as 2-column text file. First column "
-  "contains upper bounds (in minutes), its last value denotes the cost limit "
-  "for searches. The second column contains shares in [0,1], which sum up to "
-  "at most 1.\n"
-  "  ParkingLots -- Location (latitude, longitude), rank and population of "
-  "the parking lots.\n"
-  "  OutputFile -- Path and name of the ouput file for populations.\n"
-       << endl;
-}
-
 // _____________________________________________________________________________
 RoadGraph read_and_simplify_graph(const string& filename,
                                   vector<int>* entryNodeIds) {
@@ -348,8 +331,29 @@ RoadGraph read_and_simplify_graph(const string& filename,
 }
 
 // _____________________________________________________________________________
+void print_usage() {
+  cout <<
+  "Usage: ./NAME <GraphFile> <ForestEntriesAndParkingXYRF> <PopulationNodes> "
+  "<Preferences> <ParkingLots> <OutputFile>\n"
+  "  GraphFile -- ...\n"
+  "  ForestEntriesAndParkingXYRF -- Forest entries and parking lots with "
+  "latitude, longitude, Road graph index, Forest graph index\n"
+  "  PopulationNodes -- ...\n"
+  "  Preferences -- User study data as 2-column text file. First column "
+  "contains upper bounds (in minutes), its last value denotes the cost limit "
+  "for searches. The second column contains shares in [0,1], which sum up to "
+  "at most 1.\n"
+  "  ParkingLots -- Location (latitude, longitude), rank and population of "
+  "the parking lots.\n"
+  "  OutputFile -- Path and name of the ouput file for populations.\n"
+  "  User share {walking, bicycle, car} (floating numbers, three or none) -- \n"
+  "The share of the population that uses the respective mean of transport.\n"
+       << endl;
+}
+
+// _____________________________________________________________________________
 int main(int argc, char** argv) {
-  if (argc != 7) {
+  if (argc != 7 || argc != 10) {
     print_usage();
     exit(0);
   }
@@ -359,6 +363,12 @@ int main(int argc, char** argv) {
   string prefFile = argv[4];
   string parkFile = argv[5];
   string outfile = argv[6];
+  float userShareWalking =
+      (argc == 10) ? util::convert<float>(argv[7]) : kUserShareWalking;
+  float userShareBicycle =
+      (argc == 10) ? util::convert<float>(argv[8]) : kUserShareBicycle;
+  float userShareDriving =
+      (argc == 10) ? util::convert<float>(argv[9]) : kUserShareCar;
 
 
   // Read in the parking lots. Format is:
@@ -393,7 +403,7 @@ int main(int argc, char** argv) {
   // Internally, the graph is simplified and the entry indices are shifted.
 //   RoadGraph graph = read_and_simplify_graph(graphFile, &fepNodeIndices);
   // NOTE(Jonas): The simplification is still buggy in this part. Some index
-  // problem remains. The speed advantage is not that large, so I leave it.
+  // problem remains. The speed advantage is not that large, so I leave it out.
   RoadGraph graph;
   graph.read_in(graphFile);
 
@@ -430,7 +440,7 @@ int main(int argc, char** argv) {
   vector<double> fepPopulation;
   int carPopulation = reachability_analysis(
       graph, fepNodeIndices, population, populationNodeIndices, preferences,
-      &fepPopulation);
+      userShareWalking, userShareBicycle, userShareDriving, &fepPopulation);
 
   // PARKING LOTS
 

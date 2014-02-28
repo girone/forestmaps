@@ -98,7 +98,7 @@ void print_usage() {
   "  ForestGraphFile -- ...\n"
   "  EntryAndParkingXYRF -- Contains position (X,Y) and graph node indices "
   "(Road, Forest) for forest entries and parking lots. Both are treated "
-  "equally by this module.\n"
+  "equally by this module.\n"  // NOTE(Jonas): Separate parking here.
   "  EntryPopulation -- Population numbers of the forest entries and parking "
   "lots.\n"
   "  Preferences -- 2-column table with time intervals (upper bounds) and "
