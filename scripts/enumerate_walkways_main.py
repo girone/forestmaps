@@ -19,7 +19,7 @@ from scipy import signal
 from enumerate_walkways import WayTree, WayGenerator, enumerate_walkways
 import visual_grid
 import edgedistance
-from contraction import SimpleContractionAlgorithm
+from contraction import SimpleContractionAlgorithm, ClusterContractionAlgorithm
 
 
 def main():
@@ -42,37 +42,47 @@ def main():
   wep_nodes = [osm_id_map[osm_id] for osm_id in weps]
   wep_nodes_set = set(wep_nodes)
 
-  ''' Concentrate way generation on forests '''
+  print ''' Concentrate way generation on forests '''
   n = len(g.nodes)
   outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
   outside_nodes -= wep_nodes_set
   g.remove_partition(outside_nodes)
   print n, len(g.nodes)
 
-  ''' Contract binary nodes except WEPs. '''
+  print ''' Contract binary nodes except WEPs. '''
   n = len(g.nodes)
   g.contract_binary_nodes(exclude=wep_nodes)
   print n, len(g.nodes)
 
-  ''' Simplify the graph by contraction of nodes with only short arcs. '''
+  #1 print ''' Simplify the graph by contraction of nodes with only short arcs. '''
+  #1 n = len(g.nodes)
+  #1 c = SimpleContractionAlgorithm(g, 20.0)  # 10.0 seconds @ 5 km/h ~= 14m
+  #1 c.contract_graph(exclude_nodes=wep_nodes)
+  #1 print n, len(g.nodes)
+  print ''' Simplify the graph (solves the maze-problem). '''
   n = len(g.nodes)
-  c = SimpleContractionAlgorithm(g, 20.0)  # 10.0 seconds @ 5 km/h ~= 14m
-  c.contract_graph(exclude_nodes=wep_nodes)
+  c = ClusterContractionAlgorithm(g, [nodeinfo[id].pos for id in g.nodes])
+  c.contract_graph(exclude_nodes=set(wep_nodes))
   print n, len(g.nodes)
 
   ''' Compute the distance to the edge of the woods (or load it) '''
   print 'Computing edge distance...'
   name = os.path.splitext(os.path.splitext(sys.argv[1])[0])[0] + '.' + \
       str(int(limit/60)) + '.edge_distance.out'
+  print name
   if os.path.exists(name):
     d_edge = pickle.load(open(name))
   else:
     d_edge = edgedistance.compute_edge_distance(g, wep_nodes, limit/2)
-    pickle.dump(d_edge, open(name, 'w'))
+    try:
+      pickle.dump(d_edge, open(name, 'w'))
+    except:
+      print 'Error while trying to write to ' + name
+      exit(1)
   print 'Done!'
 
 
-  ''' Generate the walkways from every wep to all weps (within distance) '''
+  print ''' Generate the walkways from every wep...'''
   count = 0
   import time
   t0 = time.clock()
@@ -86,15 +96,15 @@ def main():
     #print walkways
     print " %d  ways found with cost limit %.1f min." % \
         (len(walkways_and_distances), limit/60.)
-    if len(walkways_and_distances) == 0:
-      continue
     total_walkways += len(walkways_and_distances)
+    if len(walkways_and_distances) < 2:
+      continue
 
     ''' Evaluate the walkways (compute attractiveness), sort by distance. '''
     walkways = walkways_and_distances
     walkways = [(w,d) for (d,w) in sorted([(d,w) for (w,d) in walkways])]
-    ma = max([d for (w,d) in walkways])
-    mi = min([d for (w,d) in walkways])
+    ma = walkways[0][1]
+    mi = walkways[-1][1]
     su = sum([d for (w,d) in walkways])
 
     ''' Distribute the population weight over the paths. '''
@@ -102,7 +112,6 @@ def main():
     bin_size = (ma - mi) / float(n_bins - 1.0)
     distance_distr = np.zeros(n_bins)
     for (w,d) in walkways:
-      print (d-mi)/bin_size, n_bins
       distance_distr[(d-mi)/bin_size] += 1.0
     plt.bar(np.arange(n_bins), distance_distr)
     plt.show()
