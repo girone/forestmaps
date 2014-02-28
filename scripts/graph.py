@@ -41,6 +41,13 @@ class Graph(object):
   def __ne__(self, other):
     return self.nodes != other.nodes or self.edges != other.edges
 
+  def copy(self):
+    """Returns a hard copy of the graph."""
+    copy = Graph()
+    copy.edges = self.edges.copy()
+    copy.nodes = self.nodes.copy()
+    return copy
+
   def size(self):
     return max(self.nodes) + 1
 
@@ -70,7 +77,7 @@ class Graph(object):
 
   def connected_component(self, node, nodes):
     ''' Determines the component (set of connected nodes) of @node such that
-        every node of the component is contained in @nodes. 
+        every node of the component is contained in @nodes.
     '''
     component = set()
     queue = [node]
@@ -118,30 +125,41 @@ class Graph(object):
     return lcc
 
   def contract_binary_nodes(self, exclude=set()):
-    ''' Contracts nodes which have only two successors. On the graph's scope,
-        this eliminates chains of nodes:
-        \                     /              \                     /
-         o -- o -- o -- o -- o       ===>     o ----------------- o  
-        /                     \              /                     \ 
+    """Contracts nodes which have only two successors.
 
-        @exclude can determine nodes which will not be contracted.
-    '''
+    On the graph's scope, this eliminates chains of nodes:
+        \                     /              \                     /
+         o -- o -- o -- o -- o       ===>     o ----------------- o
+        /                     \              /                     \
+
+    Parameter @exclude determines nodes which will not be contracted.
+    Returns the contraction order.
+
+    """
     contracted = set()
+    contraction_list = []
     for node in self.nodes:
       edges = self.edges[node]
       if node not in exclude and len(edges) == 2:
         neighbors = edges.keys()
         # avoid loss of information, code assumes symmetric graph
-        if neighbors[0] not in self.edges[neighbors[1]]: 
-          self.contract_node(node, remove=False)
+        if neighbors[0] not in self.edges[neighbors[1]]:
+          res = self.contract_node(node, remove=False)
+          assert len(res) == 2  # supports only binary contraction
+          contraction_list.extend(res)
           contracted.add(node)
     self.nodes = self.nodes - contracted
+    return contraction_list
 
   def contract_node(self, node, remove=True):
-    ''' Contracts a node. This removes the node from the node set and connects
-        its neighbors.
-    '''
+    """Contracts a node. 
+    
+    This removes the node from the node set and connects its neighbors. Assumes 
+    that the graph is bidirectional.
+
+    """
     new_edges = []
+    contraction_list = []
     for neighborA, edgeA in self.edges[node].items():
       for neighborB, edgeB in self.edges[node].items():
         if neighborA is neighborB:
@@ -150,6 +168,7 @@ class Graph(object):
         if neighborB not in self.edges[neighborA] or \
             self.edges[neighborA][neighborB].cost > new_cost:
           new_edges.append((neighborA, neighborB, new_cost))
+          contraction_list.append( ((neighborA, node), (node, neighborB)) )
     for (a, b, cost) in new_edges:
       self.add_edge(a, b, cost)
     if remove:
@@ -157,6 +176,24 @@ class Graph(object):
     for neighbor in self.edges[node].keys():
       self.edges[neighbor].pop(node, None)
     self.edges.pop(node, None)
+    return contraction_list
+
+  def undo_contraction(self, contractionOrder):
+    """Undoes a previous contraction. Distributes edge weights.
+
+    Parameter @contractionOrder is a list of tuples
+      ((A,C), (C,B))  # (A,B) is the result of contracting C
+    starting with the first contraction. Supports only binary contraction.
+
+    """
+    for uncontractedArcs in reversed(contractionOrder):
+      assert len(uncontractedArcs) == 2
+      ((a, c), (_, b)) = uncontractedArcs
+      self.nodes.add(c)
+      cost = self.edges[a][b].cost
+      self.add_edge(a, c, cost)
+      self.add_edge(c, b, cost)
+      self.edges[a].pop(b, None)
 
 
 
