@@ -1,14 +1,13 @@
 """ forestentrydetection
 
-    OSM denotes forest polygons as ways with tag either
-      <tag k="landuse" v="forest"/>
-    or
-      <tag k="natural" v="wood"/>
+    This script performs a set of tasks:
+    - classify forest entry points 'WEP'
+    - classify arcs which are inside the forest
+    - generate population grid points
 
-    First sweep: Read all ways, store forest boundary node references.
-    Second sweep: Store lat-lon pairs for all boundary nodes in the correct
-    order.
-""" 
+    Copyright 2013: Institut fuer Informatik
+    Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
+"""
 
 from PIL import Image, ImageDraw
 import numpy as np
@@ -24,12 +23,12 @@ from grid import Grid
 
 def map_way_ids_to_nodes(osmfile):
   """ Creates two mappings and a graph from an osm-file.
-      - a mapping {way id -> [list of node ids]} 
+      - a mapping {way id -> [list of node ids]}
       - a mapping {way type -> [list of way ids]}
       - a bidirectional graph as a map {node_id -> set([successors])}
   """
   def expand_way_to_edges(way_node_list):
-    """ For a list of way nodes, this adds bidirectional arcs between successors.
+    """ For a list of way nodes, this adds arcs between successors.
     """
     edges = []
     size = len(way_node_list)
@@ -80,8 +79,8 @@ def read_nodes(osmfile):
   for line in f:
     res = p.match(line)
     if res:
-      # switch (lat, lon) to (lon, lat) as (x, y)-coordinates
-      nodes[int(res.group(1))] = (float(res.group(3)), float(res.group(2))) 
+      # switch (lat, lon) to (lon, lat) for (x, y)-coordinates
+      nodes[int(res.group(1))] = (float(res.group(3)), float(res.group(2)))
   return nodes
 
 
@@ -104,43 +103,10 @@ def width_and_height(bbox):
   return (bbox[1][0] - bbox[0][0]), (bbox[1][1] - bbox[0][1])
 
 
-def compute_forest_grid(forest_polygons, bbox, (resx, resy) = (10240, 8600)):
-  ''' Computes a grid (array) distinguishing forest and open ground. '''
-  # compute scale
-  width, height = width_and_height(bbox)
-  resx, resy = 10240, 8600
-  scale = min(float(resx/width), float(resy/height))
-  scaled_polygons = []
-  ((xmin, ymin), (xmax, ymax)) = bbox
-  for poly in forest_polygons:
-    # Point tuples contain (lon, lat). Use (minlon, maxlat) as reference point
-    # (0,0) of the coordinate system.
-    scaled_polygons.append(scale_and_shift(poly, scale, xmin, ymax))
-  # fill the forest_grid
-  img = Image.new("F", (resx, resy), 0)
-  draw = ImageDraw.Draw(img)
-  for poly in scaled_polygons:
-    draw.polygon(poly, fill=255)
-  return np.asarray(img), (scale, bbox), scaled_polygons
-
-
-def scale_and_shift(polygon, scale, xmin, ymin):
-  scaled = []
-  for point in polygon:
-    xdiff = abs(point[0] - xmin)
-    ydiff = abs(point[1] - ymin)
-    scaled.append((xdiff * scale, ydiff * scale))
-  return scaled
-
-
 def classify(highway_nodes, nodes, grid):
-  ''' Classifies highway nodes whether they are in the forest or on open 
+  ''' Classifies highway nodes whether they are in the forest or on open
       terrain.
   '''
-  def to_idx((x, y)):
-    ''' image: (x,y) vs. array: (row,col) with x = col, y = row '''
-    return (y, x)
-  # classify using the grid
   forestal_highway_nodes = set()
   open_highway_nodes = set()
   for node_id in highway_nodes:
@@ -153,9 +119,8 @@ def classify(highway_nodes, nodes, grid):
 
 
 def lcc(nodes, graph, threshold):
-  ''' 
-  Filters the @nodes such that only those which form a connected component in
-  the @graph of size larger than @threshold remain.
+  ''' Filters the @nodes such that only those which form a connected component
+      in the @graph of size larger than @threshold remain.
   '''
   def get_component(node, nodes, graph):
     ''' Determines the component (set of connected nodes) of @node. '''
@@ -205,7 +170,7 @@ def create_population_grid(boundary_polygon, forest_polygons, resolution = 100):
 
 def create_grid_points(bbox, resolution):
   ''' Creates a point grid for a region with @resolution many points along the
-      smaller side of @bbox. 
+      smaller side of @bbox.
   '''
   w, h = width_and_height(bbox)
   min_side = min(w, h)
@@ -219,7 +184,7 @@ def create_grid_points(bbox, resolution):
 
 
 def filter_point_grid(points, regions, operation='intersect'):
-  ''' 
+  '''
   Filters @points by applying @operation with @regions using a grid.
   Operations:
     'intersect' : returns @points which lie inside @regions
@@ -230,22 +195,28 @@ def filter_point_grid(points, regions, operation='intersect'):
   bbox = (bbox[0], (bbox[1][0] * 1.01, bbox[1][1]*1.01))
   grid = Grid(bbox)
   for poly in regions:
-    grid.fill_polygon(poly) 
+    grid.fill_polygon(poly)
   if operation is 'intersect':
     return [p for p in points if grid.test(p) != 0]
-  else:
+  elif operation is 'difference':
     return [p for p in points if grid.test(p) == 0]
+  else:
+    print "Error: Unsupported operation for 'filter_point_grid'."
+    exit(1)
 
-def sort_hull(hull, vecs):
-  ''' Sorts the points of a convex hull by their angle to the center point. '''
+
+def sort_hull(hull, points):
+  ''' Sorts the indices of a convex hull by their node's angle to the center
+      point.
+  '''
   ps = set()
   for x, y in hull:
     ps.add(x)
     ps.add(y)
   ps = np.array(list(ps))
-  center = vecs[ps].mean(axis=0)
-  A = vecs[ps] - center
-  return vecs[ps[np.argsort(np.arctan2(A[:,1], A[:,0]))]]
+  center = points[ps].mean(axis=0)
+  A = points[ps] - center
+  return points[ps[np.argsort(np.arctan2(A[:,1], A[:,0]))]]
 
 
 def main():
@@ -253,12 +224,20 @@ def main():
     print ''' No osm file specified! '''
     exit(1)
   osmfile = sys.argv[1]
-  resx, resy = 10240, 8600
 
+  '''
+    OSM denotes forest polygons as ways with tag either
+      <tag k="landuse" v="forest"/>
+    or
+      <tag k="natural" v="wood"/>
+
+    First sweep: Read all ways, store forest boundary node references.
+    Second sweep: Store lat-lon pairs for all boundary nodes in the correct
+    order.
+  '''
   print 'Reading ways from OSM and creating the graph...'
   node_ids, way_types, digraph = map_way_ids_to_nodes(osmfile)
   forest_delim = way_types['forest_delim']
-
   print 'Reading nodes from OSM...'
   nodes = read_nodes(osmfile)
   bbox = bounding_box(nodes.values())
@@ -268,16 +247,14 @@ def main():
   hull = scipy.spatial.qhull.Delaunay(points).convex_hull
   hull = sort_hull(hull, np.array(points))
   visual_grid.fill_polygon(hull, color="#EEEEEE")
-  
+
   print 'Creating forest grid from polygons...'
-  # TODO(Jonas): Rework the modularization of the next two methods.
   forest_polygons = \
       [[nodes[id] for id in node_ids[way_id]] for way_id in forest_delim]
-  #forest_grid, aspect = compute_forest_grid(forest_polygons, bbox, (resx, resy))
   forest_grid = Grid(bbox)
   for poly in forest_polygons:
     forest_grid.fill_polygon(poly)
-  
+
   print 'Classifying highway nodes...'
   highway_node_ids = \
       set([id for way_id in way_types['highway'] for id in node_ids[way_id]])
@@ -293,7 +270,7 @@ def main():
   weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph)
   print str(len(weps)) + ' WEPs'
 
-  print '''Creating the population grid...'''
+  print 'Creating the population grid...'
   xmin, ymin = bbox[0]
   xmax, ymax = bbox[1]
   dummy = [(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)]
@@ -321,6 +298,12 @@ def main():
   f = open(os.path.splitext(osmfile)[0] + '.forest_nodes.out', 'w')
   for n in forestal_highway_nodes:
     f.write(str(n) + '\n')
+  f.close()
+  ''' Output the population locations. The cpp-module will create nodes from
+      these. '''
+  f = open(os.path.splitext(osmfile)[0] + '.population_grid_points.out', 'w')
+  for (x,y) in grid:
+    f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
   f.close()
 
 if __name__ == '__main__':
