@@ -1,3 +1,4 @@
+core
 *.json
 .sconsign.dblite
 *.kdev4*
