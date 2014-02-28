@@ -37,8 +37,9 @@ def compute_longitude_stepsize(bbox, latitudeStepSize):
     return longitudeStepSize
 
 
-class Heatmap(object):
-    def __init__(self, nodes, edges):
+class HeatmapFactory(object):
+    @staticmethod
+    def construct_from_graph(nodes, edges):
         """Constructs the heatmap.
 
         The heatmap will be a set of coordinates and labels, one for each node.
@@ -47,9 +48,10 @@ class Heatmap(object):
         The input edges are a set of 3-tuples (s, t, weight).
 
         """
+        hm = Heatmap()
         nodes = np.array(nodes)
         lats, lons, flags = zip(*nodes)
-        self.leftBottomRightTop = [min(lons), min(lats), max(lons), max(lats)]
+        hm.leftBottomRightTop = [min(lons), min(lats), max(lons), max(lats)]
         # remove duplicate edges caused by bidirectionality of the graph
         tmp = set([])
         for (s, t, w) in edges:
@@ -68,33 +70,59 @@ class Heatmap(object):
                 if nodes[nodeIndex][2] == 0:
                     continue
                 heat[nodeIndex] += count
-        #self.maximum = max(heat)
+        #hm.maximum = max(heat)
         # Visualization scales better with this: Choose median of non-zero.
         intensities = np.array(sorted(heat))
         intensities = intensities[intensities[:]>0]
-        self.maximum = intensities[len(intensities)/2]
+        hm.maximum = intensities[len(intensities)/2]
         # Sort by latitude and throw away zero entries.
         nodeHeat = sorted(zip(lats, lons, heat))
-        self.heatmap = np.array([node for node in nodeHeat if node[2] != 0.])
+        hm.heatmap = np.array([node for node in nodeHeat if node[2] != 0.])
+        return hm
+
+    @staticmethod
+    def construct_from_nparray(nodeHeat):
+        """Constructs a heatmap from numpy data array."""
+        assert nodeHeat.shape[1] == 3
+        hm = Heatmap()
+        hm.heatmap = nodeHeat
+        # self.leftBottomRightTop = [min(lons), min(lats), max(lons), max(lats)]
+        lonsAscending = sorted(nodeHeat[:,1])
+        hm.leftBottomRightTop = [lonsAscending[0], nodeHeat[0,0],
+                                 lonsAscending[-1], nodeHeat[-1,0]]
+        # Visualization scales better with this: Choose median of non-zero.
+        intensities = nodeHeat[:,2]
+        hm.maximum = intensities[len(intensities)/2]
+        # This value has to be set outside
+        hm.latFraction = 0
+        return hm
+
+
+class Heatmap(object):
+    def __init__(self):
+        """Constructor."""
 
     def extract(self, bbox):
         """Returns the part of the heat map data inside the bounding box."""
         minLon, minLat, maxLon, maxLat = bbox
         if [minLon, minLat, maxLon, maxLat] == self.leftBottomRightTop:
-            return self.heatmap
+            return self.heatmap, self.latFraction
         else:
             i = 0
             while i < len(self.heatmap) and self.heatmap[i][0] < minLat:
                 i += 1  # could use exponential or binary search here
-            filtered = np.zeros([len(self.heatmap) - i, 3])
+            #filtered = np.zeros([len(self.heatmap) - i, 3])
+            filtered = []
             j = i
             while j < len(self.heatmap) and self.heatmap[j][0] <= maxLat:
                 lat, lon, heat = self.heatmap[j]
                 if lon >= minLon and lon <= maxLon:
-                    filtered[j-i] = self.heatmap[j]
+                    #filtered[j-i] = self.heatmap[j]
+                    filtered.append(self.heatmap[j])
                 j += 1
-            filtered = np.resize(filtered, [j-i,3])
-            return filtered
+            #filtered = np.resize(filtered, [j-i,3])
+            #return filtered
+            return np.asarray(filtered), self.latFraction
 
     def rasterize(self, bbox, (xres,yres)=(18,48)):  #=(640,)
         """Returns a raster discretizing the intensities inside the bbox.
@@ -109,9 +137,9 @@ class Heatmap(object):
         latStart = (math.floor(minLat / latFraction) - 0.5) * latFraction
         lonStart = (math.floor(minLon / lonFraction) - 0.5) * lonFraction
         xres = math.ceil((maxLon + 0.5 * lonFraction - lonStart) / lonFraction)
+
+        # initialize coordinates of the raster points
         coords = np.zeros([yres+2, xres+2, 2])
-
-
         lat = latStart
         y = 0
         while y < coords.shape[0]:

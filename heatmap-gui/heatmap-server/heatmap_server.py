@@ -9,15 +9,71 @@ import BaseHTTPServer
 import SimpleHTTPServer
 import urlparse
 from collections import defaultdict
-from heatmap import Heatmap
+from heatmap import Heatmap, HeatmapFactory, compute_longitude_stepsize
 from timer import Timer
 
+import math
 
 FILE = 'index.html'
 PORT = 8080
 
 
 datasetShortNameToIndex = {"ro" : 0, "ch" : 1, "at" : 2, "de" : 3}
+
+def normalize_zoomlvl(lvl):
+    if lvl < 6:
+        return 6
+    elif lvl > 16:
+        return 16
+    else:
+        return lvl - 6
+
+
+class HeatmapDatabase(object):
+    """Stores the heatmap data."""
+    def __init__(self):
+        self.rasterHeatmaps = defaultdict(lambda : defaultdict(lambda : Heatmap))
+        self.initialized = False
+
+    def initialize_all_rasters(self, levelsAndBBoxes, localYResolution=48):
+        """Computes the rasters for each dataset."""
+        for i in sorted(datasetShortNameToIndex.values())[:len(graphFilenames)]:
+            self.initialize_dataset_rasters(i, levelsAndBBoxes, localYResolution)
+        self.initialized = True
+
+    def initialize_dataset_rasters(self, i, levelsAndBBoxes, localYResolution):
+        """Computes the raster for each zoomlevel."""
+        # parse the original graph data, map edge weights to nodes
+        heatmap = heatmap_setup([graphFilenames[i]], [edgeHeatFilenames[i]])[0]
+
+        # create the raster for each zoom level
+        for (level, minLon, minLat, maxLon, maxLat) in levelsAndBBoxes:
+            print "Creating the raster for level", level
+            # compute step size from local scope (js map at zoom level)
+            bbox = minLon, minLat, maxLon, maxLat
+            latFraction = (maxLat - minLat) / (localYResolution - 1.)
+            lonFraction = compute_longitude_stepsize(bbox, latFraction)
+
+            # transform to global scope
+            lonStart, latStart, lonEnd, latEnd = heatmap.leftBottomRightTop
+            lonStart = lonStart - 0.5 * lonFraction
+            latStart = latStart - 0.5 * latFraction
+            lonEnd = lonEnd + 0.5 * lonFraction
+            latEnd = latEnd + 0.5 * latFraction
+
+            globalYResolution = math.ceil((latEnd - latStart) / latFraction)
+            globalXResolution = math.ceil((lonEnd - lonStart) / lonFraction)
+            print "globalYResolution", globalYResolution
+            print "globalXResolution", globalXResolution
+            rasterData, latFrac = heatmap.rasterize(heatmap.leftBottomRightTop,
+                                              (globalXResolution,
+                                               globalYResolution))
+            hm = HeatmapFactory.construct_from_nparray(rasterData)
+            hm.latFraction = latFrac
+            self.rasterHeatmaps[i][normalize_zoomlvl(level)] = hm
+
+
+gHeatmapDB = HeatmapDatabase()
 
 
 class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -76,11 +132,31 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 print " --> This took %s seconds." % t.secs
             except TypeError as e:
                 print e
-            print "Succeeded!"
+            print "Success."
         except AttributeError as e:
             print e
             print "Failed!"
         return result
+
+    def initializationRequest(self, zoomLevelAndBBoxesString, opt=[]):
+        """Requests the raster initialization for the specified dataset.
+
+        This function gets a list of <zoomlevel, bbox>. For each zoomlevel, the
+        second argument represents the minimum bounding box of the Javascript
+        map widget on the data.
+
+        """
+        split = zoomLevelAndBBoxesString.split(",")
+        print "SERVER: initializationRequest() called with argument", split
+        levelsAndBBoxes = []
+        for i in range(len(split) / 5):
+            levelsAndBBoxes.append((int(split[5*i]),
+                                    float(split[5*i+1]),
+                                    float(split[5*i+2]),
+                                    float(split[5*i+3]),
+                                    float(split[5*i+4])))
+        gHeatmapDB.initialize_all_rasters(levelsAndBBoxes)
+        return "initialization_callback()"
 
     def heatmapRequest(self, leftBottomRightTop, opt=[]):
         """Answers a request for the heatmap in a certain bounding box."""
@@ -90,32 +166,44 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
             bbox = [float(s) for s in leftBottomRightTop.split(",")]
         print "self.heatmapRequest called, argument " + str(leftBottomRightTop)
         heatmapExtract = self.generate_heatmap_extract(bbox)
-        print "returning heatmap json for ", len(heatmapExtract), " points"
         jsonp = self.format_heatmap_answer(heatmapExtract, heatmaps[0].maximum)
         return jsonp
 
+    def format_initialize_request(self):
+        minLon, minLat, maxLon, maxLat = gLeftBottomRightTop
+        jsonp = ("heatmap_request_callback_initialize_me({{\r\n" +
+                 "    minimumLongitude: {0},\r\n" +
+                 "    minimumLatitude: {1},\r\n" +
+                 "    maximumLongitude: {2},\r\n" +
+                 "    maximumLatitude: {3}\r\n" +
+                 "}})").format(minLon, minLat, maxLon, maxLat)
+        return jsonp
+
     def heatmapRasterRequest(self, leftBottomRightTop, opt=[]):
-        """Answers a request for the heatmap in a certain bounding box."""
+        """Answers a request for the heatmap at zoomlevel in a certain range."""
+        if not gHeatmapDB.initialized:
+            print "Initializing the server: Requesting initialization from user."
+            return self.format_initialize_request()
         opt = dict(opt)
         index = 0 if not opt else datasetShortNameToIndex[opt['dataset']]
+        zoomlvl = int(opt["zoomlevel"]) if "zoomlevel" in opt else 14
+        lvl = normalize_zoomlvl(zoomlvl)
+        hm = gHeatmapDB.rasterHeatmaps[index][lvl]
+
         if not leftBottomRightTop or leftBottomRightTop == '':
-            bbox = heatmaps[index].leftBottomRightTop
+            bbox = hm.leftBottomRightTop
         else:
             bbox = [float(s) for s in leftBottomRightTop.split(",")]
-        print "self.heatmapRasterRequest called, argument " + str(leftBottomRightTop)
-
-        heatmapExtract, latStepSize = heatmaps[index].rasterize(bbox)
-        print "returning heatmap json for ", len(heatmapExtract), " points"
+        #heatmapExtract, latStepSize = heatmaps[index][lvl].rasterize(bbox)
+        heatmapExtract, latStepSize = hm.extract(bbox)
         jsonp = self.format_heatmap_answer(heatmapExtract,
-                                           heatmaps[index].maximum,
-                                           radius=latStepSize / 2.
-                                           )
+                                           hm.maximum,
+                                           radius=latStepSize / 2.)
         return jsonp
 
     def generate_heatmap_extract(self, bbox):
         """Returns an extract of the heatmap in a certain bounding box."""
         return heatmaps[0].extract(bbox)  # full extact
-        #return heatmap.rasterize(bbox)  # discretized
 
     def format_heatmap_answer(self, heatmapData, maximum, radius=None):
         """Formats a heatmap request answer as JSONP."""
@@ -160,23 +248,28 @@ def read_weights(filename):
     return weights
 
 
+def read_graph_file(filename):
+    """Reads a graph file and returns nodes and edges."""
+    nodes, edges = [], []
+    with open(filename) as f1:
+        for line in f1:
+            parts = line.strip().split(" ")
+            if len(parts) == 4:
+                # node line
+                lat, lon, _, flag = parts
+                nodes.append( (float(lat), float(lon), int(flag)) )
+            elif len(parts) == 3:
+                # edge line
+                s, t, cost = parts
+                edges.append( (int(s), int(t)) )
+    return nodes, edges
+
+
 def heatmap_setup(graphFileNames, edgeHeatsFileNames):
     heatmaps = []
     for graphFile, heatsFile in zip(graphFileNames, edgeHeatsFileNames):
         print "Constructing heatmap from " + graphFile + "..."
-        nodes, edges = [], []
-        edgeMap = {}
-        with open(graphFile) as f1:
-            for line in f1:
-                parts = line.strip().split(" ")
-                if len(parts) == 4:
-                    # node line
-                    lat, lon, _, flag = parts
-                    nodes.append( (float(lat), float(lon), int(flag)) )
-                elif len(parts) == 3:
-                    # edge line
-                    s, t, cost = parts
-                    edges.append( (int(s), int(t)) )
+        nodes, edges = read_graph_file(graphFile)
         heats = []
         with open(heatsFile) as f2:
             for line in f2:
@@ -184,8 +277,29 @@ def heatmap_setup(graphFileNames, edgeHeatsFileNames):
         assert len(heats) == len(edges) and "Number of heats and edges must equal."
         ss, tt = zip(*edges)
         edges = zip(ss, tt, heats)
-        heatmaps.append(Heatmap(nodes, edges))
+        heatmaps.append(HeatmapFactory.construct_from_graph(nodes, edges))
     return heatmaps
+
+
+def determine_bounds(graphFileNames):
+    """Determines left, bottom, right and top bounds of all data."""
+    minLon = 180
+    minLat = 90
+    maxLon = -180
+    maxLat = -90
+    for f in graphFileNames:
+        nodes, _ = read_graph_file(f)
+        lats, lons, _ = zip(*nodes)
+        tmp = min(lats)
+        minLat = tmp if tmp < minLat else minLat
+        tmp = max(lats)
+        maxLat = tmp if tmp > maxLat else maxLat
+        tmp = min(lons)
+        minLon = tmp if tmp < minLon else minLon
+        tmp = max(lons)
+        maxLon = tmp if tmp > maxLon else maxLon
+    print "Dataset bounds are ", minLon, minLat, maxLon, maxLat
+    return minLon, minLat, maxLon, maxLat
 
 
 def main():
@@ -194,15 +308,19 @@ def main():
         print "Usage: python heatmap_server.py [<GRAPH_FILE> <EDGE_HEAT_FILE>]"
         print "The argument is a list of alternating graph and heat file names."
         exit(1)
+    global gInitialized
+    gInitialized = False
+    global graphFilenames
     graphFilenames = []
+    global edgeHeatFilenames
     edgeHeatFilenames = []
     for i in range(1, len(sys.argv), 2):
         graphFilenames.append(sys.argv[i])
         edgeHeatFilenames.append(sys.argv[i+1])
-    print graphFilenames
-    print edgeHeatFilenames
-    global heatmaps
-    heatmaps = heatmap_setup(graphFilenames, edgeHeatFilenames)
+    global gLeftBottomRightTop
+    gLeftBottomRightTop = determine_bounds(graphFilenames)
+    global gHeatmapDB
+
 
     #open_browser()
     start_server()
