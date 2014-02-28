@@ -156,7 +156,8 @@ class WayGenerator(object):
     else:
       leaves = [node for node in self.tree.nodes if node.successors == []]
     leaves = [leaf for leaf in leaves if not leaf.pruned]
-    return [self.backtrack_path(leaf) for leaf in leaves]
+    return [self.backtrack_path(leaf) for leaf in leaves \
+            if leaf is not self.tree.root]
 
 
 def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
