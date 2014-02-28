@@ -132,25 +132,27 @@ class Graph(object):
   def contract_node(self, node, remove=True):
     ''' Contracts a node. This removes the node from the node set and connects
         its neighbors.
-        NOTE(Jonas): Right now, this is used to contract nodes with two
-        neighbors only. 'a-c-b' becomes 'a-b'. If required, extend this method.
     '''
-    edges = self.edges[node]
-    assert len(edges) == 2
-    a,b = edges.keys()
-    cost = reduce(lambda x,y: x.cost + y.cost, edges.values())
-    self.add_edge(a, b, cost)
-    self.add_edge(b, a, cost)
+    new_edges = []
+    for neighborA, edgeA in self.edges[node].items():
+      for neighborB, edgeB in self.edges[node].items():
+        if neighborA is neighborB:
+          continue
+        new_cost = edgeA.cost + edgeB.cost
+        if neighborB not in self.edges[neighborA] or \
+            self.edges[neighborA][neighborB].cost > new_cost:
+          new_edges.append((neighborA, neighborB, new_cost))
+    for (a, b, cost) in new_edges:
+      self.add_edge(a, b, cost)
     if remove:
       self.nodes.remove(node)
+    for neighbor in self.edges[node].keys():
+      self.edges[neighbor].pop(node, None)
     self.edges.pop(node, None)
-    self.edges[a].pop(node, None)
-    self.edges[b].pop(node, None)
 
 
 
 import unittest
-
 
 def add_biedge(graph, s, t, cost):
   graph.add_edge(s, t, cost)

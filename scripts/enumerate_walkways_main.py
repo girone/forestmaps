@@ -63,6 +63,7 @@ def main():
   ''' Generate the walkways from every wep to all weps (within distance) '''
   count = 0
   for node in wep_nodes:
+    count += 1
     walkways = enumerate_walkways(g, node, target_nodes=wep_nodes_set, \
         cost_limit=limit, local_cycle_depth=5, edge_distance=d_edge)
     print "%d of %d ways generated" % (count, len(wep_nodes))
