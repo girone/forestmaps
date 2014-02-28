@@ -138,7 +138,9 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
 
     bwd.run(s, Dijkstra<RoadGraph>::no_target);
     fwd.run(t, Dijkstra<RoadGraph>::no_target);
-    evaluate(arcIndex, c, bwd.get_costs(), fwd.get_costs());
+    evaluate(arcIndex, c,
+             bwd.get_costs(), bwd.get_settled_flags(),
+             fwd.get_costs(), fwd.get_settled_flags());
 
     // Clean up
     nodesToIgnoreBwd[t] = false;
@@ -161,25 +163,30 @@ void ViaEdgeApproach::evaluate(
     const int edgeIndex,
     const int c,
     const vector<int>& costsS,
-    const vector<int>& costsT) {
+    const vector<bool>& settledS,
+    const vector<int>& costsT,
+    const vector<bool>& settledT) {
   // Evaluate routes fep1 -->* s --> t --> fep2.
   for (int fep1: _forestEntries) {
+    if (!settledS[fep1]) { continue; }
     const int costsFep1 = costsS[fep1];
-    if (costsFep1 == Dijkstra<RoadGraph>::infinity) { continue; }
     for (int fep2: _forestEntries) {
+      if (!settledT[fep2]) { continue; }
       const int costsFep2 = costsT[fep2];
-      if (costsFep2 == Dijkstra<RoadGraph>::infinity) { continue; }
       const int totalCost = costsFep1 + c + costsFep2;
       if (totalCost > _maxCost) { continue; }
-      float gain;
+      float gain = 0;
       const float share = sum_of_user_shares_after(totalCost);
       if (fep1 == fep2) {
-        gain = share * _popularities[fep1] / costsFep2;
+        gain = share * _popularities[fep1] / (costsFep2 + 1);
       } else {
         const float popularity = std::min(_popularities[fep1], _popularities[fep2]);
         const float distance = _distances[fep1][fep2];
-        assert(totalCost > 0);
-        gain = distance / totalCost * (share * popularity);
+        if (totalCost > 0) {
+          gain = distance / totalCost * (share * popularity);
+        } else {
+          gain = 1                    * (share * popularity);
+        }
       }
       _aggregatedEdgeAttractivenesses[edgeIndex] += gain;
     }

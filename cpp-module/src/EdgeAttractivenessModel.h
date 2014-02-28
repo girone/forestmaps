@@ -89,7 +89,9 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
       const int edgeIndex,
       const int c,
       const vector<int>& costsS,
-      const vector<int>& costsT);
+      const vector<bool>& settledS,
+      const vector<int>& costsT,
+      const vector<bool>& settledT);
 
  private:
   // Stores pairwise distances between forest entries.

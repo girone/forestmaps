@@ -10,6 +10,8 @@
 #include "./Tree2d.h"
 #include "./Util.h"
 
+#define SQR(x) ((x)*(x))
+
 // _____________________________________________________________________________
 // Returns the bucket index for a cost.
 uint determine_bucket_index(int cost, const vector<int>& bucketCostBounds) {
@@ -86,7 +88,12 @@ vector<float> reachability_analysis(
     }
     if (sumOfCosts > 0) {
       for (size_t b = 0; b < buckets[i].size(); ++b) {
-        buckets[i][b] = 1.f - bucketCostBounds[b] / sumOfCosts;
+        if (bucketCostBounds[b] < sumOfCosts) {
+          buckets[i][b] = 1.f - bucketCostBounds[b] / sumOfCosts;
+        } else {
+          // small hack for values which would be negative without this
+          buckets[i][b] = 1.f / SQR(b+1);
+        }
       }
     }
   }
@@ -195,7 +202,6 @@ int main(int argc, char** argv) {
   string filename = outfile;  // "forest_entries_popularity.tmp.txt";
   std::cout << "Writing entry point popularity to " << filename << std::endl;
   util::dump_vector(fepPopulations, filename);
-//   std::cout << util::join(", ", fepPopulations) << std::endl;
 
   return 0;
 }
