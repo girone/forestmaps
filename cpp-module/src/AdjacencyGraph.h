@@ -17,6 +17,8 @@
 using std::vector;
 using std::string;
 
+typedef uint32_t uint;
+
 // _____________________________________________________________________________
 // Straight forward graph class. For shortest path computation use
 // CompactDirectedGraph.

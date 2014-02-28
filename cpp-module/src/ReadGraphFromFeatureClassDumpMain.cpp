@@ -49,6 +49,7 @@ std::ostream& operator<<(std::ostream& os, const CostEdge& e) {
   return os;
 }
 
+// An edge which stores a cost and a weight.
 struct CostWeightEdge {
   CostWeightEdge() : cost(-1), weight(-1) { }
   CostWeightEdge(float c, int w) : cost(c), weight(w) { }
@@ -180,17 +181,12 @@ void dump_graph(const string& filename, const G& g, const CoordMap& coordmap) {
     const pair<double, double>& coords = inverse[nodeId];
     ofs << coords.first << " " << coords.second << endl;
   }
-  /*for (auto it = g._edges.begin(); it != g._edges.end(); ++it) {
-    const int s = it->first;
-    const auto& map = it->second;
-    for (auto it2 = map.begin(); it2 != map.end(); ++it2) {
-      ofs << s << " " << it2->first << " " << it2->second << endl;
-    }
-  }*/
   size_t nodeId = 0;
+  size_t arcId = 0;
   for (auto it = g._edges.begin(); it != g._edges.end(); ++it) {
     for (auto it2 = it->begin(); it2 != it->end(); ++it2) {
-      ofs << nodeId << " " << it2->first << " " << it2->second << endl;
+      ofs << nodeId << " " << it2->first << " " << it2->second << " "
+          << arcId++ << endl;
     }
     ++nodeId;
   }

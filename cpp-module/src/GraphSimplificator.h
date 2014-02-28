@@ -29,7 +29,9 @@ class GraphSimplificator {
   SimplificationGraph simplify(const set<uint>* doNotContract=NULL);
 
   // returns the mapping.
-  const unordered_map<int, vector<int>>& edgeIndexToFidsMap() const;
+  const unordered_map<int, vector<int>>& edges_contained_in_shortcut_map() const;
+  // Returns the index shift for each node.
+  const vector<int>& index_shift() const;
 
  private:
   // Contracts a node, if possible. That depends on an internal check. Returns
@@ -40,14 +42,16 @@ class GraphSimplificator {
   void initialize_mapping();
 
   // Builds the simplified graph from the uncontracted part of the graph.
-  SimplificationGraph extract_simplified_graph(const vector<bool>& contracted)
-      const;
+  SimplificationGraph extract_simplified_graph(const vector<bool>& contracted);
 
   // Pointer to the input. Shortcuts are added to this graph.
   SimplificationGraph* _input;
 
-  // Stores the FIDs represented by arcs to non-contracted nodes.
-  unordered_map<int, vector<int>> _representedFids;
+  // Stores the edge indices represented by non-obsolete shortcuts.
+  unordered_map<int, vector<int>> _representedIds;
+
+  // The index shift value for each node.
+  vector<int> _indexShift;
 
   // Count the number of arcs.
   size_t _arcCount;

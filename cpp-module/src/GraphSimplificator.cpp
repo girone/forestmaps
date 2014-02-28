@@ -29,19 +29,19 @@ GraphSimplificator::GraphSimplificator(SimplificationGraph* input)
 void GraphSimplificator::initialize_mapping() {
   for (const vector<Arc>& arcs: _input->_arcs) {
     for (const Arc& arc: arcs) {
-      int fid = arc.labels[2];
-      _representedFids[fid] = {fid};
+      int index = arc.labels[2];
+      _representedIds[index] = {index};
     }
   }
 }
 
 // _____________________________________________________________________________
 SimplificationGraph GraphSimplificator::extract_simplified_graph(
-    const vector<bool>& contracted) const {
+    const vector<bool>& contracted) {
   // Build the simplified graph from the uncontracted nodes and the arcs between
   // them. Shift the indices of the arcs' sources and targets.
-  vector<int> indexShift(contracted.begin(), contracted.end());
-  std::partial_sum(indexShift.begin(), indexShift.end(), indexShift.begin());
+  _indexShift.assign(contracted.begin(), contracted.end());
+  std::partial_sum(_indexShift.begin(), _indexShift.end(), _indexShift.begin());
   SimplificationGraph simple;
   for (size_t node = 0; node < _input->num_nodes(); ++node) {
     if (!contracted[node]) {
@@ -50,8 +50,8 @@ SimplificationGraph GraphSimplificator::extract_simplified_graph(
       for (const auto& arc: _input->arcs(node)) {
         if (!contracted[arc.target]) {
           simple._arcs.back().push_back(
-              ArcFactory::create(arc.source - indexShift[arc.source],
-                                 arc.target - indexShift[arc.target],
+              ArcFactory::create(arc.source - _indexShift[arc.source],
+                                 arc.target - _indexShift[arc.target],
                                  arc.labels[0], arc.labels[1], arc.labels[2])
           );
         }
@@ -64,13 +64,13 @@ SimplificationGraph GraphSimplificator::extract_simplified_graph(
 }
 
 // _____________________________________________________________________________
-SimplificationGraph GraphSimplificator::simplify(const set<uint>* doNotContract) {
+SimplificationGraph GraphSimplificator::simplify(const set<uint>* dontContract) {
   initialize_mapping();
 
   // Iteratively contract nodes with exactly two non-contracted successors.
   vector<bool> contracted(_input->num_nodes(), false);
   for (size_t node = 0; node < _input->num_nodes(); ++node) {
-    if (doNotContract && doNotContract->find(node) != doNotContract->end()) {
+    if (dontContract && dontContract->find(node) != dontContract->end()) {
       continue;
     }
     contracted[node] = contract_node(node, contracted);
@@ -99,8 +99,8 @@ bool GraphSimplificator::contract_node(size_t node,
   }
 
   // Contract the node: Add shortcuts between its uncontracted neighbors. These
-  // shortcuts represent the FID labels of the now obsolete arcs. The obsolete
-  // arcs are not touched.
+  // shortcuts represent the indices of the now obsolete arcs. The obsolete arcs
+  // are not touched.
   int aIndex, bIndex;
   for (size_t i = 0; i < nghbrs.size(); ++i) {
     // For neighbors A and B:        Add a shortcut :
@@ -118,34 +118,44 @@ bool GraphSimplificator::contract_node(size_t node,
     int arcIdOfShortcut = _arcCount;
     _input->_arcs[A].push_back(
         ArcFactory::create(A, B, combinedCost, maxWeight, arcIdOfShortcut));
+    _representedIds[arcIdOfShortcut].insert(
+        _representedIds[arcIdOfShortcut].end(),
+        _representedIds[aIndex].begin(),
+        _representedIds[aIndex].end());
+    _representedIds[arcIdOfShortcut].insert(
+        _representedIds[arcIdOfShortcut].end(),
+        _representedIds[bIndex].begin(),
+        _representedIds[bIndex].end());
     ++_arcCount;
-    _representedFids[arcIdOfShortcut].insert(
-        _representedFids[arcIdOfShortcut].end(),
-        _representedFids[aIndex].begin(),
-        _representedFids[aIndex].end());
-    _representedFids[arcIdOfShortcut].insert(
-        _representedFids[arcIdOfShortcut].end(),
-        _representedFids[bIndex].begin(),
-        _representedFids[bIndex].end());
+    // DEBUG
+    if (_representedIds[arcIdOfShortcut].empty()) {
+      std::cout << " union is empty after adding shortcut for " << aIndex << " " << bIndex << std::endl;
+      exit(1);
+    }
   }
-  _representedFids.erase(aIndex);
-  _representedFids.erase(bIndex);
+  _representedIds.erase(aIndex);
+  _representedIds.erase(bIndex);
   return true;
 }
 
 // _____________________________________________________________________________
-const unordered_map<int, vector<int>>& GraphSimplificator::edgeIndexToFidsMap()
-    const {
-  return _representedFids;
+const unordered_map<int, vector<int>>&
+GraphSimplificator::edges_contained_in_shortcut_map() const {
+  return _representedIds;
 }
 
 // _____________________________________________________________________________
-Arc ArcFactory::create(int source, int target, int c, int w, int fid) {
+const std::vector< int >& GraphSimplificator::index_shift() const {
+  return _indexShift;
+}
+
+// _____________________________________________________________________________
+Arc ArcFactory::create(int source, int target, int c, int w, int index) {
   Arc arc;
   arc.source = source;
   arc.target = target;
   arc.labels[0] = c;
   arc.labels[1] = w;
-  arc.labels[2] = fid;
+  arc.labels[2] = index;
   return arc;
 }

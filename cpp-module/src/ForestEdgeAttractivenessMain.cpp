@@ -1,4 +1,6 @@
 // Copyright 2013: Jonas Sternisko
+
+#include <algorithm>
 #include <set>
 #include <vector>
 #include "./DirectedGraph.h"
@@ -13,15 +15,20 @@ using std::set;
 using std::vector;
 using std::cout;
 using std::endl;
+using std::max;
+using std::max_element;
 
 
 // _____________________________________________________________________________
-// Reads a graph, simplifies it and returns a map {arc : represented FIDs}.
-// Everything but forest entries can be contracted.
-unordered_map<int, vector<int>> read_and_simplify(
+// Reads a grapha and simplifies it.  Every node except forest entries can be
+// contracted. Returns the simple graph, the number of edges in the original
+// graph, a map {arc : represented edge indices} and the shifted indices of the
+// forest entries.
+ForestRoadGraph read_and_simplify(
     const string& filename,
     const vector<int>& forestEntries,
-    ForestRoadGraph* out) {
+    unordered_map<int, vector<int>>* containedEdgeIds,
+    vector<int>* newForestEntries) {
   // Read the adjacency list graph from file.
   SimplificationGraph adjGraph;
   adjGraph.read_in(filename);
@@ -31,10 +38,56 @@ unordered_map<int, vector<int>> read_and_simplify(
   set<uint> doNotContract(forestEntries.begin(), forestEntries.end());
   SimplificationGraph simple = simplifier.simplify(&doNotContract);
 
+  *containedEdgeIds = simplifier.edges_contained_in_shortcut_map();
+  const vector<int>& shift = simplifier.index_shift();
+  newForestEntries->clear();
+  std::transform(forestEntries.begin(), forestEntries.end(),
+                 std::back_inserter(*newForestEntries),
+                 [shift](int index) { return index - shift[index]; });
   // Convert to a compact graph representation.
   adjGraph.clear();
-  *out = convert_graph<SimplificationGraph, ForestRoadGraph>(simple);
-  return simplifier.edgeIndexToFidsMap();
+  return convert_graph<SimplificationGraph, ForestRoadGraph>(simple);
+}
+
+// _____________________________________________________________________________
+// Write the output to a file. The simplification is undone: Each edge of the
+// graph has an id which represents a set of edges in the original graph. These
+// correspondences are restored using the mapping.
+void write_output(const string& filename,
+                  const vector<float>& result,
+                  const ForestRoadGraph& simplifiedGraph,
+                  const unordered_map<int, vector<int>>& representedEdgeIds) {
+  // Set up the vector of edge weights. Its size is: max({edgeIndex})
+  int maxEdgeIndex = -1;
+  for (const auto& entry: representedEdgeIds) {
+    const vector<int>& ids = entry.second;
+    if (ids.size()) {
+      maxEdgeIndex = max(maxEdgeIndex, *max_element(ids.begin(), ids.end()));
+    } else {
+      cout << " entry for " << entry.first << " is empty. " << endl;
+    }
+  }
+  assert(maxEdgeIndex > 0);
+
+  vector<float> unpackedResult(maxEdgeIndex + 1, 0.f);
+  // TODO(Jonas): is the correspondence here correct? Index in
+  // offsetgraph._arclist to index in result?
+  assert(result.size() == simplifiedGraph.arclist().size());
+  int index = 0;
+  for (const Arc& arc: simplifiedGraph.arclist()) {
+    const float weight = result[index++];
+    if (weight > 0.f) {
+      const int id = arc.labels[2];
+      auto it = representedEdgeIds.find(id);
+      if (it != representedEdgeIds.end()) {
+        for (const int edgeId: it->second) {
+          unpackedResult[edgeId] = weight;
+        }
+      }
+    }
+  }
+
+  util::dump_vector(unpackedResult, filename);
 }
 
 // _____________________________________________________________________________
@@ -66,10 +119,11 @@ int main(int argc, char** argv) {
   cout << "Reading the data..." << endl;
   vector<int> forestEntries = util::read_column_file<int>(argv[2])[3];
 
-  ForestRoadGraph forestGraph;
-  unordered_map<int, vector<int>> edgeIdToFids = read_and_simplify(
-      argv[1], forestEntries, &forestGraph);
-  forestGraph.read_in(argv[1]);
+  unordered_map<int, vector<int>> containedEdgeIds;
+  vector<int> forestEntriesInSimplifiedGraph;
+  ForestRoadGraph simplifiedGraph = read_and_simplify(
+      argv[1], forestEntries, &containedEdgeIds, &forestEntriesInSimplifiedGraph);
+  assert(forestEntriesInSimplifiedGraph.size() == forestEntries.size());
 
   vector<float> entryPopulation = util::read_column_file<float>(argv[3])[0];
   vector<vector<float> > preferences = util::read_column_file<float>(argv[4]);
@@ -85,12 +139,14 @@ int main(int argc, char** argv) {
   EdgeAttractivenessModel* algorithm;
   if (approach == 0) {
     cout << "Selected Flooding Approach." << endl;
-    algorithm = new FloodingModel(
-        forestGraph, forestEntries, entryPopulation, preferences, costLimit);
+    algorithm = new FloodingModel(simplifiedGraph,
+                                  forestEntriesInSimplifiedGraph,
+                                  entryPopulation, preferences, costLimit);
   } else if (approach == 1) {
     cout << "Selected Via Edge Approach." << endl;
-    algorithm = new ViaEdgeApproach(
-        forestGraph, forestEntries, entryPopulation, preferences, costLimit);
+    algorithm = new ViaEdgeApproach(simplifiedGraph,
+                                    forestEntriesInSimplifiedGraph,
+                                    entryPopulation, preferences, costLimit);
   } else {
     cout << "Invalid approach selector." << endl;
     exit(1);
@@ -98,9 +154,9 @@ int main(int argc, char** argv) {
 
   const vector<float> result = algorithm->compute_edge_attractiveness();
 
-  string filename = outfile;  // "edge_weights.tmp.txt";
-  cout << "Writing the attractivenesses to " << filename << endl;
-  util::dump_vector(result, filename);
+  cout << "Writing the attractivenesses to " << outfile << endl;
+  write_output(outfile, result, simplifiedGraph, containedEdgeIds);
+
   delete algorithm;
 
   // Message to external callers which can't fetch the return code.
