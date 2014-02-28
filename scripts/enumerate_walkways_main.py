@@ -87,7 +87,7 @@ def main():
   import time
   t0 = time.clock()
   total_walkways = 0
-  for node in wep_nodes:
+  for node in wep_nodes[0:3]:
     count += 1
     walkways_and_distances = enumerate_walkways(g, node, 
         target_nodes=wep_nodes_set, cost_limit=limit, local_cycle_depth=5, 
@@ -111,19 +111,20 @@ def main():
     n_bins = 50
     bin_size = (ma - mi) / float(n_bins - 1.0)
     distance_distr = np.zeros(n_bins)
+    #distance_distr[[(d - mi) / bin_size for (w, d) in walkways]] += 1.0
     for (w,d) in walkways:
       distance_distr[(d-mi)/bin_size] += 1.0
-    plt.bar(np.arange(n_bins), distance_distr)
-    plt.show()
-    spread = signal.gaussian(n_bins, std=5)  #  TODO(Jonas): Use sth. senseful.
-    spread[0:-1] *= 1. / sum(spread)  # normalize 
-    result = distance_distr * spread
-    normalizer = float(su) / sum(result)  # normalize the joint distribution
-    result[0:-1] *= normalizer
+    #plt.bar(np.arange(n_bins), distance_distr)
+    #plt.show()
+    #spread = signal.gaussian(n_bins, std=5)  #  TODO(Jonas): Use sth. senseful.
+    #spread[0:-1] *= 1. / sum(spread)  # normalize 
+    #result = distance_distr * spread
+    #normalizer = float(len(walkways)) / sum(result)  # normalize the joint distribution
+    #result[0:-1] *= normalizer
 
-    plt.bar(np.arange(n_bins), result)
-    plt.show()
-    s = raw_input("Press ENTER for next cycle.")
+    #plt.bar(np.arange(n_bins), result)
+    #plt.show()
+    #s = raw_input("Press ENTER for next cycle.")
 
   delta_t = time.clock() - t0
   print "Generated %d walkways from %d WEs, %.1f in average." % (total_walkways,
