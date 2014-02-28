@@ -10,18 +10,17 @@
 """
 
 from PIL import Image, ImageDraw
-import numpy as np
 import re
 import sys
 import os.path
 import math
 from collections import defaultdict
-import scipy
-from scipy.spatial import qhull
 import math
+
 from grid import Grid
 from graph import Graph, Edge
 from dijkstra import Dijkstra
+import convexhull
 
 
 speed_table = {"motorway"       : 110, \
@@ -273,20 +272,6 @@ def filter_point_grid(points, regions, operation='intersect'):
     exit(1)
 
 
-def sort_hull(hull, points):
-  ''' Sorts the indices of a convex hull by their node's angle to the center
-      point.
-  '''
-  ps = set()
-  for x, y in hull:
-    ps.add(x)
-    ps.add(y)
-  ps = np.array(list(ps))
-  center = points[ps].mean(axis=0)
-  A = points[ps] - center
-  return points[ps[np.argsort(np.arctan2(A[:,1], A[:,0]))]]
-
-
 def classify_forest(osmfile):
   print 'Reading nodes and ways from OSM and creating the graph...'
   node_ids, ways_by_type, digraph, nodes, osm_id_map = read_osmfile(osmfile)
@@ -294,9 +279,13 @@ def classify_forest(osmfile):
   bbox = bounding_box(nodes.values())
   print 'Computing the convex hull...'
   visual_grid = Grid(bbox, mode="RGB")
-  points = [list(p) for p in nodes.values()]
-  hull = scipy.spatial.qhull.Delaunay(points).convex_hull
-  hull = sort_hull(hull, np.array(points))
+  boundary_filename = os.path.splitext(osmfile)[0] + ".boundary.out"
+  if os.path.exists(boundary_filename):
+    hull = convexhull.load(boundary_filename)
+  else:
+    points = [list(p) for p in nodes.values()]
+    hull = convexhull.compute(points)
+    convexhull.save(hull, boundary_filename)
   visual_grid.fill_polygon(hull, color="#fadbaa")
 
   print 'Creating forest grid from polygons...'
