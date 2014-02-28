@@ -282,7 +282,7 @@ def classify_forest(osmfile, maxspeed=130):
   print 'Restrict forests to large connected components...'
   # turn this off, when fast results are needed
   node_idx = [osm_id_map[e] for e in forestal_highway_nodes]
-  node_idx, removed = digraph.lcc(node_idx, 500)
+  node_idx, removed = digraph.filter_components(node_idx, 500)
   inverse_id_map = {value : key for (key, value) in osm_id_map.items()}
   forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
   open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))

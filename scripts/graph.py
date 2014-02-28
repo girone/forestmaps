@@ -19,6 +19,9 @@ class Graph(object):
     self.edges = defaultdict(dict)
     self.nodes = set()
 
+  def __repr__(self):
+    return str(self.nodes) + "\n" + str(self.edges) + "\n"
+
   def size(self):
     return max(self.nodes) + 1
 
@@ -61,7 +64,7 @@ class Graph(object):
     assert len(component) == len(set(component))
     return component
 
-  def lcc(self, nodes, threshold):
+  def filter_components(self, nodes, threshold):
     ''' Filters the @nodes such that only those which form a connected component
         in the @graph of size larger than @threshold remain.
     '''
@@ -70,7 +73,7 @@ class Graph(object):
     removed = []
     while len(node_set):
       node = node_set.pop()
-      component = connected_component(node, node_set)
+      component = self.connected_component(node, node_set)
       node_set -= component
       if len(component) >= threshold:
         remaining.extend(component)
@@ -78,6 +81,22 @@ class Graph(object):
         removed.extend(component)
     assert len(remaining) == len(set(remaining))
     return set(remaining), removed
+
+  def lcc(self):
+    ''' Returns the largest connected component of @self. '''
+    node_set = set(range(self.size()))
+    largest_component = set()
+    while len(node_set):
+      node = node_set.pop()
+      component = self.connected_component(node, node_set)
+      node_set -= component
+      if len(component) >= len(largest_component):
+        largest_component = component
+    lcc = Graph()
+    for x in largest_component:
+      for y, edge in self.edges[x].items():
+        lcc.add_edge(x, y, edge.cost)
+    return lcc
 
 
 import unittest
@@ -99,6 +118,22 @@ class TestGraph(unittest.TestCase):
     self.assertEqual(g.nodes, set([0, 2, 3, 4]))
     self.assertEqual(str(g.edges), "defaultdict(<type 'dict'>, {0: {2: 2}, " \
         "2: {3: 1}, 3: {}})")
+
+  def test_lcc(self):
+    A, B, C, D, E = 0, 1, 2, 3, 4
+    g = Graph()
+    g.add_edge(A, B, 4)
+    g.add_edge(B, A, 4)
+    g.add_edge(C, D, 2)
+    g.add_edge(D, C, 2)
+    g.add_edge(D, E, 1)
+    g.add_edge(E, D, 1)
+    expect = Graph()
+    expect.add_edge(C, D, 2)
+    expect.add_edge(D, C, 2)
+    expect.add_edge(D, E, 1)
+    expect.add_edge(E, D, 1)
+    self.assertEqual(str(g.lcc()), str(expect))
 
 
 def main():
