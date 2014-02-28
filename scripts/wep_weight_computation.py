@@ -52,6 +52,8 @@ def main():
     search = Dijkstra(graph)
     search.set_cost_limit(60 * 60)  # 1 hour
     res = search.run(osm_id_map[node])
+    print "Settled %d of %d nodes." % \
+        (len(res) - res.count(sys.maxint), len(res))
     avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
   avg /= len(weps)
   print 'In average, %f of %d nodes have been settled.' \

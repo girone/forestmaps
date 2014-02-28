@@ -19,6 +19,9 @@ class Graph(object):
     self.edges = defaultdict(dict)
     self.nodes = set()
 
+  def size(self):
+    return max(self.nodes) + 1
+
   def add_edge(self, s, t, c):
     ''' Adds an edge from s to t with cost c. '''
     self.nodes.add(s)

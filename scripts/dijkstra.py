@@ -27,15 +27,15 @@ class Dijkstra:
     from Queue import PriorityQueue
     pq = PriorityQueue()
     pq.put((0, start_node))
-    settled = [False] * len(self.graph.nodes)
-    tentative_costs = [sys.maxint] * len(self.graph.nodes)
+    num_nodes = self.graph.size()
+    settled = [False] * num_nodes
+    tentative_costs = [sys.maxint] * num_nodes
     tentative_costs[start_node] = 0
-    final_costs = [sys.maxint] * len(self.graph.nodes)
+    final_costs = [sys.maxint] * num_nodes
     while not pq.empty():
       cost, node = pq.get()
       if self.cost_limit and self.cost_limit < cost:
         break
-      print cost, node
       if not settled[node]:
         for to, edge in self.graph.edges[node].items():
           relax_arc(to, cost + edge.cost, tentative_costs, pq)
