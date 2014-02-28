@@ -14,7 +14,6 @@ import re
 import sys
 from graph import Graph, Edge, NodeInfo
 
-
 OSMWayTypesAndSpeed = [('motorway'       , 130),
                        ('motorway_link'  , 130),
                        ('trunk'          , 120),
@@ -42,7 +41,7 @@ OSMWayTypesAndSpeed = [('motorway'       , 130),
 
 OSMSpeedTable = dict(OSMWayTypesAndSpeed)
 OSMWayTypeToId = {v[0] : id
-                  for id, v in enumerate(reversed(OSMWayTypesAndSpeed))}
+                  for id, v in enumerate(OSMWayTypesAndSpeed)}
 
 ATKISSpeedTable = {164001 : 110,
                    164003 : 70,
@@ -129,19 +128,149 @@ def great_circle_distance((lat0, lon0), (lat1, lon1)):
           math.sin(dLon / 2) * math.sin(dLon / 2))
     return 2 * r * math.asin(math.sqrt(a))
 
+def is_forest_tag(key, val):
+    """Returns true on key, value pairs which represent forest OSM tags."""
+    return ((key == 'landuse' and val == 'forest') or
+            (key == 'natural' and val == 'wood'))
+
+class OSMRelation(object):
+    """Right now, this represents a multipolygon.
+
+    See http://wiki.openstreetmap.org/wiki/Relation:multipolygon
+
+    """
+    def __init__(self, id_):
+        self.id_ = id_
+        self.isForestRelation = False
+        self.isMultipolygon = False
+        self.outerOsmWays = []
+        self.innerOsmWays = []
+
+    def add_member(self, type_, ref, role):
+        if type_ == "way":
+            if role == "outer":
+                self.outerOsmWays.append(ref)
+            elif role == "inner":
+                self.innerOsmWays.append(ref)
+            else:
+                print "Error: Unexpected role for relation member way: ", role
+
+    def is_forest_relation(self, newValue):
+        self.isForestRelation = newValue
+
+    def is_multipolygon(self, newValue):
+        self.isMultipolygon = newValue
+
+    def is_forest_multipolygon(self):
+        return self.isForestRelation and self.isMultipolygon
+
+    def expand_to_polygons(self, ref_to_way, ref_to_node):
+        """Expands the osm ways described by this relation to polygons.
+
+        Takes two functions mapping from way ids to ways (lists of node
+        references) and from node ids to nodes (pairs of lat, lon).
+        Expands the multipolygon relation such that all ways in self.outer
+        and self.inner form polygons.
+
+        """
+        outer = self.expand_ways_to_polygons(self.outerOsmWays, ref_to_way,
+                                             ref_to_node)
+        inner = self.expand_ways_to_polygons(self.innerOsmWays, ref_to_way,
+                                             ref_to_node)
+        return outer, inner
+
+    def expand_ways_to_polygons(self, ways, ref_to_way, ref_to_node):
+        """Expands a set of ways (lists of way references) to a polygon.
+
+        If there is a gap between the last node of a way and the first node
+        of the next way, a new polygon is started.
+
+        """
+        def extract_coords(node):
+            return (node[0], node[1])
+        resultPolygons = []
+        polygon = []
+        lastNodeRefOfLastWay = -1
+        DEBUG = False
+        TARGET_IS_PART = False
+        for wayRef in ways:
+            wayDescription = ref_to_way(wayRef)
+            if wayRef == 207409779:
+                print wayDescription
+                print "length: ", len(ways)
+                #print ways
+                DEBUG = True
+                TARGET_IS_PART = True
+            if not wayDescription:
+                continue
+            (osmWayId, wayType, polyline) = wayDescription
+            osmNodeIds = polyline
+
+            assert len(osmNodeIds) > 1
+            firstNodeRefOfThisWay = osmNodeIds[0]
+            if firstNodeRefOfThisWay != lastNodeRefOfLastWay:
+                if DEBUG and TARGET_IS_PART:
+                    print polygon
+                if len(polygon) > 2:  # artifacts at data set borders
+                    resultPolygons.append(polygon)
+                polygon = [extract_coords(ref_to_node(firstNodeRefOfThisWay))]
+                TARGET_IS_PART = False
+            for nodeRef in osmNodeIds[1:]:
+                polygon.append(extract_coords(ref_to_node(nodeRef)))
+            lastNodeRefOfLastWay = osmNodeIds[-1]
+        if len(polygon) > 2:  # add last polygon, artifacts at data set borders
+            resultPolygons.append(polygon)
+        if DEBUG:
+            print "========RESULT==========="
+            #print resultPolygons
+            print len(resultPolygons)
+            exit(1)
+        return resultPolygons
+
 
 class OSMParser(object):
     def __init__(self, maxSpeed):
         self.maxSpeed = maxSpeed
         self.regexPatternNode = re.compile(
-                '.*<node id="(\S+)" lat="(\S+)" lon="(\S+)"')
-        self.regexPatterWaytag = re.compile(
+                '<node id="(\S+)".* lat="(\S+)" lon="(\S+)"')
+        self.regexPatternWayStart = re.compile(
+                '<way.* id="(\S+)".*')
+        self.regexPatternWayTag = re.compile(
                 '\D*k="(highway|landuse|natural)" v="(.+)"')
+        self.regexPatternRelationMember = re.compile(
+                '<member type="way" ref="(\S+)" role="(\S+)"/>')
+        self.regexPatternRelationTag = re.compile(
+                '<tag k="(type|landuse|natural)" v="(\S+)"/>')
         self.osmNodes = []
         self.osmHighwayEdges = []
         self.osmNodeIdPolygons = []
-        self.osmIdToIndex = None
+        self.osmIdToNodeIndex = None
+        self.osmIdToArcIndex = None
+        self.osmRelations = []
         self.lineNumber = 0
+        self.currentWayType = 'undefined'
+
+    def osm_id_to_node(self, osmId):
+        return self.osmNodes[self.osm_id_to_node_index(osmId)]
+
+    def osm_id_to_node_index(self, osmId):
+        if not self.osmIdToNodeIndex:
+            self.osmIdToNodeIndex = {osm : i
+                                 for i, (_,_,osm) in enumerate(self.osmNodes)}
+        return self.osmIdToNodeIndex[osmId]
+
+    def osm_id_to_arc(self, osmId):
+        if self.osmIdToArcIndex and osmId not in self.osmIdToArcIndex:
+            # Some ways are referenced in relations but outside of the dataset.
+            return None
+        return self.osmNodeIdPolygons[self.osm_id_to_arc_index(osmId)]
+
+    def osm_id_to_arc_index(self, osmId):
+        if not self.osmIdToArcIndex:
+            dic = {osmId_ : i
+                   for i, (osmId_,_,_) in enumerate(self.osmNodeIdPolygons)}
+            self.osmIdToArcIndex = dic
+        return self.osmIdToArcIndex[osmId]
 
     def parse_node_properties(self, match):
         """Extracts latitude, longitude and osmID from a regex match object."""
@@ -149,8 +278,8 @@ class OSMParser(object):
                 int(match.group(1)))
 
     def compute_dist_between_ids(self, osmIdA, osmIdB, wayClass):
-        (latA, lonA, _) = self.osmNodes[self.osm_id_to_index(osmIdA)]
-        (latB, lonB, _) = self.osmNodes[self.osm_id_to_index(osmIdB)]
+        (latA, lonA, _) = self.osmNodes[self.osm_id_to_node_index(osmIdA)]
+        (latB, lonB, _) = self.osmNodes[self.osm_id_to_node_index(osmIdB)]
         return great_circle_distance((latA, lonA), (latB, lonB))
 
     def compute_cost_between_ids(self, osmIdA, osmIdB, wayClass):
@@ -200,9 +329,12 @@ class OSMParser(object):
     def read_way_line(self, line, state):
         """Processes a line which describes a way and returns a new state."""
         if line.startswith("<way"):
+            res = self.regexPatternWayStart.match(line)
+            assert res
             self.currentWay = []
-            self.currentWayType = None
+            self.currentWayType = 'undefined'
             self.currentHighwayCategory = None
+            self.currentWayId = int(res.group(1))
         elif line.startswith("<nd"):
             osmId = int(line.split("ref=\"")[1].split("\"")[0])
             self.currentWay.append(osmId)
@@ -211,17 +343,14 @@ class OSMParser(object):
         elif line.startswith("</way"):
             self.finalize_way()
         elif line.startswith("<relation"):
-            state = 'other'
+            state = 'read_relations'
         else:
             pass
         return state
 
     def process_way_tag_line(self, line):
         """Processes an OSM way tag line."""
-        def is_forest_tag(key, val):
-            return ((key == 'landuse' and val == 'forest') or
-                    (key == 'natural' and val == 'wood'))
-        res = self.regexPatterWaytag.match(line)
+        res = self.regexPatternWayTag.match(line)
         if res:
             key, val = res.group(1), res.group(2)
             if key == 'highway' and val in OSMSpeedTable:
@@ -232,14 +361,64 @@ class OSMParser(object):
 
     def finalize_way(self):
         """Finishes the current way."""
-        if self.currentWayType == 'forest_delimiter':
-            polygon = self.currentWay
-            self.osmNodeIdPolygons.append(polygon)
-        elif self.currentWayType == 'highway':
+        waytype = self.currentWayType
+        # related store all ways, as they may serve as boundary in a relation
+        polyline = self.currentWay
+        osmId = self.currentWayId
+        self.osmNodeIdPolygons.append((osmId, waytype, polyline))
+        if waytype == 'highway':
             self.osmHighwayEdges.extend(self.expand_current_way_to_edges())
+
+    def read_relation_line(self, line, state):
+        """Processes a line associated with a relation."""
+        if line.startswith("<relation"):
+            id_ = int(line.split('"')[1])
+            self.currentRelation = OSMRelation(id_)
+        elif line.startswith("</relation"):
+            self.finalize_relation(self.currentRelation)
+            self.currentRelation = None
+        elif line.startswith("</osm>"):
+            state = 'other'
         else:
-            # Undefined osm way, like soccer stadium, pool etc.
-            pass
+            self.process_multipolygon_relation_content_line(line)
+        return state
+
+    def process_multipolygon_relation_content_line(self, line):
+        assert self.currentRelation
+        res = self.regexPatternRelationMember.match(line)
+        if res:
+            ref = int(res.group(1))
+            role = res.group(2)
+            if role == "outer" or role == "inner":
+                self.currentRelation.add_member("way", ref, role)
+        else:
+            res = self.regexPatternRelationTag.match(line)
+            if res:
+                if is_forest_tag(res.group(1), res.group(2)):
+                    self.currentRelation.is_forest_relation(True)
+                elif res.group(1) == "type" and res.group(2) == "multipolygon":
+                    self.currentRelation.is_multipolygon(True)
+
+    def finalize_relation(self, relation):
+        assert relation
+        #if not (not relation.isForestRelation or relation.isMultipolygon):
+        #    print "Error: forest relation is no multipolygon. In line", self.lineNumber
+        #    print relation.isForestRelation, relation.isMultipolygon
+        #    assert False
+        #if relation.is_forest_multipolygon():  # removed. reason: data errors
+        if relation.isForestRelation:
+            self.osmRelations.append(relation)
+
+    def expand_relations(self):
+        """Expands relations. Should be called after all relations are read."""
+        self.outerForestPolygons = []
+        self.innerForestPolygons = []
+        self.osmIdToArcIndex = None
+        for relation in self.osmRelations:
+            outer, inner = relation.expand_to_polygons(self.osm_id_to_arc,
+                                                       self.osm_id_to_node)
+            self.outerForestPolygons.extend(outer)
+            self.innerForestPolygons.extend(inner)
 
     def read_line(self, line, state):
         """Reads and interprets a line."""
@@ -247,6 +426,8 @@ class OSMParser(object):
             state = self.read_node_line(line, state)
         if state == 'read_ways':
             state = self.read_way_line(line, state)
+        if state == 'read_relations':
+            state = self.read_relation_line(line, state)
         return state
 
     def read_osm_file(self, filename):
@@ -255,7 +436,8 @@ class OSMParser(object):
         Returns nodes, edges, forest polygons:
           - Nodes are tuples (lat, lon, osmID).
           - Edges are between two nodes, referred to by indices [0...#nodes-1].
-          - Forest polygons each are a list of tuples (lat, lon, osmID).
+          - Forest polygons, each is a list of tuples (lat, lon, osmID).
+          - Inner forest polygons (glades), as above.
 
         Assumes that the OSM file is ordered such that it lists nodes before
         ways and ways before anything else.
@@ -269,27 +451,32 @@ class OSMParser(object):
                 state = self.read_line(line.strip(), state)
                 if state == 'other':
                     break
-        polys = self.translate_osm_to_node_polygons(self.osmNodeIdPolygons)
+
         nodes = self.highway_part(self.osmNodes, self.osmHighwayEdges)
         edges = self.translate_osm_edges(nodes, self.osmHighwayEdges)
-        return nodes, edges, polys
+
+        if 112835 in set([rel.id_ for rel in self.osmRelations]):
+            print "relation contained"
+        else:
+            print "relation not contained"
+
+        self.expand_relations()  # translates relations into node polygons
+        enum = enumerate(self.osmNodeIdPolygons)
+        nodeIdPolygons = [poly for i, (osmId, wayType, poly) in enum
+                          if wayType == 'forest_delimiter']
+        # TODO(jonas): Avoid double usage of forest borders in from relations.
+        simplePolygons = self.translate_osm_to_node_polygons(nodeIdPolygons)
+        outerPolygons = self.outerForestPolygons + simplePolygons
+        innerPolygons = self.innerForestPolygons
+        return nodes, edges, outerPolygons, innerPolygons
 
     def highway_part(self, osmNodes, osmHighwayEdges):
         """Returns the nodes which are part of a highway in the OSM data."""
         isHighwayNode = [False] * len(osmNodes)
         for (s, t, _) in osmHighwayEdges:
-            isHighwayNode[self.osm_id_to_index(s)] = True
-            isHighwayNode[self.osm_id_to_index(t)] = True
+            isHighwayNode[self.osm_id_to_node_index(s)] = True
+            isHighwayNode[self.osm_id_to_node_index(t)] = True
         return [node for i, node in enumerate(osmNodes) if isHighwayNode[i]]
-
-    def osm_id_to_node(self, osmId):
-        return self.osmNodes[self.osm_id_to_index(osmId)]
-
-    def osm_id_to_index(self, osmId):
-        if not self.osmIdToIndex:
-            self.osmIdToIndex = {osm : i
-                                 for i, (_,_,osm) in enumerate(self.osmNodes)}
-        return self.osmIdToIndex[osmId]
 
     def translate_osm_edges(self, highwayNodes, osmHighwayEdges):
         """Replaces osm node ids in edges with corresponding node indices."""
@@ -300,7 +487,7 @@ class OSMParser(object):
     def translate_osm_to_node_polygons(self, osmNodeIdPolygons):
         """Replaces osm node ids with coordinates."""
         tmp = [map(self.osm_id_to_node, poly) for poly in osmNodeIdPolygons]
-        return [[(lat,lon) for lat,lon,_ in poly] for poly in tmp]  # strip osmId
+        return [[(lat,lon) for lat,lon,_ in poly] for poly in tmp]
 
 
 
@@ -329,7 +516,7 @@ def read_file(filename, maxspeed, interpret=OSMWayTagInterpreter):
     f = open(filename)
     regexPatternNode = re.compile('.*<node id="(\S+)" lat="(\S+)" lon="(\S+)"')
     nodes = {}
-    regexPatterWaytag = re.compile('\D*k="(\w+)" v="(\w+)"')
+    regexPatternWaytag = re.compile('\D*k="(\w+)" v="(\w+)"')
     way_nodes = {}
     ways_by_type = {'forest_delim': [], 'highway': []}
     graph = Graph()
@@ -349,7 +536,7 @@ def read_file(filename, maxspeed, interpret=OSMWayTagInterpreter):
                 node_list = []
         if state == 'way':
             if stripped.startswith('<tag'):
-                res = regexPatterWaytag.match(stripped)
+                res = regexPatternWaytag.match(stripped)
                 if res:
                     key, val = res.group(1), res.group(2)
                     res = interpret(key, val)
@@ -427,6 +614,25 @@ def dump_graph(nodes, edges, filename=None, nodeFlags=None):
             labelsAsString = " ".join([str(l) for l in labels])
             print "{0} {1} {2}\n".format(s, t, labelsAsString)
 
+def dump_json(nodes, edges, filename="dummy.json"):
+    def format_json_datapoint(lat, lon, count):
+        s = """{{"lat": {0}, "lon": {1}, "count": {2}}}""".format(lat, lon, count)
+        return s
+    with open(filename, "w") as f:
+        dataPoints = []
+        max_ = 0.
+        for (s, t, labels) in edges:
+            dist, time, waytype = labels
+            count = float(dist)
+            max_ = max(max_, count)
+            for nodeIndex in [s, t]:
+                lat = nodes[nodeIndex][0]
+                lon = nodes[nodeIndex][1]
+                dataPoints.append(format_json_datapoint(lat, lon, count))
+        f.write('{')
+        f.write('"max": ' + str(max_) + ',')
+        f.write('"data": [{0}]'.format(", ".join(dataPoints)))
+        f.write('}')
 
 def main():
     """Reads an osm file and dumps the resulting nodes, arcs and polygons."""
@@ -434,9 +640,14 @@ def main():
         sys.stderr.write("Usage: ./script.py <osm_file>")
         exit(1)
     parser = OSMParser(maxSpeed=50)
-    nodes, edges, polygons = parser.read_osm_file(sys.argv[1])
-    dump_graph(nodes, edges)
-    print polygons
+    nodes, edges, forest, glades = parser.read_osm_file(sys.argv[1])
+    #dump_graph(nodes, edges)
+    #dump_json(nodes, edges)
+    import pickle
+    with open("nodes.pickle", "w") as f:
+        pickle.dump(nodes, f)
+    with open("edges.pickle", "w") as f:
+        pickle.dump(edges, f)
 
 
 if __name__ == '__main__':

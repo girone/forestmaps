@@ -229,18 +229,18 @@ def classify_forest_entries(nodes, edges, nodeFlags):
     return nodeFlags
 
 
-def classify_forest_nodes(nodes, edges, forestPolygons):
-    """Returns a vector of flags distinguishing forest and normal nodes.
+def label_nodes_in_polygons_with_value(nodes, polygons, value, labels):
+    """Labels nodes with a value if they are inside a polygon.
 
-    A node is a forest node (flag = 1) if it falls inside a forest polygon.
+    Sets the label in @labels of a node to @value, if the node is inside one
+    of the polygons.
 
     """
     from Polygon import Polygon
     # sort nodes and bounding boxes of polygons ascending by latitude
     sortedNodes = sorted([(node, index) for index, node in enumerate(nodes)])
     sortedBoxes = sorted([(bounding_box(poly), index)
-                          for index, poly in enumerate(forestPolygons)])
-    nodeFlags = [0] * len(nodes)
+                          for index, poly in enumerate(polygons)])
     leftPointer = -1
     lat = -90.
     for box, polygonIndex in sortedBoxes:
@@ -252,28 +252,42 @@ def classify_forest_nodes(nodes, edges, forestPolygons):
             leftPointer += 1
             lat = sortedNodes[leftPointer][0][0]
 
-        polygon = Polygon(forestPolygons[polygonIndex])
+        polygon = Polygon(polygons[polygonIndex])
         nodePointer = leftPointer
         while nodePointer < len(sortedNodes) and lat <= maxPolygonLatitude:
             ((lat, lon, _), index) = sortedNodes[nodePointer]
             if lon >= minPolygonLongitude and lon <= maxPolygonLongitude:
-                nodeFlags[index] = 1 if polygon.isInside(lat, lon) else 0
+                if polygon.isInside(lat, lon):
+                    labels[index] = value
             nodePointer += 1
-
         lat = sortedNodes[leftPointer][0][0]
+
+
+def classify_forest_nodes(nodes, forestPolygons, innerPolygons):
+    """Returns a vector of flags distinguishing forest and normal nodes.
+
+    A node is a forest node (flag = 1) if it falls inside a forest polygon.
+    A node is a forest node (flag = 3) if it falls inside a glade polygon.
+
+    """
+    nodeFlags = [0] * len(nodes)
+    # set label 1 for forest nodes, set label 3 for nodes in forest glades
+    label_nodes_in_polygons_with_value(nodes, forestPolygons, 1, nodeFlags)
+    label_nodes_in_polygons_with_value(nodes, innerPolygons, 3, nodeFlags)
     return nodeFlags
 
 
-def classify_nodes(nodes, edges, forestPolygons):
+def classify_nodes(nodes, edges, forestPolygons, innerPolygons):
     """Returns a vector of forest flags for the nodes.
 
     The flag of a node x is
         - 1, if x is inside the forest,
         - 2, if x is an forest entry (it is outside, but has an arc into),
+        - 3, if x is in a glade (closed area inside the forest with no forest)
         - 0 otherwise
 
     """
-    nodeFlags = classify_forest_nodes(nodes, edges, forestPolygons)
+    nodeFlags = classify_forest_nodes(nodes, forestPolygons, innerPolygons)
     nodeFlags = classify_forest_entries(nodes, edges, nodeFlags)
     return nodeFlags
 
@@ -301,21 +315,22 @@ def main():
     osmfile = sys.argv[1]
     maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
-    print "Reading nodes and ways from OSM and creating the graph..."
+    print "Reading nodes, ways and polygons from OSM and creating the graph..."
     iterpreter = (osm_parse.OSMWayTagInterpreter if standardOSM
                   else osm_parse.ATKISWayTagInterpreter)
     parser = OSMParser(maxspeed)
-    (nodes, edges, forestPolygons) = parser.read_osm_file(osmfile)
+    (nodes, edges, forestPolys, innerPolys) = parser.read_osm_file(osmfile)
 
     print "Classifying the nodes..."
-    forestFlags = classify_nodes(nodes, edges, forestPolygons)
+    forestFlags = classify_nodes(nodes, edges, forestPolys, innerPolys)
 
     dump_graph(nodes, edges, filename, forestFlags)
     with open(filename + ".forest.txt", "w") as polyFile:
-        for poly in forestPolygons:
+        for poly in forestPolys:
             polyFile.write("{0}\n".format(poly))
-
-
+    with open(filename + ".glade.txt", "w") as polyFile:
+        for poly in innerPolys:
+            polyFile.write("{0}\n".format(poly))
 
     #tmp = osm_parse.read_file(osmfile, maxspeed, iterpreter)
     #(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId) = tmp
