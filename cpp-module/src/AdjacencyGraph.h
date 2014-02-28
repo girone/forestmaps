@@ -65,7 +65,7 @@ class AdjacencyListGraph {
   friend class OSMGraphBuilder;
   friend class GraphSimplificator;
   FRIEND_TEST(AdjacencyListGraphTest, to_string);
-  FRIEND_TEST(GraphSimplificatorTest, contract_node);
+  FRIEND_TEST(GraphSimplificatorTest, try_to_contract_node);
 };
 
 // _____________________________________________________________________________

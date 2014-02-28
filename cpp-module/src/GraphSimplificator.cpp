@@ -74,15 +74,15 @@ SimplificationGraph GraphSimplificator::simplify(const set<uint>* dontContract) 
     if (dontContract && dontContract->find(node) != dontContract->end()) {
       continue;
     }
-    contracted[node] = contract_node(node, contracted);
+    contracted[node] = try_to_contract_node(node, contracted);
   }
 
   return extract_simplified_graph(contracted);
 }
 
 // _____________________________________________________________________________
-bool GraphSimplificator::contract_node(size_t node,
-                                       const vector<bool>& contracted) {
+bool GraphSimplificator::try_to_contract_node(size_t node,
+                                              const vector<bool>& contracted) {
   vector<int> uncontractedArcIndices;
   for (size_t i = 0; i < _input->arcs(node).size(); ++i) {
     if (!contracted[_input->arcs(node)[i].target]) {
@@ -95,7 +95,7 @@ bool GraphSimplificator::contract_node(size_t node,
   // Do not contract nodes with two arcs to the same target.
   vector<int> nghbrs = {_input->arcs(node)[uncontractedArcIndices[0]].target,
                         _input->arcs(node)[uncontractedArcIndices[1]].target};
-  if (std::adjacent_find(nghbrs.begin(), nghbrs.end()) == nghbrs.begin()) {
+  if (nghbrs[0] == nghbrs[1]) {
     return false;
   }
 
@@ -141,7 +141,7 @@ GraphSimplificator::edges_contained_in_shortcut_map() const {
 }
 
 // _____________________________________________________________________________
-const std::vector< int >& GraphSimplificator::index_shift() const {
+const vector<int>& GraphSimplificator::index_shift() const {
   return _indexShift;
 }
 

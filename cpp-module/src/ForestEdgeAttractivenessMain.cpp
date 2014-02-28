@@ -35,12 +35,12 @@ ForestRoadGraph read_and_simplify(
 
   // Simplify chains of nodes.
   cout << "Simplifying the graph..." << endl;
-  GraphSimplificator simplifier(&adjGraph);
+  GraphSimplificator simplificator(&adjGraph);
   set<uint> doNotContract(forestEntries.begin(), forestEntries.end());
-  SimplificationGraph simple = simplifier.simplify(&doNotContract);
+  SimplificationGraph simple = simplificator.simplify(&doNotContract);
 
-  *containedEdgeIds = simplifier.edges_contained_in_shortcut_map();
-  const vector<int>& shift = simplifier.index_shift();
+  *containedEdgeIds = simplificator.edges_contained_in_shortcut_map();
+  const vector<int>& shift = simplificator.index_shift();
   newForestEntries->clear();
   std::transform(forestEntries.begin(), forestEntries.end(),
                  std::back_inserter(*newForestEntries),

@@ -79,7 +79,7 @@ TEST_F(GraphSimplificatorTest, self_check) {
 }
 
 // _____________________________________________________________________________
-TEST_F(GraphSimplificatorTest, contract_node) {
+TEST_F(GraphSimplificatorTest, try_to_contract_node) {
   // Read the graph
   SimplificationGraph graph;
   graph.read_in(_filename);
@@ -89,7 +89,7 @@ TEST_F(GraphSimplificatorTest, contract_node) {
   GraphSimplificator modul(&graph);
   modul.initialize_mapping();
   vector<bool> contracted(graph.num_nodes(), false);
-  bool res = modul.contract_node(1, contracted);
+  bool res = modul.try_to_contract_node(1, contracted);
   EXPECT_TRUE(res);
 
   // Check the resulting graph: There should be shortcuts 0<-->3 of cost 15.0,
@@ -102,8 +102,8 @@ TEST_F(GraphSimplificatorTest, contract_node) {
   EXPECT_THAT(graph._arcs[3], Contains(a2));
 
   // It should not be possible to contract node 2 and 4, for instance.
-  EXPECT_FALSE(modul.contract_node(2, contracted));
-  EXPECT_FALSE(modul.contract_node(4, contracted));
+  EXPECT_FALSE(modul.try_to_contract_node(2, contracted));
+  EXPECT_FALSE(modul.try_to_contract_node(4, contracted));
 
   // Check the mapping: The new arcs should represent the old arcs's FIDs.
   auto map = modul.edges_contained_in_shortcut_map();

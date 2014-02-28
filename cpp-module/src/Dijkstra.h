@@ -66,7 +66,7 @@ class Dijkstra {
   // Returns true if a node was settled, false otherwise.
   bool isSettled(uint node) const;
   // Gets the number off settled nodes.
-  size_t getNumSettledNodes() const;
+  size_t get_num_settled_nodes() const;
   // Get the vector of settled nodes in the last limited search.
   const vector<uint>& get_settled_node_indices() const;
   // Get the settled node flags.
@@ -196,7 +196,7 @@ bool Dijkstra<G>::isSettled(uint node) const {
 }
 
 template<class G>
-size_t Dijkstra<G>::getNumSettledNodes() const {
+size_t Dijkstra<G>::get_num_settled_nodes() const {
   return _numSettledNodes;
 }
 

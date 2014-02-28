@@ -324,8 +324,16 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
 vector<int> ViaEdgeApproach::determine_settled_forest_entries(
     const Dijkstra<ForestRoadGraph>& dijkstra) const {
   // Sort the settled nodes to allow for list intersection.
-  vector<uint> settledNodes = dijkstra.get_settled_node_indices();
-  std::sort(settledNodes.begin(), settledNodes.end());
+//   vector<uint> settledNodes = dijkstra.get_settled_node_indices();
+//   std::sort(settledNodes.begin(), settledNodes.end());
+  const vector<bool>& settledFlags = dijkstra.get_settled_flags();
+  vector<uint> settledNodes;
+  settledNodes.reserve(dijkstra.get_num_settled_nodes());
+  for (auto it = settledFlags.begin(); it != settledFlags.end(); ++it) {
+    if (*it) {
+      settledNodes.push_back(it - settledFlags.begin());
+    }
+  }
 
   const size_t fepsize = _forestEntries.size();
   vector<int> settledForestEntries;

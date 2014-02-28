@@ -36,7 +36,7 @@ class GraphSimplificator {
  private:
   // Contracts a node, if possible. That depends on an internal check. Returns
   // true if it contracted the node.
-  bool contract_node(size_t node, const vector<bool>& contractedFlags);
+  bool try_to_contract_node(size_t node, const vector<bool>& contractedFlags);
 
   // Initializes the mapping from arc id to represented fids.
   void initialize_mapping();
@@ -56,7 +56,7 @@ class GraphSimplificator {
   // Count the number of arcs.
   size_t _arcCount;
 
-  FRIEND_TEST(GraphSimplificatorTest, contract_node);
+  FRIEND_TEST(GraphSimplificatorTest, try_to_contract_node);
 };
 
 
