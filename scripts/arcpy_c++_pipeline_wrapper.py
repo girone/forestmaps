@@ -316,6 +316,7 @@ def call_subprocess(prog, args):
     timer.stop_timing()
     msg("=====================")
     if returnCode != 0:
+        assert False and "Error: Subprocess did not succeed."
         exit(1)
     return output
 
