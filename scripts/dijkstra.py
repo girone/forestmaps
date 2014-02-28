@@ -11,13 +11,19 @@ from Queue import PriorityQueue
 class Dijkstra:
   def __init__(self, graph):
     self.graph = graph
+    self.inf = sys.maxint
     self.cost_limit = None
+    self.forbidden_edges = None
 
   def set_cost_limit(self, cost):
     ''' Sets an optional cost limit. Algorithm will stop when current pq-elem
         has higher costs.
     '''
     self.cost_limit = cost
+
+  def set_forbidden_edges(self, edges):
+    ''' Sets an optional set of edges which must not be used by the search. '''
+    self.forbidden_edges = edges
 
   def run(self, start_node):
     ''' Runs Dijkstra's algorithm from @start_node. '''
@@ -29,19 +35,21 @@ class Dijkstra:
     self.pq.put((0, start_node))
     num_nodes = self.graph.size()
     self.settled = [False] * num_nodes
-    self.tentative_costs = [sys.maxint] * num_nodes
+    self.tentative_costs = [self.inf] * num_nodes
     self.tentative_costs[start_node] = 0
-    self.final_costs = [sys.maxint] * num_nodes
+    self.final_costs = [self.inf] * num_nodes
     while not self.pq.empty():
       cost, node = self.pq.get()
-      if self.cost_limit and self.cost_limit < cost:
+      if self.cost_limit and cost > self.cost_limit:
         break
       if not self.settled[node]:
         for to, edge in self.graph.edges[node].items():
-          relax_arc(to, cost + edge.cost)
+          if not self.forbidden_edges or (node, to) not in self.forbidden_edges:
+            relax_arc(to, cost + edge.cost)
         self.settled[node] = True
         self.final_costs[node] = cost
     return self.final_costs
+
 
 import unittest 
 class TestDijkstra(unittest.TestCase):
@@ -61,7 +69,7 @@ class TestDijkstra(unittest.TestCase):
     d2 = Dijkstra(g)
     d2.set_cost_limit(4)
     sp = d2.run(A)
-    print sp == [0, 4, 2, 3, sys.maxint]
+    print sp == [0, 4, 2, 3, self.inf]
 
 
 def main():
