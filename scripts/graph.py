@@ -48,6 +48,7 @@ class Graph(object):
   def remove_partition(self, node_ids):
     ''' Removes nodes in @node_ids and incident arcs from the graph. '''
     node_ids = set(node_ids)
+    self.nodes -= node_ids
     for id in node_ids:
       self.edges.pop(id, None)
     for key, edges in self.edges.items():
