@@ -82,12 +82,28 @@ void EdgeAttractivenessModel::distribute(
 
 // _____________________________________________________________________________
 FloodingModel::FloodingModel(
-    const RoadGraph& g,
+    const ForestRoadGraph& g,
     const vector<int>& feps,
     const vector<float>& popularities,
     const vector<vector<float>>& preferences,
     const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
+}
+
+// _____________________________________________________________________________
+vector<int> FloodingModel::compute_node_from_arc_weights(
+    const ForestRoadGraph& graph) const {
+  vector<int> weights(graph.num_nodes(), 0);
+  for (const auto& arc: graph.arclist()) {
+    uint s = arc.source;
+    uint t = arc.target;
+    int w = arc.cost[1];
+    assert(s < weights.size());
+    assert(t < weights.size());
+    weights[s] = std::max(weights[s], w);
+    weights[t] = std::max(weights[t], w);
+  }
+  return weights;
 }
 
 // _____________________________________________________________________________
@@ -97,9 +113,11 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
   size_t done = 0;
   clock_t timestamp = clock();
 
+  vector<int> nodeWeights = compute_node_from_arc_weights(_graph);
+
   // Collect contribution of forest entries to node attractivenesses.
   MapMap contribution;
-  Dijkstra<RoadGraph> dijkstra(_graph);
+  Dijkstra<ForestRoadGraph> dijkstra(_graph);
   dijkstra.set_cost_limit(_maxCost / 2);  // half way forth and back
   for (const uint fep: _forestEntries) {
     dijkstra.reset();
@@ -108,7 +126,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
     const vector<uint>& settledNodes = dijkstra.get_settled_node_indices();
     for (const uint node: settledNodes) {
       int cost = costs[node];
-      assert(cost != Dijkstra<RoadGraph>::infinity);
+      assert(cost != Dijkstra<ForestRoadGraph>::infinity);
       if (cost < 1) { cost = 1; }
       // Map cost * 2 with the preferences, adjust popularity share accordingly.
       float share = sum_of_user_shares_after(2.f * cost);
@@ -119,7 +137,8 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       // NOTE(Jonas): The following assertion does not hold as there may be
       // duplicate forest entries.
       // assert(contribution[fep][node] == 0 && "Duplicate fep/node?");
-      contribution[fep][node] = gain;
+      int w = nodeWeights[node];
+      contribution[fep][node] = w * gain;
     }
 
     // Progress
@@ -137,7 +156,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
   distribute(_popularities, contribution, &nodeAttractiveness);
 
   // Convert to arc attractivenesses: Each arc gets the attractiveness of its target.
-  const vector<RoadGraph::Arc_t>& arcs = _graph.arclist();
+  const vector<ForestRoadGraph::Arc_t>& arcs = _graph.arclist();
   for (size_t i = 0; i < arcs.size(); ++i) {
     _aggregatedEdgeAttractivenesses[i] = nodeAttractiveness[arcs[i].target];
   }
@@ -146,14 +165,14 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
 
 // _____________________________________________________________________________
 ViaEdgeApproach::ViaEdgeApproach(
-    const RoadGraph& g,
+    const ForestRoadGraph& g,
     const vector<int>& feps,
     const vector<float>& popularities,
     const vector<vector<float>>& preferences,
     const int maxCost)
   : EdgeAttractivenessModel(g, feps, popularities, preferences, maxCost) {
   // Compute pairwise distances between forest entries.
-  Dijkstra<RoadGraph> dijkstra(g);
+  Dijkstra<ForestRoadGraph> dijkstra(g);
   dijkstra.set_cost_limit(maxCost);
   for (int fep1: feps) {
     dijkstra.reset();
@@ -167,7 +186,7 @@ ViaEdgeApproach::ViaEdgeApproach(
 
 // _____________________________________________________________________________
 vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
-  Dijkstra<RoadGraph> fwd(_graph), bwd(_graph);
+  Dijkstra<ForestRoadGraph> fwd(_graph), bwd(_graph);
   // During the search from s and t, ignore the respective other node.
   vector<bool> nodesToIgnoreBwd(_graph.num_nodes(), false);
   vector<bool> nodesToIgnoreFwd(_graph.num_nodes(), false);
@@ -176,7 +195,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
 
   // Iterate over all forest edges s --> t.
   // For each edge, do a forward Dijkstra from t and a backward Dijkstra from s.
-  const vector<RoadGraph::Arc_t>& arcs = _graph.arclist();
+  const vector<ForestRoadGraph::Arc_t>& arcs = _graph.arclist();
   MapMap contributions;
   // Prepare progress information
   size_t total = arcs.size();
@@ -184,18 +203,19 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   clock_t timestamp = clock();
   for (size_t arcIndex = 0; arcIndex < arcs.size(); ++arcIndex) {
     // Set up
-    const RoadGraph::Arc_t& arc = arcs[arcIndex];
+    const ForestRoadGraph::Arc_t& arc = arcs[arcIndex];
     int s = arc.source;
     int t = arc.target;
-    int c = arc.cost;
+    int c = arc.cost[0];
+    int w = arc.cost[1];
     bwd.set_cost_limit(_maxCost - c);
     fwd.set_cost_limit(_maxCost - c);
     nodesToIgnoreBwd[t] = true;
     nodesToIgnoreFwd[s] = true;
 
-    bwd.run(s, Dijkstra<RoadGraph>::no_target);
-    fwd.run(t, Dijkstra<RoadGraph>::no_target);
-    evaluate(arcIndex, c,
+    bwd.run(s, Dijkstra<ForestRoadGraph>::no_target);
+    fwd.run(t, Dijkstra<ForestRoadGraph>::no_target);
+    evaluate(arcIndex, c, w,
              bwd.get_costs(), bwd.get_settled_flags(),
              fwd.get_costs(), fwd.get_settled_flags(),
              &contributions);
@@ -226,6 +246,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
 void ViaEdgeApproach::evaluate(
     const int edgeIndex,
     const int c,
+    const int w,
     const vector<int>& costsS,
     const vector<bool>& settledS,
     const vector<int>& costsT,
@@ -248,7 +269,7 @@ void ViaEdgeApproach::evaluate(
         const float distance = _distances[fep1][fep2];
         gain = share * distance / (routeCostViaThisEdge + 1.f);
       }
-      (*contributions)[fep1][edgeIndex] += gain;
+      (*contributions)[fep1][edgeIndex] += w * gain;
     }
   }
 }

@@ -19,7 +19,7 @@ class EdgeAttractivenessModel {
  public:
   typedef unordered_map<int, unordered_map<int, float> > MapMap;
   // C'tor.
-  EdgeAttractivenessModel(const RoadGraph& g,
+  EdgeAttractivenessModel(const ForestRoadGraph& g,
                           const vector<int>& feps,
                           const vector<float>& popularities,
                           const vector<vector<float>>& preferences,
@@ -49,7 +49,7 @@ class EdgeAttractivenessModel {
   void distribute(const Map& pop, const MapMap& cont, vector<float>* att) const;
 
  protected:
-  const RoadGraph& _graph;
+  const ForestRoadGraph& _graph;
   const vector<int>& _forestEntries;
   const vector<vector<float>>& _preferences;  // User preferences for time in forest (tif)
   Map _popularities;
@@ -67,13 +67,16 @@ class EdgeAttractivenessModel {
 // Computes the edge attractiveness using the via-edge approach.
 class FloodingModel : public EdgeAttractivenessModel {
  public:
-  FloodingModel(const RoadGraph& g,
+  FloodingModel(const ForestRoadGraph& g,
                 const vector<int>& feps,
                 const vector<float>& popularities,
                 const vector<vector<float>>& preferences,
                 const int maxCost);
   // Computes the model.
   virtual vector<float> compute_edge_attractiveness();
+ private:
+  // Distributes the edge weights to the adjacent nodes. Selects the maximum.
+  vector<int> compute_node_from_arc_weights(const ForestRoadGraph& graph) const;
 };
 
 
@@ -81,7 +84,7 @@ class FloodingModel : public EdgeAttractivenessModel {
 class ViaEdgeApproach : public EdgeAttractivenessModel {
  public:
   // C'tor.
-  ViaEdgeApproach(const RoadGraph& g,
+  ViaEdgeApproach(const ForestRoadGraph& g,
                   const vector<int>& feps,
                   const vector<float>& popularities,
                   const vector<vector<float>>& preferences,
@@ -94,6 +97,7 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
   void evaluate(
       const int edgeIndex,
       const int c,
+      const int w,
       const vector<int>& costsS,
       const vector<bool>& settledS,
       const vector<int>& costsT,

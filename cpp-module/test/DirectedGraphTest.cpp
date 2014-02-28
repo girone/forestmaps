@@ -168,3 +168,58 @@ TEST(DirectedGraphTest, from_stream) {
               graph.to_string());
   }
 }
+
+// _____________________________________________________________________________
+TEST(DirectedGraphTest, forest_graph_from_file) {
+  const string filename = "test.forest_graph_from_file.tmp.txt";
+  {
+    std::ofstream ofs(filename);
+    using std::endl;
+    ofs << "3" << endl
+        << "5" << endl
+        << "4.5 4.2" << endl
+        << "5.5 5.2" << endl
+        << "6.5 6.2" << endl
+        << "0 1 10.1 1" << endl
+        << "1 0 5.5 5" << endl
+        << "1 2 4.2 0" << endl
+        << "2 1 4.2 10" << endl
+        << "0 2 4.2 45" << endl;
+  }
+
+  {
+    ForestRoadGraph fg;
+    fg.read_in(filename);
+    EXPECT_EQ(
+     "[3,5,{(0,1,[10,1])(0,2,[4,45])},{(1,0,[5,5])(1,2,[4,0])},{(2,1,[4,10])}]",
+     fg.to_string()
+    );
+  }
+}
+
+// _____________________________________________________________________________
+TEST(NodesAndEdgesTest, from_stream) {
+  {
+    SourceTargetTwoCostsArc arc;
+    arc.source = 24;
+    arc.target = 42;
+    arc.cost = {0, 12};
+    EXPECT_EQ("(24,42,[0,12])", arc.to_string());
+  }
+
+  {
+    std::stringstream s;
+    s << "0 1 53 10";
+    SourceTargetTwoCostsArc arc;
+    arc.from_stream(s);
+    EXPECT_EQ("(0,1,[53,10])", arc.to_string());
+  }
+
+  {
+    std::stringstream s;
+    s << "0 1 53.3 10";
+    SourceTargetTwoCostsArc arc;
+    arc.from_stream(s);
+    EXPECT_EQ("(0,1,[53,10])", arc.to_string());
+  }
+}

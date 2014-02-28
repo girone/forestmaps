@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
     exit(1);
   }
   // Read the data
-  RoadGraph forestGraph;
+  ForestRoadGraph forestGraph;
   forestGraph.read_in(argv[1]);
   vector<int> forestEntries = util::read_column_file<int>(argv[2])[3];
   vector<float> entryPopulation = util::read_column_file<float>(argv[3])[0];

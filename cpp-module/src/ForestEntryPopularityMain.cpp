@@ -30,6 +30,12 @@ const float kUserShareCar = 1.f - (kUserShareWalking + kUserShareBicycle);
 const float kWalkingToBikeSpeedFactor = 4.f;
 
 // _____________________________________________________________________________
+// Returns true if the differnce is more than 1% of a.
+bool differ(const double a, const double b, double deviation = 0.01) {
+  return fabs(a - b) > fabs(deviation * a);
+}
+
+// _____________________________________________________________________________
 // Returns the bucket index for a cost.
 uint determine_bucket_index(int cost, const vector<int>& bucketCostBounds) {
   uint b = 0;
@@ -110,6 +116,9 @@ pair<vector<double>, int> reachability_analysis(
       }
     }
 
+    // TODO(Jonas): Make the timing independent of CLOCKS_PER_SEC ... that does
+    // not correspond to Windows timings and is rather usweless there. Maybe
+    // the solution of IR lecture works for Win.
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
@@ -225,15 +234,16 @@ pair<vector<double>, int> reachability_analysis(
 
   // Some post-checks of the calculations. Do the number match roughly?
   float totalPopulation = accumulate(populations.begin(), populations.end(), 0.f);
-  if ((1.f - kUserShareWalking - kUserShareBicycle) *  totalPopulation != totalPopulation - (mapped + unmapped)) {
+  if (differ(totalPopulation * (1.f - kUserShareWalking - kUserShareBicycle),
+             totalPopulation - (mapped + unmapped))) {
     std::cout << "Remaining unmapped populations differ from quota: "
               << (1.f - kUserShareWalking - kUserShareBicycle) * totalPopulation
               << " vs. "
               << totalPopulation - (mapped + unmapped) << std::endl;
     //assert(false && "See stdout above.");
   }
-  if ((kUserShareWalking + kUserShareBicycle) * totalPopulation
-      != mapped + unmapped) {
+  if (differ(totalPopulation * (kUserShareWalking + kUserShareBicycle),
+             mapped + unmapped)) {
     std::cout << "Mapped walking and biking populations differ from quota: "
               << (kUserShareWalking + kUserShareBicycle) * totalPopulation
               << " vs. "
@@ -276,6 +286,7 @@ void distribute_car_population_via_parking(
   double populationBeforeParking = accumulate(entryPointPopulation->begin(), entryPointPopulation->end(), 0.f);
   // The population is distributed equally over all parking spaces.
   size_t numParkingLots = parkingCoords[0].size();
+  assert(numParkingLots > 0);
   float populationPerParking = static_cast<float>(population) / numParkingLots;
 
   Tree2D kdtree = build_kdtree(forestEntryXY);
@@ -291,20 +302,22 @@ void distribute_car_population_via_parking(
       nearest5.push_back(*found.first);
     }
     vector<float> distances;
-    float sum = 0;
+    float sum = 0.f;
     for (const TreeNode& node: nearest5) {
       float distance = euclid(ref[0], ref[1], node[0], node[1]);
       distances.push_back(distance);
       sum += distance;
     }
+    sum += nearest5.size();  // avoids zero division
     vector<float> shares;
-    float gainSum = 0.f;
+    float shareSum = 0.f;
     for (size_t j = 0; j < nearest5.size(); ++j) {
-      float gain = (sum - distances[j]) / sum;
-      shares.push_back(gain);
-      gainSum += gain;
+      float share = (sum - distances[j]) / sum;
+      shares.push_back(share);
+      shareSum += share;
     }
-    float normalizer = 1. / gainSum;
+
+    float normalizer = 1. / shareSum;
     for (size_t j = 0; j < nearest5.size(); ++j) {
       int fepIndex = nearest5[j].refNodeIndex;
       float gain = shares[j] * normalizer * populationPerParking;
@@ -313,12 +326,13 @@ void distribute_car_population_via_parking(
     }
   }
 
-  const int mappedParkingPopulation = std::accumulate(
+  double mappedParkingPopulation = std::accumulate(
       entryPointPopulation->begin(), entryPointPopulation->end(), 0.f);
-  if (population != mappedParkingPopulation - populationBeforeParking) {
+  if (differ(population, mappedParkingPopulation - populationBeforeParking)) {
     std::cout << "Input population for parking differs from mapped population: "
               << population << " vs. "
               << mappedParkingPopulation - populationBeforeParking << std::endl;
+    std::cout << " = " << mappedParkingPopulation << " - " << populationBeforeParking  << std::endl;
   }
 }
 

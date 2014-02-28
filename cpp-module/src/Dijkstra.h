@@ -276,7 +276,7 @@ int Dijkstra<G>::shortestPath(const vector<uint>& S, uint t) {
       if (_ignore && _ignore->at(yIndex)) { continue; }
       if (!_settled[yIndex]) {
         // Compute the tentative distance.
-        int g = _costs[xIndex] + arc.cost;
+        int g = _costs[xIndex] + arc.get_cost();
         int h = 0;
         int f = g + h;
         if (_costs[yIndex] > g) {

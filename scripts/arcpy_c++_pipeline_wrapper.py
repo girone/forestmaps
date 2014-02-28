@@ -236,7 +236,7 @@ def call_subprocess(prog, args):
     return output
 
 
-def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
+def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
     """Adds a column to the dataset in shp and inserts the values.
 
     Needs graph file as input to map from arcs to FIDs.
@@ -251,7 +251,7 @@ def add_column(shp, columnName, forestGraphFile, arcToFID, edgeWeightFile):
                 break
         for line in f:
             components = line.strip().split(" ")
-            assert len(components) == 3
+            assert len(components) >= 2
             edges.append((int(components[0]), int(components[1])))
     msg(str(numArcs) + " " + str(len(edges)))
     assert numArcs == len(edges)
@@ -356,6 +356,18 @@ def create_raster(env, columnName, rasterPixelSize=20):
     arcpy.mapping.AddLayer(dataframe, layer, "TOP")
 
 
+def add_column(inputData, fieldname, outputShp):
+    """Add a new column with values from a list."""
+    assert len(inputData) == arcpy.management.GetCount(outputShp).getOutput(0)
+    index = 0
+    arpcpy.management.AddField(outputShp, fieldname, "FLOAT")
+    with arcpy.da.UpdateCursor(outputShp, [fieldname]) as cursor:
+        for entry in cursor:
+            entry[0] = data[index]
+            cursor.UpdateRow(entry)
+            index += 1
+
+
 def main():
     """Prepares data from the ArcGIS/ArcPy side.
 
@@ -369,19 +381,30 @@ def main():
     forestArcToFID = parse_and_dump(env)
     msg("scriptDir = " + scriptDir)
     s = scriptDir
+
     call_subprocess(scriptDir + "MatchForestEntriesMain.exe",
             roadGraphFile + " " + forestGraphFile + " " + entryXYFile + " " +
             entryXYRFFile)
+
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
             roadGraphFile + " " + entryXYRFFile + " " +
             populationFile + " " + ttfFile + " " + parkingLotsFile + " "+ 
             entryPopularityFile)
+    # debug
+    with open(entryPopularityFile) as f:
+        entrypointPopulation = []
+        for line in f:
+            s = line.strip()
+            msg(s)
+            entrypointPopulation.append(float(s))
+        add_column(entrypointPopulation, "Population", env.paramShpEntrypoints)
+
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryXYRFFile + " " +
             entryPopularityFile + " " + tifFile +
             " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
 
-    add_column(env.paramShpForestRoads, columnName, forestGraphFile,
+    add_edgeweight_column(env.paramShpForestRoads, columnName, forestGraphFile,
             forestArcToFID, edgeWeightFile)
 
     if env.paramValRasterize:

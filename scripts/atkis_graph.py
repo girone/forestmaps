@@ -184,7 +184,7 @@ def create_from_feature_class(fc, max_speed=5):
             if len(field_names) == 3:
                 index, coordinates, way_type = row
             elif weightKeyword:
-                index, coordinates, weight = row
+                index, coordinates, way_type, weight = row
             else:  # len(field_names) == 2
                 index, coordinates = row
 

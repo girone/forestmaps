@@ -50,3 +50,12 @@ void OffsetListGraph<SourceTargetCostArc>::from_string(string s) {
   _offset = compute_offsets(_arcList, numNodes);
   assert(static_cast<size_t>(numNodes) == this->num_nodes());
 }
+
+// _____________________________________________________________________________
+template<>
+void OffsetListGraph<SourceTargetMultipleCostArc<N2>>::from_string(string s) {
+  OffsetListGraph<SourceTargetCostArc> in;
+  in.from_string(s);
+  _arcList.assign(in.arclist().begin(), in.arclist().end());
+  _offset = in.offset();
+}

@@ -17,12 +17,14 @@ const vector<vector<float> > preferences = {{150, 300},
 //   A -- B -- C -- D
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
-  RoadGraph graph;
+  ForestRoadGraph graph;
   graph.from_string(
       "[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]"
   );
-  EXPECT_EQ("[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]",
-            graph.to_string());
+  EXPECT_EQ(
+      "[4,6,{(0,1,[7,1])},{(1,0,[7,1])(1,2,[7,1])},{(2,1,[7,1])(2,3,[7,1])},{(3,2,[7,1])}]",
+      graph.to_string()
+  );
 
   {
     // No entry points.
@@ -71,7 +73,7 @@ TEST(EdgeAttractivenessModelTest, FloodingApproachTrivial) {
 //  C ––– D
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, FloodingApproach) {
-  RoadGraph graph;
+  ForestRoadGraph graph;
   graph.from_string(
       "[4,10,{(1,6)(2,9)(3,7)},{(0,6)(3,6)},{(0,9)(3,9)},{(0,7)(1,6)(2,9)}]"
   );
@@ -88,7 +90,7 @@ TEST(EdgeAttractivenessModelTest, FloodingApproach) {
     const auto& arcs = graph.arclist();
     std::stringstream ss;
     for (size_t i = 0; i < arcs.size(); ++i) {
-      const RoadGraph::Arc_t& arc = arcs[i];
+      const ForestRoadGraph::Arc_t& arc = arcs[i];
       ss << arc.source << " " << arc.target << " " << result[i]
                 << std::endl;
     }
@@ -110,12 +112,14 @@ TEST(EdgeAttractivenessModelTest, FloodingApproach) {
 //   A -- B -- C -- D
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
-  RoadGraph graph;
+  ForestRoadGraph graph;
   graph.from_string(
       "[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]"
   );
-  EXPECT_EQ("[4,6,{(1,7)},{(0,7)(2,7)},{(1,7)(3,7)},{(2,7)}]",
-            graph.to_string());
+  EXPECT_EQ(
+      "[4,6,{(0,1,[7,1])},{(1,0,[7,1])(1,2,[7,1])},{(2,1,[7,1])(2,3,[7,1])},{(3,2,[7,1])}]",
+      graph.to_string()
+  );
 
   {
     // No entry points.
@@ -164,7 +168,7 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproachTrivial) {
 //  C ––– D
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
-  RoadGraph graph;
+  ForestRoadGraph graph;
   graph.from_string(
       "[4,10,{(1,6)(2,9)(3,7)},{(0,6)(3,6)},{(0,9)(3,9)},{(0,7)(1,6)(2,9)}]"
   );
@@ -181,7 +185,7 @@ TEST(EdgeAttractivenessModelTest, ViaEdgeApproach) {
     const auto& arcs = graph.arclist();
     std::stringstream ss;
     for (size_t i = 0; i < arcs.size(); ++i) {
-      const RoadGraph::Arc_t& arc = arcs[i];
+      const ForestRoadGraph::Arc_t& arc = arcs[i];
       ss << arc.source << " " << arc.target << " " << result[i]
                 << std::endl;
     }
@@ -206,7 +210,7 @@ TEST(EdgeAttractivenessModelTest, user_shares_functions) {
   vector<vector<float> > preferences =
       {{ 15,   30,  60,  120},
        {0.5, 0.25, 0.2, 0.05}};
-  RoadGraph g;
+  ForestRoadGraph g;
   const vector<int> feps = {};
   const vector<float> popularities = {};
   FloodingModel model(g, feps, popularities, preferences, 0);
@@ -257,7 +261,7 @@ TEST(EdgeAttractivenessModelTest, normalize_contributions) {
 
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, distribute_contribution) {
-  RoadGraph g;
+  ForestRoadGraph g;
   g.from_string("[5,4,"                  // NOTE(Jonas): This is a dummy graph
                 "{(1,0)},"               // with unidirectional arcs only.
                 "{(2,0)},"

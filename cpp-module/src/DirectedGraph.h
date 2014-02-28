@@ -36,6 +36,8 @@ class OffsetListGraph {
   const _AccessMediator<A> arcs(const size_t node) const;
   // Returns the arc list.
   const std::vector<A>& arclist() const { return _arcList; }
+  // Returns the offset list.
+  const std::vector<size_t>& offset() const { return _offset; }
 
   // The size of the graph is the number of nodes.
   size_t size() const { return num_nodes(); }
@@ -48,7 +50,8 @@ class OffsetListGraph {
   const std::string to_string() const;
 
   // Builds the graph from a string of the style "[3,2,{(1,3)(2,5)},{},{}]".
-  void from_string(string s);  // NOTE: Only for A = SimpleCostArc
+  // NOTE: Defined for A = {SourceTargetCostArc, SourceTargetMultiCostArc} only.
+  void from_string(string s);
 
  protected:
   std::vector<A> _arcList;  // size = #arcs.
@@ -93,6 +96,7 @@ class Graph : public OffsetListGraph<A> {
 
 typedef Graph<GeoPosition, SourceTargetCostArc> RoadGraph;
 
+typedef Graph<GeoPosition, SourceTargetTwoCostsArc> ForestRoadGraph;
 
 // Computes the offset vector for a sorted list of arcs with source node ids.
 template<class A>
