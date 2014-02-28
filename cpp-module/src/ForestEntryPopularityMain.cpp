@@ -353,7 +353,8 @@ void print_usage() {
 
 // _____________________________________________________________________________
 int main(int argc, char** argv) {
-  if (argc != 7 || argc != 10) {
+  if (argc != 7 && argc != 10) {
+    printf("%d\n", argc);
     print_usage();
     exit(0);
   }

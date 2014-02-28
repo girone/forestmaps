@@ -29,8 +29,8 @@ ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
 
 columnName = "EdgeWeight"
-kWALKING_SPEED = 5.  # TODO(Jonas): Set this to 4 km/h. Is 5 for comparison of
-                     # outcome with older values
+kWALKING_SPEED = 4.  
+                     
 
 def set_paths(argv, env):
     """  """
@@ -118,11 +118,6 @@ def dump_graph_feature_class(dataset, outfile, max_speed):
     total = int(arcpy.management.GetCount(dataset).getOutput(0))
     count = 0
     p = Progress("Dumping graph from FeatureClass.", total, 100)
-    # TODO(Jonas): Parsing and dumping could be even faster if we'd save
-    # uneccessary output. So let the script compute the concatenation of
-    # the arcs and the distances (or use the predefined 'shape_len' field) and
-    # dump only the simplified arcs. --> saves Output time and input to the C++
-    # script becomes even faster.
     previousIndex = None
     with arcpy.da.SearchCursor(dataset, fields, explode_to_points=True) as rows:
         with open(outfile, "w") as f:
@@ -225,6 +220,7 @@ def read_and_dump_parking(parkingShp):
 def parse_and_dump(env):
     """Parses data from shapefiles, dumps it as plain text.
 
+    Reads the feature class data and dumps the important information of it.
     Returns the mapping from forest graph arcs to shapefile FIDs.
     """
     t = Timer()
@@ -374,6 +370,7 @@ def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID,
          "type has been ignored.").format(
          count, arcpy.management.GetCount(shp).getOutput(0)))
 
+
 class AlgorithmEnvironment(object):
     def __init__(self):
         """Reads the parameters from ArcGIS."""
@@ -386,7 +383,9 @@ class AlgorithmEnvironment(object):
         self.paramTxtTimeToForest = arcpy.GetParameterAsText(5)
         self.paramTxtTimeInForest = arcpy.GetParameterAsText(6)
         self.paramValAlgorithm = arcpy.GetParameterAsText(7)
-        self.paramValRasterize = arcpy.GetParameterAsText(8)
+        self.paramPopulationShares = [
+                float(arcpy.GetParameterAsText(i).replace(",", ".")) 
+                for i in [8, 9, 10]]
 
         """The path for temporaries and output."""
         self.path = os.path.split(self.paramShpRoads)[0] + "\\"
@@ -399,61 +398,13 @@ class AlgorithmEnvironment(object):
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
-                self.paramValRasterize):
+                self.paramPopulationShares):
             msg("Error with input.")
             exit(1)
 
         self.paramValAlgorithm = int(self.paramValAlgorithm)
-        self.paramValRasterize = self.paramValRasterize == "true"
-
-
-def create_raster(env, columnName, rasterPixelSize=20):
-    if not arcpy.GetParameterAsText(0) or env.path.endswith(".gdb\\"):
-        # Reason: We are not working in ArcMap, or raster file handling in 
-        # geodatabases is one hack of inconvenience...
-        msg("NOTE: I am not creating any raster from the data. Please do that"+
-            " yourself.")
-        return
-    t = Timer()
-    t.start_timing("Rasterizing the forest roads...")
-    blub = str(random.randint(0,999))
-    raster = env.path + "out_raster_" + blub + ".tif"
-    # NOTE(Jonas): If the code below raises any error, you should close ArcMap,
-    # delete any file named "raster_*.*" and restart the application.
-    if os.path.exists(raster):
-        arcpy.management.Delete(raster)
-    msg(raster)
-    arcpy.conversion.PolylineToRaster(
-            env.paramShpForestRoads,
-            columnName,
-            raster,
-            cellsize=rasterPixelSize)
-    t.stop_timing()
-    layerFile = env.path + "raster_" + blub + ".lyr"
-    layer = arcpy.management.MakeRasterLayer(raster, "raster_layer" + blub)
-    try:
-        arcpy.management.SaveToLayerFile(layer, layerFile)
-    except:
-        raise
-    msg(layerFile)
-    layer = arcpy.mapping.Layer(layerFile)
-    # layer.transparency = 40
-    mxd = arcpy.mapping.MapDocument("CURRENT")
-    dataframe = arcpy.mapping.ListDataFrames(mxd, "*")[0]
-    arcpy.mapping.AddLayer(dataframe, layer, "TOP")
-
-
-def add_column(data, fieldname, outputShp):
-    """Add a new column with values from a list. Returns the last index."""
-    assert len(data) >= int(arcpy.management.GetCount(outputShp).getOutput(0))
-    index = 0
-    arcpy.management.AddField(outputShp, fieldname, "FLOAT")
-    with arcpy.da.UpdateCursor(outputShp, [fieldname]) as cursor:
-        for entry in cursor:
-            entry[0] = data[index]
-            cursor.updateRow(entry)
-            index += 1
-    return index
+        assert (sum(self.paramPopulationShares) > 0 and
+                sum(self.paramPopulationShares) <= 1)
 
 
 def main():
@@ -477,17 +428,8 @@ def main():
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
             roadGraphFile + " " + entryAndParkingXYRFFile + " " +
             populationFile + " " + ttfFile + " " + parkingLotsFile + " " + 
+            " ".join(str(e) for e in env.paramPopulationShares) + " " +
             entryPopularityFile)
-    # debug
-    #with open(entryPopularityFile) as f:
-    #    entrypointPopulation = []
-    #    for line in f:
-    #        s = line.strip()
-    #        entrypointPopulation.append(float(s))
-    #    offset = add_column(entrypointPopulation, "populati",
-    #                        env.paramShpEntrypoints)
-    #    offset = add_column(entrypointPopulation[offset:], "populati",
-    #                        env.paramShpParking)
 
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryAndParkingXYRFFile + " " +
@@ -497,9 +439,6 @@ def main():
     add_edgeweight_column(env.paramShpForestRoads, columnName, forestGraphFile,
             forestArcToFID, edgeWeightFile)
 
-    if env.paramValRasterize:
-        create_raster(env, columnName)
-
     msg("Finished!")
     return 0
 
@@ -507,5 +446,4 @@ def main():
 if __name__ == '__main__':
     main()
 
-# TODO(Jonas): cleanup this file
 
