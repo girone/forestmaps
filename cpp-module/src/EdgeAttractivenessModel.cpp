@@ -7,8 +7,10 @@
 #include "./Dijkstra.h"
 #include "./Util.h"
 
+using std::accumulate;
 using std::lower_bound;
 using std::upper_bound;
+using std::cout;
 using std::endl;
 
 
@@ -153,6 +155,12 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
              done, total, done * 100.f / total);
     }
   }
+  // ^^ TODO(Jonas): put to separate method
+
+  normalize_contributions(&_fepContribution);
+
+  distribute(_popularities, _fepContribution);
+
   return result();
 }
 
@@ -172,23 +180,55 @@ void ViaEdgeApproach::evaluate(
     for (int fep2: _forestEntries) {
       if (!settledT[fep2]) { continue; }
       const int costsFep2 = costsT[fep2];
-      const int totalCost = costsFep1 + c + costsFep2;
-      if (totalCost > _maxCost) { continue; }
+      const int routeCostViaThisEdge = costsFep1 + c + costsFep2;
+      if (routeCostViaThisEdge > _maxCost) { continue; }
       float gain = 0;
-      const float share = sum_of_user_shares_after(totalCost);
+      const float share = sum_of_user_shares_after(routeCostViaThisEdge);
       if (fep1 == fep2) {
-        gain = share * _popularities[fep1] / (costsFep2 + 1);
+        gain = share * 1.f / (costsFep2 + 1);
       } else {
-        const float popularity = std::min(_popularities[fep1], _popularities[fep2]);
         const float distance = _distances[fep1][fep2];
-        if (totalCost > 0) {
-          gain = distance / totalCost * (share * popularity);
-        } else {
-          gain = 1                    * (share * popularity);
-        }
+        gain = share * distance / (routeCostViaThisEdge + 1);
       }
-      _aggregatedEdgeAttractivenesses[edgeIndex] += gain;
+      _fepContribution[fep1][edgeIndex] = gain;
     }
   }
 }
 
+typedef std::pair<int, float> ElementType;
+struct LessSecond {
+  bool operator()(const ElementType& lhs, const ElementType& rhs) const {
+    return lhs.second < rhs.second;
+  }
+} cmp;
+
+// _____________________________________________________________________________
+void ViaEdgeApproach::normalize_contributions(MapMap* contributions) {
+  for (auto it = contributions->begin(); it != contributions->end(); ++it) {
+    // Normalize by the max.
+    Map* cc = &(it->second);
+    float max = std::max_element(cc->begin(), cc->end(), cmp)->second;
+    assert(max != 0. && "Avoid zero-division.");
+    float normalizer = 1. / max;
+    for (auto itit = cc->begin(); itit != cc->end(); ++itit) {
+      itit->second *= normalizer;
+    }
+  }
+}
+
+// _____________________________________________________________________________
+void ViaEdgeApproach::distribute(const Map& popu, const MapMap& contr) {
+  for (auto it = popu.begin(); it != popu.end(); ++it) {
+    const int entryPoint = it->first;
+    const float population = it->second;
+    auto fit = contr.find(entryPoint);
+    // Use an empty map if the entry point does not contribute to any edge.
+    const Map& shares = (fit == contr.end()) ? Map() : fit->second;
+    for (auto it2 = shares.begin(); it2 != shares.end(); ++it2) {
+      const int edgeIndex = it2->first;
+      const float share = it2->second;
+      assert(edgeIndex < _aggregatedEdgeAttractivenesses.size());
+      _aggregatedEdgeAttractivenesses[edgeIndex] += share * population;
+    }
+  }
+}

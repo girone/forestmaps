@@ -1,9 +1,11 @@
-// Copyright 2013: Jonas Sternisko
+// Copyright 2013-14: Jonas Sternisko
 
 #include <gmock/gmock.h>
+#include <unordered_map>
 #include "../src/EdgeAttractivenessModel.h"
 #include "../src/Util.h"
 
+using std::unordered_map;
 using ::testing::Each;
 using ::testing::Gt;
 
@@ -228,68 +230,68 @@ TEST(EdgeAttractivenessModelTest, user_shares_functions) {
   ASSERT_DEATH(model.sum_of_user_shares_after(121), ".*");
 }
 
-using std::endl;
-
 // _____________________________________________________________________________
-TEST(EdgeAttractivenessModelTest, check_preferences) {
-  std::string filename = "test-input.0.tmp.txt";
-  std::ofstream ofs(filename);
-  ofs << "15 0.5" << endl
-      << "30 0.25" << endl
-      << "60 0.2" << endl
-      << "120 0.05" << endl;
-  ofs.close();
-  vector<vector<float> > preferences = util::read_column_file<float>(filename);
-  ASSERT_EQ(2, preferences.size());
+TEST(EdgeAttractivenessModelTest, normalize_contributions) {
+  ViaEdgeApproach::MapMap map;
+  map[0][0] = 1;
+  map[0][1] = 2;
+  map[0][2] = 5;
+  map[0][3] = 0;
 
-  EXPECT_TRUE(EdgeAttractivenessModel::check_preferences(preferences));
+  map[1][0] = 0.10;
+  map[1][2] = 0.5;
+  map[1][6] = 0.5;
+  map[1][8] = 0.5;
+
+  ViaEdgeApproach::normalize_contributions(&map);
+
+  EXPECT_FLOAT_EQ(0.2, map[0][0]);
+  EXPECT_FLOAT_EQ(0.4, map[0][1]);
+  EXPECT_FLOAT_EQ(1.0, map[0][2]);
+  EXPECT_FLOAT_EQ(0.0, map[0][3]);
+  EXPECT_FLOAT_EQ(0.2, map[1][0]);
+  EXPECT_FLOAT_EQ(1.0, map[1][2]);
+  EXPECT_FLOAT_EQ(1.0, map[1][6]);
+  EXPECT_FLOAT_EQ(1.0, map[1][8]);
 }
 
 // _____________________________________________________________________________
-TEST(EdgeAttractivenessModelTest, check_preferences1) {
-  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-  std::string filename = "test-input.1.tmp.txt";
-  std::ofstream ofs(filename);
-  ofs << "15 0.5" << endl
-      << "14 0.25" << endl  // <<<<<<<<<<<<< KEYS ARE NOT ASCENDING
-      << "60 0.2" << endl
-      << "120 0.05" << endl;
-  ofs.close();
-  vector<vector<float> > preferences = util::read_column_file<float>(filename);
-  ASSERT_EQ(2, preferences.size());
+TEST(EdgeAttractivenessModelTest, distribute_contribution) {
+  RoadGraph g;
+  g.from_string("[5,4,"                  // NOTE(Jonas): This is a dummy graph
+                "{(1,0)},"               // with unidirectional arcs only.
+                "{(2,0)},"
+                "{(3,0),(4,0)},"
+                "{},"
+                "{}]");
+  const vector<int> f = {};
+  const vector<float> p = {};
+  vector<vector<float> > pref =
+      {{ 15,   30,  60,  120},
+       {0.5, 0.25, 0.2, 0.05}};
+  ViaEdgeApproach model(g, f, p, pref, 0);
+  unordered_map<int, float> populations;
+  populations[0] = 10;
+  populations[1] = 15;
+  populations[2] = 5;
+  ViaEdgeApproach::MapMap contributions;
+  contributions[0][0] = 1.;
+  contributions[0][1] = 0.8;
+  contributions[0][2] = 0.5;
+  contributions[0][3] = 0.1;
 
-  ASSERT_DEATH(EdgeAttractivenessModel::check_preferences(preferences), ".*");
+  contributions[1][0] = 0.;
+  contributions[1][1] = 0.8;
+  contributions[1][2] = 1.;
+  contributions[1][3] = 0.4;
+
+  contributions[2][1] = 0.5;
+  contributions[2][2] = 0.5;
+  contributions[2][3] = 1.;
+  model.distribute(populations, contributions);
+  vector<float> attractivenesses = model.result();
+  EXPECT_FLOAT_EQ(1.0 * 10, attractivenesses[0]);
+  EXPECT_FLOAT_EQ(0.8 * 10 + 0.8 * 15 + 0.5 * 5, attractivenesses[1]);
+  EXPECT_FLOAT_EQ(0.5 * 10 + 1.0 * 15 + 0.5 * 5, attractivenesses[2]);
+  EXPECT_FLOAT_EQ(0.1 * 10 + 0.4 * 15 + 1.0 * 5, attractivenesses[3]);
 }
-
-// _____________________________________________________________________________
-TEST(EdgeAttractivenessModelTest, check_preferences2) {
-  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-  std::string filename = "test-input.2.tmp.txt";
-  std::ofstream ofs(filename);
-  ofs << "15 0.5" << endl
-      << "30 0.25" << endl
-      << "60 1.2" << endl  // <<<<<<<<<<<<< SHARE IS NOT IN [0,1]
-      << "120 0.05" << endl;
-  ofs.close();
-  vector<vector<float> > preferences = util::read_column_file<float>(filename);
-  ASSERT_EQ(2, preferences.size());
-
-  ASSERT_DEATH(EdgeAttractivenessModel::check_preferences(preferences), ".*");
-}
-
-// _____________________________________________________________________________
-TEST(EdgeAttractivenessModelTest, check_preferences3) {
-  ::testing::FLAGS_gtest_death_test_style = "threadsafe";
-  std::string filename = "test-input.3.tmp.txt";
-  std::ofstream ofs(filename);
-  ofs << "15 0.5" << endl
-      << "30 0.25" << endl
-      << "60 0.2" << endl
-      << "120 0.5" << endl;  // <<<<<<<<<<<<< SUM IS NOT IN [0,1]
-  ofs.close();
-  vector<vector<float> > preferences = util::read_column_file<float>(filename);
-  ASSERT_EQ(2, preferences.size());
-
-  ASSERT_DEATH(EdgeAttractivenessModel::check_preferences(preferences), ".*");
-}
-

@@ -11,6 +11,7 @@
 using std::unordered_map;
 using std::vector;
 
+typedef unordered_map<int, float> Map;
 
 class EdgeAttractivenessModel {
  public:
@@ -28,6 +29,7 @@ class EdgeAttractivenessModel {
     assert(feps.size() == popularities.size());
     for (size_t i = 0; i < feps.size(); ++i) {
       _popularities[feps[i]] = popularities[i];
+      std::cout << "fep " << feps[i] << " has population " << popularities[i] << std::endl;
     }
     assert(_preferences.size() == 2);
     assert(_preferences[0].size() > 0);
@@ -44,7 +46,7 @@ class EdgeAttractivenessModel {
   const RoadGraph& _graph;
   const vector<int>& _forestEntries;
   const vector<vector<float>>& _preferences;  // User preferences for time in forest (tif)
-  unordered_map<int, float> _popularities;
+  Map _popularities;
   const int _maxCost;
   vector<float> _aggregatedEdgeAttractivenesses;
 
@@ -72,6 +74,7 @@ class FloodingModel : public EdgeAttractivenessModel {
 // Computes the edge attractiveness using the via-edge approach.
 class ViaEdgeApproach : public EdgeAttractivenessModel {
  public:
+  typedef unordered_map<int, unordered_map<int, float> > MapMap;
   // C'tor.
   ViaEdgeApproach(const RoadGraph& g,
                   const vector<int>& feps,
@@ -88,10 +91,19 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
       const vector<bool>& settledS,
       const vector<int>& costsT,
       const vector<bool>& settledT);
+  // Normalize the contributions of each entrypoint s.t. the maximum is 1.0
+  static void normalize_contributions(MapMap* c);
+  // Distributes the entry points' populations according to their contributions.
+  void distribute(const Map& popu, const MapMap& contr);
+
 
  private:
   // Stores pairwise distances between forest entries.
-  unordered_map<int, unordered_map<int, float> > _distances;
+  MapMap _distances;
+
+  // Stores the contribution of each forest entry to each edge (it is sparse)
+  MapMap _fepContribution;
+
 };
 
 #endif  // SRC_EDGEATTRACTIVENESSMODEL_H_
