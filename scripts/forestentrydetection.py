@@ -6,161 +6,28 @@
     - generate population grid points
 
     Usage:
-    python forestentrydetection.py <OSMFile> [<MAXSPEED>]
+    python forestentrydetection.py <OSMFile> [<MAXSPEED>] ["ATKIS"]
+
+    The optional "ATKIS" flag tells the script that the OSM data was converted
+    from ATKIS data.
 
     Copyright 2013: Institut fuer Informatik
     Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 """
 
 from PIL import Image, ImageDraw
-import re
 import sys
 import os.path
 import math
 from collections import defaultdict
 import pickle
-#import numpy as np
 
 from grid import Grid, bounding_box
 from graph import Graph, Edge, NodeInfo
 import convexhull
+import osm_parse
 
 visualize = True
-
-speed_table = {"motorway"       : 110, \
-               "trunk"          : 110, \
-               "primary"        : 70, \
-               "secondary"      : 60, \
-               "tertiary"       : 50, \
-               "motorway_link"  : 50, \
-               "trunk_link"     : 50, \
-               "primary_link"   : 50, \
-               "secondary_link" : 50, \
-               "road"           : 40, \
-               "unclassified"   : 40, \
-               "residential"    : 30, \
-               "unsurfaced"     : 30, \
-               "cycleway"       : 25, \
-               "living_street"  : 10, \
-               "bridleway"      : 5, \
-               "service"        : 5, \
-               "OTHER"          : 0, \
-               "track"          : 5, \
-               "footway"        : 5, \
-               "pedestrian"     : 5, \
-               "tertiary_link"  : 5, \
-               "path"           : 4, \
-               "steps"          : 3}
-
-
-def type_to_speed(type):
-  if type in speed_table:
-    return speed_table[type]
-  else:
-    #print "type '" + type + "' unknown."
-    return 0
-
-
-def great_circle_distance((lat0, lon0), (lat1, lon1)):
-  ''' In meters, follows http://en.wikipedia.org/wiki/Great-circle_distance '''
-  to_rad = math.pi / 180.
-  r = 6371000.785
-  dLat = (lat1 - lat0) * to_rad
-  dLon = (lon1 - lon0) * to_rad
-  a = math.sin(dLat / 2.) * math.sin(dLat / 2.)
-  a += math.cos(lat0 * to_rad) * math.cos(lat1 * to_rad) * \
-      math.sin(dLon / 2) * math.sin(dLon / 2)
-  return 2 * r * math.asin(math.sqrt(a))
-
-
-def read_osmfile(filename, maxspeed):
-  """ Parses nodes and arcs from an osm-file.
-      Creates two mappings, a graph and a collection of nodes from an osm-file.
-      - a mapping {way id -> [list of node ids]}
-      - a mapping {way type -> [list of way ids]}
-      - a bidirectional graph as a map {node_id -> set([successors])}
-      - a dictionary of nodes {node_id -> (lon, lat)}
-      - a mapping {osm id -> graph node index}
-  """
-  def expand_way_to_edges(way_node_list):
-    """ For a list of way nodes, this adds arcs between successors.
-    """
-    edges = []
-    size = len(way_node_list)
-    for i, j in zip(range(size-1), range(1,size)):
-      edges.append((way_node_list[i], way_node_list[j]))
-    return edges
-  def calculate_edge_cost(a, b, v):
-    s = great_circle_distance(a, b)
-    t = s / (v * 1000. / 60**2)
-    return t
-  f = open(filename)
-  p_node = re.compile('.*<node id="(\S+)" lat="(\S+)" lon="(\S+)"')
-  nodes = {}
-  p_waytag = re.compile('\D*k="(\w+)" v="(\w+)"')
-  way_nodes = {}
-  ways_by_type = {'forest_delim': [], 'highway': []}
-  graph = Graph()
-  osm_id_map = {}
-  state = 'none'
-  for line in f:
-    stripped = line.strip()
-    res = p_node.match(line)
-    if res:
-      assert state != 'way'
-      # switch (lat, lon) to (lon, lat) for (x, y)-coordinates
-      nodes[int(res.group(1))] = (float(res.group(3)), float(res.group(2)))
-    elif state == 'none':
-      if stripped.startswith('<way'):
-        state = 'way'
-        way_id = int(line.split('id=\"')[1].split('\"')[0])
-        node_list = []
-    if state == 'way':
-      if stripped.startswith('<tag'):
-        res = p_waytag.match(stripped)
-        if res:
-          key, val = res.group(1), res.group(2)
-          if key == 'highway':
-            way_type = val
-            if way_type in speed_table:
-              ways_by_type['highway'].append(way_id)
-          if (key == 'landuse' and val == 'forest') or  \
-             (key == 'natural' and val == 'wood'):
-            ways_by_type['forest_delim'].append(way_id)
-      elif stripped.startswith('<nd'):
-        node_id = int(stripped.split("ref=\"")[1].split("\"")[0])
-        node_list.append(node_id)
-      elif stripped.startswith('</way'):
-        state = 'none'
-        if len(ways_by_type['highway']) \
-            and ways_by_type['highway'][-1] is way_id:
-          edges = expand_way_to_edges(node_list)
-          v = type_to_speed(way_type)
-          # HACK for walking: do not allow to walk on fast roads (separate
-          # pavement is assumed)
-          v = 0 if maxspeed == 5 and v > 50 else v
-          v = v if v <= maxspeed else maxspeed
-          if v != 0:
-            way_nodes[way_id] = node_list
-            for e in edges:
-              if e[0] not in osm_id_map:
-                osm_id_map[e[0]] = len(graph.nodes)
-              x = osm_id_map[e[0]]
-              if e[1] not in osm_id_map:
-                osm_id_map[e[1]] = len(graph.nodes)
-              y = osm_id_map[e[1]]
-              if x == y:
-                y += 1
-                osm_id_map[e[1]] = y
-              t = calculate_edge_cost(nodes[e[0]], nodes[e[1]], v)
-              graph.add_edge(x, y, t)
-              graph.add_edge(y, x, t)
-          else:  # v == 0
-            ways_by_type['highway'].pop()
-        elif len(ways_by_type['forest_delim']) \
-            and ways_by_type['forest_delim'][-1] is way_id:
-          way_nodes[way_id] = node_list
-  return way_nodes, ways_by_type, graph, nodes, osm_id_map
 
 
 def width_and_height(bbox):
@@ -241,17 +108,16 @@ def filter_point_grid(points, regions, operation='intersect'):
     exit(1)
 
 
-def classify_forest(osmfile, maxspeed=130):
-  print 'Reading nodes and ways from OSM and creating the graph...'
-  node_ids, ways_by_type, digraph, nodes, osm_id_map = read_osmfile(osmfile, \
-      maxspeed)
+def classify_forest(node_ids, ways_by_type, graph, nodes, osm_id_map,
+      filename_base):
+  ''' Creates forest polygons and detects forest entries WE in the data. '''
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
 
   print 'Computing the convex hull...'
   if visualize:
     visual_grid = Grid(bbox, mode="RGB")
-  boundary_filename = os.path.splitext(osmfile)[0] + ".boundary.out"
+  boundary_filename = filename_base + ".boundary.out"
   if os.path.exists(boundary_filename):
     hull = convexhull.load(boundary_filename)
   else:
@@ -277,44 +143,44 @@ def classify_forest(osmfile, maxspeed=130):
   print 'Restrict forests to large connected components...'
   # turn this off, when fast results are needed
   node_idx = [osm_id_map[e] for e in forestal_highway_nodes]
-  node_idx, removed = digraph.filter_components(node_idx, 500)
+  node_idx, removed = graph.filter_components(node_idx, 500)
   inverse_id_map = {value : key for (key, value) in osm_id_map.items()}
   forestal_highway_nodes = set([inverse_id_map[e] for e in node_idx])
   open_highway_nodes.union(set([inverse_id_map[e] for e in removed]))
 
-  nodeinfo = {osm_id_map[osm_id] : NodeInfo(osm_id, nodes[osm_id]) \
+  nodeinfo = {osm_id_map[osm_id] : NodeInfo(osm_id, nodes[osm_id]) 
               for osm_id in highway_node_ids}
 
   # This does not work properly and does not bring the expected benefit.
   #print 'Restrict the graph to largest connected component...'
-  #n = digraph.size()
-  #c = len(digraph.nodes)
-  #digraph = digraph.lcc()
-  #print "Removed " + str(c - len(digraph.nodes))
+  #n = graph.size()
+  #c = len(graph.nodes)
+  #graph = graph.lcc()
+  #print "Removed " + str(c - len(graph.nodes))
   ## update indices
   #delete = np.array([0]*n)
   #for i in range(1, n):
-  #  if i not in digraph.nodes:
+  #  if i not in graph.nodes:
   #    delete[i] = 1
   #index_shift = np.cumsum(delete)
   #shifted_graph = Graph()
-  #for node in digraph.nodes:
+  #for node in graph.nodes:
   #  if delete[node] == 0:
-  #    for to, edge in digraph.edges[node].items():
+  #    for to, edge in graph.edges[node].items():
   #      if delete[to] == 0:
-  #        shifted_graph.add_edge(node - index_shift[node], \
+  #        shifted_graph.add_edge(node - index_shift[node], 
   #            to - index_shift[to], edge.cost)
-  #digraph = shifted_graph
+  #graph = shifted_graph
   #osm_id_map = \
   #    {k : v - index_shift[v] for k, v in osm_id_map.items() if delete[v] == 0}
-  #ind = set([inverse_id_map[n] for n in digraph.nodes if delete[node] == 0])
+  #ind = set([inverse_id_map[n] for n in graph.nodes if delete[node] == 0])
   #forestal_highway_nodes &= ind
   #open_highway_nodes &= ind
-  #print 'Removed %d nodes, new size is %d.' % (n - digraph.size(), \
-  #    digraph.size())
+  #print 'Removed %d nodes, new size is %d.' % (n - graph.size(), 
+  #    graph.size())
 
   print 'Select WEPs...'
-  weps = select_wep(open_highway_nodes, forestal_highway_nodes, digraph, \
+  weps = select_wep(open_highway_nodes, forestal_highway_nodes, graph, 
       osm_id_map)
   print str(len(weps)) + ' WEPs'
 
@@ -342,26 +208,42 @@ def classify_forest(osmfile, maxspeed=130):
   # restrict to used nodes
   used_osm_ids = forestal_highway_nodes | open_highway_nodes
   nodes = {k:v for k,v in nodes.items() if k in used_osm_ids}
-  return weps, forestal_highway_nodes, population, digraph, osm_id_map, nodes, \
-      nodeinfo
+  return weps, forestal_highway_nodes, population, nodeinfo
 
 
 def main():
   if len(sys.argv) < 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
     print ''' No osm file specified! '''
     exit(1)
+  std_osm = True
+  if "ATKIS" in sys.argv: 
+    std_osm = False
+    sys.argv.remove("ATKIS")
+    print ' - Using ATKIS interpreter.'
+
   osmfile = sys.argv[1]
   maxspeed = int(sys.argv[2]) if len(sys.argv) > 2 else 130
 
-  weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, nodeinfo \
-      = classify_forest(osmfile, maxspeed)
+  print 'Reading nodes and ways from OSM and creating the graph...'
+  node_ids, ways_by_type, graph, nodes, osm_id_map = osm_parse.read_file(
+      osmfile, maxspeed, interpret=osm_parse.Std_OSM_way_tag_interpreter 
+      if std_osm else osm_parse.ATKIS_to_OSM_way_tag_interpreter)
+
+  print len(graph.nodes), graph.size(), sum([len(edges) for edges in
+    graph.edges.values()])
+
+  filename_base = os.path.splitext(osmfile)[0] 
+  weps, forestal_highway_nodes, population, nodeinfo = classify_forest(
+      node_ids, ways_by_type, graph, nodes, osm_id_map, filename_base)
 
   print 'Writing output...'
-  filename = os.path.splitext(osmfile)[0] + "." + str(maxspeed) + "kmh"
-  for data, extension in \
-      zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, 
-          nodeinfo], ['weps', 'forest_ids', 'population', 'graph', 'id_map', 
-          'nodes', 'nodeinfo']):
+  filename = filename_base + "." + str(maxspeed) + "kmh"
+  for data, extension in zip(
+      [weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, 
+       nodeinfo], 
+      ['weps', 'forest_ids', 'population', 'graph', 'id_map', 'nodes', 
+       'nodeinfo']
+      ):
     f = open(filename + "." + extension + ".out", 'w')
     pickle.dump(data, f, protocol=2)
     f.close()
