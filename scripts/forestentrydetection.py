@@ -244,7 +244,7 @@ def classify_forest_nodes(nodes, edges, forestPolygons):
     leftPointer = -1
     lat = -90.
     for box, polygonIndex in sortedBoxes:
-        minPolygonLatitude = box[0][0]  # TODO(Jonas): Be sure about bbox == (lat, lon)
+        minPolygonLatitude = box[0][0]
         maxPolygonLatitude = box[1][0]
         minPolygonLongitude = box[0][1]
         maxPolygonLongitude = box[1][1]
@@ -252,13 +252,15 @@ def classify_forest_nodes(nodes, edges, forestPolygons):
             leftPointer += 1
             lat = sortedNodes[leftPointer][0][0]
 
-        poly = Polygon(forestPolygons[polygonIndex])
+        polygon = Polygon(forestPolygons[polygonIndex])
         nodePointer = leftPointer
         while nodePointer < len(sortedNodes) and lat <= maxPolygonLatitude:
             ((lat, lon, _), index) = sortedNodes[nodePointer]
             if lon >= minPolygonLongitude and lon <= maxPolygonLongitude:
-                nodeFlags[index] = 1 if poly.isInside(lat, lon) else 0
+                nodeFlags[index] = 1 if polygon.isInside(lat, lon) else 0
             nodePointer += 1
+
+        lat = sortedNodes[leftPointer][0][0]
     return nodeFlags
 
 
