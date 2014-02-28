@@ -25,6 +25,7 @@ float EdgeAttractivenessModel::user_share(const float tif) const {
 }
 
 // _____________________________________________________________________________
+// TODO(Jonas): This is called quite often, so compute it just once and make it a LUT.
 float EdgeAttractivenessModel::sum_of_user_shares_after(const float tif) const {
   assert(tif <= _preferences[0].back());
   // Do a binary search in the user preferences.
@@ -44,13 +45,17 @@ struct LessSecond {
 // _____________________________________________________________________________
 void EdgeAttractivenessModel::normalize_contributions(MapMap* contributions) {
   for (auto it = contributions->begin(); it != contributions->end(); ++it) {
-    // Normalize by the max.
+    // Normalize s.t. the maxium contribution becomes 1.
     Map* cc = &(it->second);
-    float max = std::max_element(cc->begin(), cc->end(), cmp)->second;
-    assert(max != 0. && "Avoid zero-division.");
-    float normalizer = 1. / max;
-    for (auto itit = cc->begin(); itit != cc->end(); ++itit) {
-      itit->second *= normalizer;
+    if (cc->size()) {
+      float max = std::max_element(cc->begin(), cc->end(), cmp)->second;
+      if (max > 0.f) {
+        assert(max != 0. && "Avoid zero-division.");
+        float normalizer = 1. / max;
+        for (auto itit = cc->begin(); itit != cc->end(); ++itit) {
+          itit->second *= normalizer;
+        }
+      }
     }
   }
 }
@@ -96,12 +101,12 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
   MapMap contribution;
   Dijkstra<RoadGraph> dijkstra(_graph);
   dijkstra.set_cost_limit(_maxCost / 2);  // half way forth and back
-  for (int fep: _forestEntries) {
+  for (const uint fep: _forestEntries) {
     dijkstra.reset();
     dijkstra.run(fep);
     const vector<int>& costs = dijkstra.get_costs();
     const vector<uint>& settledNodes = dijkstra.get_settled_node_indices();
-    for (uint node: settledNodes) {
+    for (const uint node: settledNodes) {
       int cost = costs[node];
       assert(cost != Dijkstra<RoadGraph>::infinity);
       if (cost < 1) { cost = 1; }
@@ -109,6 +114,9 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       float share = sum_of_user_shares_after(2.f * cost);
       // TODO(Jonas): Some scaling factor could/should be added below:
       float gain = share / cost;
+      // NOTE(Jonas): The assertion does not hold as there may be duplicate
+      // forest entries.
+      // assert(contribution[fep][node] == 0 && "Duplicate fep/node?");
       contribution[fep][node] = gain;
     }
 
@@ -165,8 +173,9 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   fwd.set_nodes_to_ignore(&nodesToIgnoreFwd);
 
   // Iterate over all forest edges s --> t.
-  // For each edge, do a forward Dijkstra from t and a backward Dijkstra from s.#
+  // For each edge, do a forward Dijkstra from t and a backward Dijkstra from s.
   const vector<RoadGraph::Arc_t>& arcs = _graph.arclist();
+  MapMap contributions;
   // Prepare progress information
   size_t total = arcs.size();
   size_t done = 0;
@@ -186,7 +195,8 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
     fwd.run(t, Dijkstra<RoadGraph>::no_target);
     evaluate(arcIndex, c,
              bwd.get_costs(), bwd.get_settled_flags(),
-             fwd.get_costs(), fwd.get_settled_flags());
+             fwd.get_costs(), fwd.get_settled_flags(),
+             &contributions);
 
     // Clean up
     nodesToIgnoreBwd[t] = false;
@@ -202,9 +212,9 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   }
   // ^^ TODO(Jonas): put to separate method
 
-  normalize_contributions(&_fepContribution);
+  normalize_contributions(&contributions);
 
-  distribute(_popularities, _fepContribution, &_aggregatedEdgeAttractivenesses);
+  distribute(_popularities, contributions, &_aggregatedEdgeAttractivenesses);
 
   return result();
 }
@@ -217,7 +227,8 @@ void ViaEdgeApproach::evaluate(
     const vector<int>& costsS,
     const vector<bool>& settledS,
     const vector<int>& costsT,
-    const vector<bool>& settledT) {
+    const vector<bool>& settledT,
+    MapMap* contributions) {
   // Evaluate routes fep1 -->* s --> t --> fep2.
   for (int fep1: _forestEntries) {
     if (!settledS[fep1]) { continue; }
@@ -230,12 +241,12 @@ void ViaEdgeApproach::evaluate(
       float gain = 0;
       const float share = sum_of_user_shares_after(routeCostViaThisEdge);
       if (fep1 == fep2) {
-        gain = share * 1.f / (costsFep2 + 1);
+        gain = share * 1.f / (costsFep2 + 1.f);
       } else {
         const float distance = _distances[fep1][fep2];
-        gain = share * distance / (routeCostViaThisEdge + 1);
+        gain = share * distance / (routeCostViaThisEdge + 1.f);
       }
-      _fepContribution[fep1][edgeIndex] = gain;
+      (*contributions)[fep1][edgeIndex] += gain;
     }
   }
 }

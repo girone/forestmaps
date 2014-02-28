@@ -13,6 +13,8 @@ using std::vector;
 
 typedef unordered_map<int, float> Map;
 
+// Base class.
+// The algorithms count duplicates forest entries (due to mapping) twice.
 class EdgeAttractivenessModel {
  public:
   typedef unordered_map<int, unordered_map<int, float> > MapMap;
@@ -30,7 +32,6 @@ class EdgeAttractivenessModel {
     assert(feps.size() == popularities.size());
     for (size_t i = 0; i < feps.size(); ++i) {
       _popularities[feps[i]] = popularities[i];
-      std::cout << "fep " << feps[i] << " has population " << popularities[i] << std::endl;
     }
     assert(_preferences.size() == 2);
     assert(_preferences[0].size() > 0);
@@ -87,22 +88,21 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
                   const int maxCost);
   // Computes the model.
   virtual vector<float> compute_edge_attractiveness();
-  // Evaluates the cost vectors computed by Djkstra's from an edge s --> t.
+  // Evaluates the cost vectors computed by Djkstra's from an edge s --> t
+  // and computes the contribution of the forest entries participating in the
+  // routes.
   void evaluate(
       const int edgeIndex,
       const int c,
       const vector<int>& costsS,
       const vector<bool>& settledS,
       const vector<int>& costsT,
-      const vector<bool>& settledT);
+      const vector<bool>& settledT,
+      MapMap* contributions);
 
  private:
   // Stores pairwise distances between forest entries.
   MapMap _distances;
-
-  // Stores the contribution of each forest entry to each edge (it is sparse)
-  MapMap _fepContribution;
-
 };
 
 #endif  // SRC_EDGEATTRACTIVENESSMODEL_H_
