@@ -264,7 +264,7 @@ def label_nodes_in_polygons_with_value(nodes, polygons, value, labels):
         except:
             e = sys.exc_info()[0]
             print e
-            polygons[polygonIndex]
+            print polygons[polygonIndex]
             print lat, lon
 
 

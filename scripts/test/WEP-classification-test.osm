@@ -23,5 +23,13 @@
     <nd ref="3"/>
     <tag k="landuse" v="forest"/>
   </way>
+  <relation id="3148652" version="2" timestamp="2013-08-18T11:25:15Z" changeset="17392977" uid="136321" user="Teddy73">
+    <member type="way" ref="233853233" role="outer"/>
+    <member type="way" ref="84130213" role="inner"/>
+    <member type="way" ref="84130214" role="inner"/>
+    <tag k="landuse" v="forest"/>
+    <tag k="type" v="multipolygon"/>
+    <tag k="wood" v="mixed"/>
+  </relation>
 </osm>
 
