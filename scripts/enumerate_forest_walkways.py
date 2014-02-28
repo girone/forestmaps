@@ -12,6 +12,31 @@
 '''
 import Queue
 
+
+''' test_funcs go below '''
+def true(*args):
+  return True
+
+def arc_repetition(arcs_so_far, next_arc):
+  ''' TODO(Jonas): Allow a less strict variant. E.g., allow 5% of arcs along a
+      path to have duplicates within the same path.
+  '''
+  return next_arc in arcs_so_far
+
+
+''' action_funcs go below '''
+def noop(*args):
+  pass
+
+def cry(*args):
+  print "Uehhh"
+
+def prune(tree_node):
+  tree_node.pruned = True
+  for s in tree_node.successors:
+    prune(s)
+
+
 class WayTreeNode(object):
   ''' Has one parent, a cost on the way so far and 0...many successors. '''
   def __init__(self, node, parent=None, cost=0):
@@ -19,9 +44,24 @@ class WayTreeNode(object):
     self.parent = parent  # WayTreeNode
     self.cost = cost
     self.successors = []  # list of WayTreeNode
+    self.pruned = False
 
   def create_successor(self, successor, cost):
     return WayTreeNode(successor, self, self.cost + cost)
+
+  def traverse(self, collect, test_func=true, action_func=noop):
+    ''' Recursively descends the tree, collecting things and testing. '''
+    if not self.successors:
+      pass
+    else:
+      for successor in self.successors:
+        if successor.pruned:
+          continue
+        if test_func(collect, (self.node, successor.node)):
+          action_func(self)
+        copy = collect.copy()
+        copy.add((self.node, successor.node))
+        successor.traverse(copy, test_func, action_func)
 
 
 class WayTree(object):
@@ -30,7 +70,7 @@ class WayTree(object):
     self.root = WayTreeNode(node_idx)
     self.nodes = [self.root]
 
-  def detect_cycle(self, start_tree_node, node_id, depth=2):
+  def detect_cycle(self, start_tree_node, node_id, depth):
     ''' Returns true, if @node_id is among the ids of the @depth last nodes. '''
     tree_node = start_tree_node
     contains_cycle = False
@@ -40,15 +80,23 @@ class WayTree(object):
       tree_node = tree_node.parent
     return contains_cycle
 
-  def expand(self, tree_node, edges):
+  def expand(self, tree_node, edges, depth):
+    ''' @depth: Local sequences without repetitions of the same node_id '''
     ext = []
     for succ, edge in edges.items():
-      if self.detect_cycle(tree_node, succ, depth=2):
+      if self.detect_cycle(tree_node, succ, depth):
         continue
       self.nodes.append(tree_node.create_successor(succ, edge.cost))
       ext.append(len(self.nodes) - 1)
       tree_node.successors.append(self.nodes[-1])
     return ext
+
+  def prune_cycle_subgraphs(self, max_arc_repeat):
+    ''' Traverses the graph and removes subgraphs which repeat an arc for more
+        than @max_arc_repeat times.
+    '''
+    traversed_arcs = set()
+    self.root.traverse(traversed_arcs, arc_repetition, prune)
 
 
 class WayGenerator(object):
@@ -57,9 +105,10 @@ class WayGenerator(object):
     self.tree = way_tree
     self.graph = graph
 
-  def run(self, start_node, cost_limit=10):
-    ''' Generates ways until all open ways exceed the @cost_limit. '''
-    ''' TODO(Jonas): Avoid trivial cycles a-b-a-b-a-b-... in the bigraph. '''
+  def run(self, start_node, cost_limit=10, local_cycle_depth=2):
+    ''' Generates ways until all open ways exceed the @cost_limit. 
+        @local_cycle_depth : 
+    '''
     assert self.tree.root.node == start_node
     q = Queue.Queue()
     q.put(0)  # index of tree root
@@ -68,7 +117,8 @@ class WayGenerator(object):
       tree_node = self.tree.nodes[i]
       if tree_node.cost < cost_limit:
         node_idx = tree_node.node
-        ext = self.tree.expand(tree_node, self.graph.edges[node_idx])
+        ext = self.tree.expand(tree_node, self.graph.edges[node_idx], \
+            local_cycle_depth)
         for e in ext:
           q.put(e)
 
@@ -83,14 +133,18 @@ class WayGenerator(object):
     path.reverse()
     return path
     
-  def trace(self):
+  def trace(self, targets=None):
     ''' Backtracks paths from leaves of the generated WayTree back to the root.
     '''
-    leaves = [node for node in self.tree.nodes if node.successors == []]
+    leaves = \
+        [node for node in self.tree.nodes if node.node in targets] if targets \
+        else [node for node in self.tree.nodes if node.successors == []]
+    leaves = [leaf for leaf in leaves if not leaf.pruned]
     return [self.backtrack_path(leaf) for leaf in leaves]
 
 
-def enumerate_walkways(graph, start_node, cost_limit=9):
+def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
+    local_cycle_depth=2):
   ''' Enumerates walkways beginning at @start_node.
      
       Admissible walkways start at a WEP and end at a WEP. Start and end may
@@ -104,10 +158,10 @@ def enumerate_walkways(graph, start_node, cost_limit=9):
   # create the tree node until limit cmax
   tree = WayTree(start_node)
   gen = WayGenerator(tree, graph)
-  gen.run(start_node, cost_limit)
+  gen.run(start_node, cost_limit, local_cycle_depth)
 
   # collect ways which end at an WEP and have cost >= cmin
-  ways = gen.trace()
+  ways = gen.trace(targets=target_nodes)
   return ways
 
 
@@ -127,24 +181,78 @@ def main():
     walkways = enumerate_walkways(g, node)
 
 
+def add_biedge(graph, s, t, cost):
+  graph.add_edge(s, t, cost)
+  graph.add_edge(t, s, cost)
+
+
 from unittest import TestCase
+from graph import Graph
+A, B, C, D, E, F = range(6)
 class WalkwayEnumerationTest(TestCase):
-  def test_1(self):
-    from graph import Graph
-    A, B, C = range(3)
-    g = Graph()
-    g.add_edge(A, B, 3)
-    g.add_edge(B, A, 3)
-    g.add_edge(B, C, 5)
-    g.add_edge(C, B, 5)
-    g.add_edge(C, A, 2)
-    g.add_edge(A, C, 2)
-    g.add_edge(A, A, 4)
+  def setUp(self):
+    self.g = Graph()
+    add_biedge(self.g, A, B, 3)
+    add_biedge(self.g, B, C, 5)
+    add_biedge(self.g, C, A, 2)
+    add_biedge(self.g, B, D, 4)
+    add_biedge(self.g, C, D, 4)
+    add_biedge(self.g, D, E, 3)
+    add_biedge(self.g, C, F, 3)
+    add_biedge(self.g, F, E, 6)
 
-    ways = enumerate_walkways(g, A)
-    for w in ways:
-      print w
+  def test_local_cycle_avoidance(self):
+    self.g.remove_partition([D, E, F])
+    self.g.add_edge(A, A, 4)
+    ways = enumerate_walkways(self.g, A, cost_limit=10, local_cycle_depth=0)
+    self.assertTrue([A, A, A, A] in ways)
+    ways = enumerate_walkways(self.g, A, cost_limit=10, local_cycle_depth=1)
+    self.assertTrue([A, A, A, A] not in ways)
+    self.assertTrue([A, B, A, B, A] in ways)
+    ways = enumerate_walkways(self.g, A, cost_limit=10, local_cycle_depth=2)
+    self.assertTrue([A, B, A, B, A] not in ways)
 
+  def test_traversal_and_pruning(self):
+    tree = WayTree(A)
+    gen = WayGenerator(tree, self.g)
+    gen.run(A, cost_limit=50, local_cycle_depth=5)
+    ways1 = gen.trace()
+    #for w in ways1:
+    #  print w
+    ''' Prune subtrees with cycles from the tree. This removes two large
+        repetitions. 
+    '''
+    collect = set()
+    tree.root.traverse(collect, arc_repetition, prune)
+    ways2 = gen.trace()
+    #for w in ways2:
+    #  print w
+    self.assertLess(len(ways2), len(ways1))
+
+  def test_global_cycle_avoidance(self):
+    # create the tree node until limit cmax
+    tree = WayTree(A)
+    gen = WayGenerator(tree, self.g)
+    gen.run(A, cost_limit=50, local_cycle_depth=5)
+    # collect ways which end at an WEP and have cost >= cmin
+    ways = gen.trace()
+    # NEW: prune 
+    tree.prune_cycle_subgraphs(max_arc_repeat=0)
+    # collect ways which end at an WEP and have cost >= cmin
+    ways2 = gen.trace()
+    self.assertLess(len(ways2), len(ways))
+
+  def test_target_set(self):
+    ways1 = enumerate_walkways(self.g, A, cost_limit=50, local_cycle_depth=5)
+    ways2 = enumerate_walkways(self.g, A, cost_limit=50, local_cycle_depth=5, \
+        target_nodes=[A, E])
+    self.assertNotEqual(ways1, ways2)
+    #print "ways1"
+    #for w in ways1:
+    #  print w
+    #print "ways2"
+    #for w in ways2:
+    #  print w
 
 if __name__ == '__main__':
   import unittest
