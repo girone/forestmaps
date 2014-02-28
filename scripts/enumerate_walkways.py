@@ -1,17 +1,11 @@
 ''' enumerate_forest_walkways
 
-    For every WEP, this enumerates walkways in the forest which fulfill a set of
-    conditions.
-
-    Usage:
-      python enumerate_forest_walkways.py <WEPS> <OSM_ID_MAP> <FOREST_NODE_IDS>
-          <GRAPH>
-
     Copyright 2013:
     Author: Jonas Sternisko <sternis@informatik.uni-freiburg.de>
 '''
 import Queue
 
+DEBUG = False
 
 ''' test_funcs go below '''
 def true(*args):
@@ -89,6 +83,9 @@ class WayTree(object):
       self.nodes.append(tree_node.create_successor(succ, edge.cost))
       ext.append(len(self.nodes) - 1)
       tree_node.successors.append(self.nodes[-1])
+    if DEBUG:
+      print len(self.nodes)
+      print self.nodes[-1].cost
     return ext
 
   def prune_cycle_subgraphs(self, max_arc_repeat):
@@ -165,20 +162,20 @@ def enumerate_walkways(graph, start_node, target_nodes=None, cost_limit=9, \
   return ways
 
 
-def main():
-  g = Graph()
-  osm_id_map = {}
-  weps = []
-  forest_nodes_osm_ids = []
-
-  ''' concentrate on the inner forests '''
-  outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
-  g.remove_partition(outside_nodes)
-
-  ''' '''
-  for osm_id in weps:
-    node = osm_id_map[osm_id]
-    walkways = enumerate_walkways(g, node)
+# def main():
+#   g = Graph()
+#   osm_id_map = {}
+#   weps = []
+#   forest_nodes_osm_ids = []
+# 
+#   ''' concentrate on the inner forests '''
+#   outside_nodes = g.nodes - set([osm_id_map[id] for id in forest_nodes_osm_ids])
+#   g.remove_partition(outside_nodes)
+# 
+#   ''' '''
+#   for osm_id in weps:
+#     node = osm_id_map[osm_id]
+#     walkways = enumerate_walkways(g, node)
 
 
 def add_biedge(graph, s, t, cost):
@@ -257,5 +254,4 @@ class WalkwayEnumerationTest(TestCase):
 if __name__ == '__main__':
   import unittest
   unittest.main()
-  #main()
 
