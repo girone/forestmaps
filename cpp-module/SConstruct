@@ -100,13 +100,14 @@ def checkstyle(env, target, source):
 build_dir = ARGUMENTS.get('build_dir', 'build')
 
 VariantDir(build_dir, '.', duplicate=1)  # have a separate directory for results
+#VariantDir(build_dir, '.', duplicate=0)  # have a separate directory for results
 build_dir = build_dir + '/'
 
 # Set up environment
 env = Environment(ENV = os.environ)
 
 # Set compiler and flags
-env.Replace(CXX = "g++-4.6")
+#env.Replace(CXX = "g++-4.6")
 env.Append(CXXFLAGS='-std=c++0x -Wall')
 #env.Replace(CXX = "clang")
 #env.Append(CXXFLAGS='-stdlib=libstdc++')
@@ -116,29 +117,38 @@ env.Append(CPPPATH=[gmock_dir + 'include', gmock_dir,
                     gtest_dir + 'include', gtest_dir,
                     gperftools_dir,
                     sparse_hash_map_dir,
-                    gflags_dir + 'include']);
+                    gflags_dir + 'include',
+                    'external/']);
 
 # Colorful output of colormake / clang will be forwarded by SCons
 env['ENV']['TERM'] = os.environ['TERM']
 
+# select target set
+target_set  = ARGUMENTS.get('target_set', 'main')
+if not (target_set in ['main', 'test', 'all']):
+    print " * Error: expected target set 'main' or 'test' or 'all', found: " + \
+          target_set
+    Exit(1)
+
 # Build google-mock (includes google-test) and gtest_main as library
-env.Library(gmock_dir + 'gmock',
-            [gmock_dir + 'src/gmock-all.cc', gtest_dir + 'src/gtest-all.cc'])
-env.Library(gmock_dir + 'gtest_main',
-            gtest_dir + 'src/gtest_main.cc')
-env.Append(LIBPATH=[gmock_dir, gflags_dir + 'lib'])
+if target_set in ['all', 'test']:
+    env.Library(gmock_dir + 'gmock',
+                [gmock_dir + 'src/gmock-all.cc', gtest_dir + 'src/gtest-all.cc'])
+    env.Library(gmock_dir + 'gtest_main',
+                gtest_dir + 'src/gtest_main.cc')
+    env.Append(LIBPATH=[gmock_dir, gflags_dir + 'lib'])
+    env.Append(LIBS=['gmock',
+                 'gtest_main',
+                 File(gflags_dir + 'lib/libgflags.a')])
 
 # Set the libraries
-env.Append(LIBS=['gmock',
-                 'gtest_main',
-                 File(gflags_dir + 'lib/libgflags.a'),
-                 'boost_system',
-                 'boost_filesystem-mt',
-                 'boost_program_options',
-                 'boost_serialization',
-                 'boost_date_time',
-                 'boost_thread-mt',
-                 ])
+#env.Append(LIBS=['boost_system',
+                 #'boost_filesystem-mt',
+                 #'boost_program_options',
+                 #'boost_serialization',
+                 #'boost_date_time',
+                 #'boost_thread-mt',
+                 #])
 
 
 # Select build mode (optimization level and debug information)
@@ -155,13 +165,6 @@ elif build_mode == 'relwithdebinfo':
 else:  # release
     env.Append(CXXFLAGS='-O3')
 
-
-# select target set
-target_set  = ARGUMENTS.get('target_set', 'main')
-if not (target_set in ['main', 'test', 'all']):
-    print " * Error: expected target set 'main' or 'test' or 'all', found: " + \
-          target_set
-    Exit(1)
 
 profile = int(ARGUMENTS.get('profile', 0))
 # compile with gperftools profiler support (uses fast tcmalloc)
