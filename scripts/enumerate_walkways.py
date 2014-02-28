@@ -130,6 +130,9 @@ class WayGenerator(object):
         count += 1
         if prune_after and count % prune_after == 0:
           self.tree.prune_cycle_subgraphs()
+          if len(self.tree.nodes) > 1e5:
+            print "ABORT due to excessive growth."
+            break
           #print 'Tree has %d nodes.' % len(self.tree.nodes)
         if self.edge_distance and \
             cost_limit - tree_node.cost < self.edge_distance[tree_node.node]:
@@ -140,7 +143,7 @@ class WayGenerator(object):
               local_cycle_depth)
           for e in ext:
             q.put(e)
-    print 'Expanded %d tree nodes.' % count
+    #print 'Expanded %d tree nodes.' % count
 
   def backtrack_path(self, leaf_node):
     ''' Backtracks a path from a node to the root, returns a node sequence. '''

@@ -62,7 +62,7 @@ def type_to_speed(type):
 
 
 def great_circle_distance((lat0, lon0), (lat1, lon1)):
-  ''' dist in meters, see http://en.wikipedia.org/wiki/Great-circle_distance '''
+  ''' In meters, follows http://en.wikipedia.org/wiki/Great-circle_distance '''
   to_rad = math.pi / 180.
   r = 6371000.785
   dLat = (lat1 - lat0) * to_rad
@@ -247,6 +247,7 @@ def classify_forest(osmfile, maxspeed=130):
       maxspeed)
   forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
+
   print 'Computing the convex hull...'
   if visualize:
     visual_grid = Grid(bbox, mode="RGB")
@@ -338,10 +339,6 @@ def classify_forest(osmfile, maxspeed=130):
       visual_grid.draw.ellipse((x-r, y-r, x+r, y+r), fill="#0000FF")
     visual_grid.show()
 
-  pickle.dump(forest_polygons, \
-      open(os.path.splitext(osmfile)[0] + ".forest_polygons.out", "w"), \
-      protocol=2)
-
   # restrict to used nodes
   used_osm_ids = forestal_highway_nodes | open_highway_nodes
   nodes = {k:v for k,v in nodes.items() if k in used_osm_ids}
@@ -360,20 +357,6 @@ def main():
       = classify_forest(osmfile, maxspeed)
 
   print 'Writing output...'
-  # f = open(os.path.splitext(osmfile)[0] + '.WEPs.out', 'w')
-  # for p in weps:
-  #   f.write(str(p) + '\n')
-  # f.close()
-  # f = open(os.path.splitext(osmfile)[0] + '.forest_nodes.out', 'w')
-  # for n in forestal_highway_nodes:
-  #   f.write(str(n) + '\n')
-  # f.close()
-  # ''' Output the population locations. The cpp-module will create nodes from
-  #     these. '''
-  # f = open(os.path.splitext(osmfile)[0] + '.population_grid_points.out', 'w')
-  # for (x,y) in population:
-  #   f.write(str(y) + ' ' + str(x) + '\n')  # (x,y) = (lon,lat)
-  # f.close()
   filename = os.path.splitext(osmfile)[0] + "." + str(maxspeed) + "kmh"
   for data, extension in \
       zip([weps, forestal_highway_nodes, population, graph, osm_id_map, nodes, \

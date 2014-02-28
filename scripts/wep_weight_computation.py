@@ -11,6 +11,7 @@
 import sys
 import os.path
 import pickle
+import time
 from scipy.spatial import KDTree
 from collections import defaultdict
 
@@ -56,6 +57,9 @@ def main():
   print '''Restrict the graph to non-forest nodes. '''
   graph.remove_partition([osm_id_map[id] for id in forestal_highway_nodes])
 
+  print 'The graph has %d nodes and %d arcs.' % (len(graph.nodes),
+      sum([len(outgoing) for outgoing in graph.edges.values()]))
+
   # Cannot pickle KDTree.innernode ...
   #kdtree_file_name = os.path.splitext(osmfile)[0] + ".kdtree.out"
   #if not os.path.exists(kdtree_file_name):
@@ -81,24 +85,36 @@ def main():
     graph.add_edge(node_id, population_node_ids[-1], 0)
     #print " adding edge from %d to %d" % (node_id, population_node_ids[-1])
 
+  print '''Contracting 2-nodes in the graph.'''
+  graph.contract_binary_nodes(exclude=weps)
+
+  print 'There are %d WEs.' % len(weps)
+  print 'The graph has %d nodes and %d arcs.' % (len(graph.nodes),
+      sum([len(outgoing) for outgoing in graph.edges.values()]))
+
   print '''Compute Dijkstra from every WEP. '''
   reachable_weps = defaultdict(list)
-  avg = 0
+  avg = 0.
   weps = list(weps)
+  t0 = time.clock()
   for count, node in enumerate(weps):
-    print 'Running time-restricted Dijkstra %d of %d...' % (count+1, len(weps))
     search = Dijkstra(graph)
     search.set_cost_limit(60 * 60)  # 1 hour
     res = search.run(osm_id_map[node])
     for id in population_node_ids:
       if res[id] != sys.maxint:
         reachable_weps[id].append((node, res[id]))  # (wep, dist)
+    sys.stdout.write("\r%.2f%%" % (100. * (count + 1) / len(weps)))
 
     #print "Settled %d of %d nodes." % \
         #    (len(res) - res.count(sys.maxint), len(res))
     avg += len(res) - res.count(sys.maxint)  # non-infty (reached) nodes
+  delta_t = time.clock() - t0
+  print ''
   avg /= len(weps)
-  print 'In average, %f of %d nodes have been settled.' \
+  print 'Dijkstra\'s took %.2fs, in average %.2fs per WE.' % (delta_t, 
+      delta_t / len(weps))
+  print 'In average, %.1f of %d nodes have been settled.' \
       % (avg, len(graph.nodes))
 
   print '''Evaluating reachability analysis...'''
@@ -113,7 +129,7 @@ def main():
   pickle.dump(population_at_wep,  
       open(os.path.splitext(osmfile)[0] + '.population_at_wep.out', 'w'))
   for key, value in population_at_wep.items():
-    print "WEP %d has population %d" % (key, value)
+      print "WEP %d has population %d" % (key, value)
 
 
 

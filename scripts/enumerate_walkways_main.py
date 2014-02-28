@@ -8,7 +8,7 @@
 '''
 USAGE = \
     'enumerate_forest_walkways.py <WEPS> <OSM_ID_MAP> <FOREST_NODE_IDS> ' \
-    '<GRAPH> <NODEINFO>'
+    '<GRAPH> <NODEINFO> [<LIMIT>]'
 
 import pickle
 import sys
@@ -32,10 +32,12 @@ def main():
   g = pickle.load(open(sys.argv[4]))
   nodeinfo = pickle.load(open(sys.argv[5]))
 
-  forest_polygons = pickle.load(open("data/saarland-130822.forest_polygons.out"))
-
   ''' Set parameters '''
-  limit = 20*60
+  if len(sys.argv) > 6:
+    limit = int(sys.argv[-1]) * 60.
+  else:
+    limit = 10*60
+    print "Using time limit 10min for walkway generation."
 
   wep_nodes = [osm_id_map[osm_id] for osm_id in weps]
   wep_nodes_set = set(wep_nodes)
@@ -60,7 +62,8 @@ def main():
 
   ''' Compute the distance to the edge of the woods (or load it) '''
   print 'Computing edge distance...'
-  name = "data/saarland-130822.edge_distance.out"
+  name = os.path.splitext(os.path.splitext(sys.argv[1])[0])[0] + '.' + \
+      str(int(limit/60)) + '.edge_distance.out'
   if os.path.exists(name):
     d_edge = pickle.load(open(name))
   else:
@@ -71,20 +74,25 @@ def main():
 
   ''' Generate the walkways from every wep to all weps (within distance) '''
   count = 0
+  import time
+  t0 = time.clock()
+  total_walkways = 0
   for node in wep_nodes:
     count += 1
-    walkways_and_distances = enumerate_walkways(g, node, target_nodes=wep_nodes_set, 
-        cost_limit=limit, local_cycle_depth=5, edge_distance=d_edge)
+    walkways_and_distances = enumerate_walkways(g, node, 
+        target_nodes=wep_nodes_set, cost_limit=limit, local_cycle_depth=5, 
+        edge_distance=d_edge)
     print "%d of %d ways generated" % (count, len(wep_nodes))
     #print walkways
-    print " %d  ways found with cost limit %.1f min." % (len(walkways_and_distances), limit/60.)
+    print " %d  ways found with cost limit %.1f min." % \
+        (len(walkways_and_distances), limit/60.)
     if len(walkways_and_distances) == 0:
       continue
+    total_walkways += len(walkways_and_distances)
 
     ''' Evaluate the walkways (compute attractiveness), sort by distance. '''
-    #metric = evaluate(walkways)
-    walkways = \
-        [(w,d) for (d,w) in sorted([(d,w) for (w,d) in walkways_and_distances])]
+    walkways = walkways_and_distances
+    walkways = [(w,d) for (d,w) in sorted([(d,w) for (w,d) in walkways])]
     ma = max([d for (w,d) in walkways])
     mi = min([d for (w,d) in walkways])
     su = sum([d for (w,d) in walkways])
@@ -108,10 +116,13 @@ def main():
     plt.show()
     s = raw_input("Press ENTER for next cycle.")
 
-
-
-
-
+  delta_t = time.clock() - t0
+  print "Generated %d walkways from %d WEs, %.1f in average." % (total_walkways,
+      len(weps), float(total_walkways) / len(weps))
+  print "Limit was %d min." % (limit / 60)
+  print "The graph had %d nodes and %d arcs." % (len(g.nodes),
+      sum([len(edges) for edges in g.edges.values()]))
+  print "This took %.2fs." % delta_t
 
 
 if __name__ == '__main__':
