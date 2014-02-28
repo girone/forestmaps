@@ -1,0 +1,214 @@
+'''Copyright 2012-13: Jonas Sternisko, in extension to a script of Manuel Braun
+
+
+   This is the SConstruct file.
+
+   It is used by SCons to enter targets and build locations. Scons files are
+   python code that define a build environment. In order to start the
+   compilation process directly, call
+
+    ./scons [scons options] [options]
+
+   Although it can be started directly, I recommend to use the more convenient
+   Makefile as a wrapper to scons, allowing the use of 'make', 'make test' etc.
+
+
+   For [scons options] refer to the scons manual. Available [options] for this
+   SCons environment are:
+
+    mode=[Debug|Release|RelWithDebInfo]
+      Sets the compiler optimization level and debug information. Search the
+      code for details.
+
+    target_set=[main|test|all]
+      Selects the targets to be built: Creates executables from either
+      *Main.cpp (main), *Test.cpp (test) or both (all).
+      If the option 'target' is set, this option will be ignored.
+
+    target=*{Test,Main}
+      Selects a single executable that will be built. This option is usefull if
+      you do not want to compile and link every other Main or Test executable
+      over and over again.
+
+    omp=[0|1]
+      Enable OpenMP parallelization (-fopenmp flag)
+
+    build_dir
+      Sets the directory where executables and temporary files are created.
+
+
+   In short, the commands in the script below do the following:
+
+    1. Set up an environment with the compiler flags and libraries. The build-
+       directory is set to 'build'. The duplicate=1 option means that scons
+       creates copies of the up-to-date src/ and test/ directory structure and
+       builds the object files and links them to executables.
+    2. The build mode and suite are set. They are passed via arguments. They
+       influence the set of built targets and the optimization level (-O3, -g
+       etc.) In our setup, the upstream Makefile sets these arguments depending
+       on its build target (e.g. 'compile' or 'test'). Note that the Makefile
+       also operates downstream: It copies the executable tests and mains to
+       the top level of build/ to allow easy access.
+    3. The targets and their dependencies are defined. The procedure uses
+       globbing to select the source files. The files are distinguished by
+       their name pattern: Regular sources end with *.cpp while programs end
+       with *Main.cpp. Test-sources are located at test/ and end on *Test.cpp.
+       The targets and their dependencies are added to the SCons-environment.
+       Automatic dependency checking is done before compiling, so we just add
+       all sources as dependencies.
+
+'''
+import os
+import sys
+import glob
+import subprocess
+
+
+
+# non-system dependencies
+
+gmock_dir = 'lib/googlemock/'
+gtest_dir = gmock_dir + 'gtest/'
+gperftools_dir = 'lib/gperftools-2.0/src/'
+sparse_hash_map_dir = 'lib/sparsehash-2.0.2/src/'
+gflags_dir = 'lib/gflags-2.0/'
+
+
+# various function definitions
+
+def run_unit_test(env, target, source):
+    '''Runs a unit test and if the test is passed, marks the test as such.'''
+    test_bin = str(source[0].abspath)
+    return_code = subprocess.call(test_bin)
+    if return_code < 0:
+        cpp_file = source[0]
+        print >> sys.stderr, \
+              '* {}.cpp:1: assert() failed or SEGFAULT?'.format(cpp_file)
+    if not return_code:
+        open(str(target[0]),'w').write("PASSED\n")
+
+def checkstyle(env, target, source):
+    '''Performs a stylecheck for the target. Marks it as passed, if so.'''
+    cpp = str(source[0])
+    if not subprocess.call(['./cpplint.py', cpp]):
+        open(str(target[0]),'w').write("PASSED\n")
+
+
+# Main script
+
+
+# select build directory
+build_dir = ARGUMENTS.get('build_dir', 'build')
+
+# set up environment
+VariantDir(build_dir, '.', duplicate=1)  # have a separate directory for results
+build_dir = build_dir + '/'
+env = Environment(ENV = os.environ)
+env.Replace(CXX = "g++-4.6")
+env.Append(CXXFLAGS='-std=c++0x -Wall')
+env.Append(CPPPATH=[gmock_dir + 'include', gmock_dir,
+                    gtest_dir + 'include', gtest_dir,
+                    gperftools_dir,
+                    sparse_hash_map_dir,
+                    gflags_dir + 'include']);
+# build google-mock (includes google-test) and gtest_main as library
+env.Library(gmock_dir + 'gmock',
+            [gmock_dir + 'src/gmock-all.cc', gtest_dir + 'src/gtest-all.cc'])
+env.Library(gmock_dir + 'gtest_main',
+            gtest_dir + 'src/gtest_main.cc')
+env.Append(LIBPATH=[gmock_dir, gflags_dir + 'lib'])
+
+# set the libraries
+env.Append(LIBS=['boost_system',
+                 'boost_filesystem-mt',
+                 'boost_program_options',
+                 'boost_serialization',
+                 'boost_date_time',
+                 'boost_thread-mt',
+                 'gmock',
+                 'gtest_main',
+                 File(gflags_dir + 'lib/libgflags.a')])
+
+
+# select build mode (optimization level and debug information)
+build_mode = ARGUMENTS.get('mode', 'RelWithDebInfo').lower()
+if not (build_mode in ['debug', 'release', 'relwithdebinfo']):
+    print " * Error: expected 'Debug' or 'Release' or 'RelWithDebInfo', " \
+          "found: " + build_mode
+    Exit(1)
+
+if build_mode == 'debug':
+    env.Append(CXXFLAGS='-g')
+elif build_mode == 'relwithdebinfo':
+    env.Append(CXXFLAGS='-g -O3')
+else:  # release
+    env.Append(CXXFLAGS='-O3')
+
+
+# select target set
+target_set  = ARGUMENTS.get('target_set', 'main')
+if not (target_set in ['main', 'test', 'all']):
+    print " * Error: expected target set 'main' or 'test' or 'all', found: " + \
+          target_set
+    Exit(1)
+
+
+# Always compile with gperftools profiler support (uses fast tcmalloc)
+env.Append(LIBS=['profiler', 'tcmalloc'])
+env.Append(LIBPATH=['lib/gperftools-2.0/.libs'])
+env.Append(CXXFLAGS=' -fno-omit-frame-pointer')
+
+# select OpemMP parallelization flag
+omp = bool(int(ARGUMENTS.get('omp', 1)))
+if not (omp in [True, False]):
+    print " * Error: expect 'omp' to be False or True, found: " + str(omp)
+    Exit(1)
+if omp:
+    env.Append(CXXFLAGS=" -fopenmp")
+else:
+    print " * Compiling with parallelization disabled."
+env.Append(LINKFLAGS=['-fopenmp'])
+
+# see if a specific target is set, get it name without extension
+target_name = ARGUMENTS.get('target')
+if target_name:
+  target_name = os.path.splitext(os.path.basename(target_name))[0]
+
+
+
+# select source files
+cpp_test  = glob.glob('test/*Test.cpp')
+cpp_test_other = glob.glob('test/*.cpp');
+cpp_test_other = list(set(cpp_test_other) - set(cpp_test))
+cpp_main  = glob.glob('src/*Main.cpp')
+cpp_other = glob.glob('src/*.cpp')
+cpp_other = list(set(cpp_other) - set(cpp_main))
+h_files   = glob.glob('*.h')
+cpp_build = [build_dir + file for file in cpp_other]
+cpp_build_test = [build_dir + file for file in cpp_test_other]
+
+# Add all targets if not a specific target (build/*{Main,Test}) was selected
+if not target_name:
+  if target_set in ['test', 'all']:
+    for file in cpp_test:
+      target_name = os.path.splitext(file)[0]
+      program = env.Program(target = build_dir + target_name,
+                            source = [build_dir + file] + cpp_build + cpp_build_test)
+      env.Command(build_dir + target_name + '.passed', program, run_unit_test)
+
+  if target_set in ['main', 'all']:
+    for file in cpp_main:
+      target_name = os.path.splitext(file)[0]
+      env.Program(target = build_dir + target_name,
+                  source = [build_dir + file] + cpp_build)
+else:
+  subdir = ''
+  if 'Test' in target_name:
+    subdir = 'test/'
+  else:
+    subdir = 'src/'
+  SetOption('num_jobs', 4)
+  p = env.Program(target = build_dir + target_name,
+                  source = [build_dir + subdir + target_name + '.cpp'] + cpp_build + cpp_build_test)
+  env.Command(build_dir + target_name + '.passed', p, run_unit_test)
+

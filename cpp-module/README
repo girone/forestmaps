@@ -1,0 +1,15 @@
+To compile this code, create the following directories:
+
+build/
+lib/
+scons/
+
+Now place an up-to-date installation of scons in the corresponding folder, such 
+that the main scons script is located at:
+
+scons/bin/scons
+
+Type 'make compile' to start the build-process and 'make test' to compile and 
+run the tests. Run 'make checkstyle' to parse the code with cpplint.py. In case
+the build fails because of missing libraries, place them under lib/
+
