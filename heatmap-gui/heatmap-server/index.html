@@ -1,248 +1,114 @@
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ForestMaps GUI using OpenLayers.js with heatmap.js &amp; OpenStreetMap</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ForestsMaps</title>
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="bootstrap/css/jumbotron-narrow.css" />
     <style>
       #heatmapArea {
         position:relative;
-        float:left;
-        width:800px;
-        height:600px;
+        width: 100%;
+        height: 60ex;
         border:1px dashed black;
       }
     </style>
     <script src="http://openlayers.org/api/OpenLayers.js"></script>
-<!--
-    <script type="text/javascript" src="OpenLayers.js"></script>
--->
-    <script type="text/javascript" src="heatmap.js"></script>
-    <script type="text/javascript" src="heatmap-openlayers.js"></script>
+    <script type="text/javascript" src="heatmapjs/heatmap.js"></script>
+    <script type="text/javascript" src="heatmapjs/heatmap-openlayers.js"></script>
     <script type="text/javascript" src="jquery-2.0.3.min.js"></script>
-    <script type="text/javascript">
+    <script type="text/javascript" src="ui.js"></script>
+</head>
+
+<body>
+
+    <div class="container">
+      <div class="header">
+        <ul class="nav nav-pills pull-right">
+          <li id="nav-home" class="active"><a>Home</a></li>
+          <li id="nav-about" ><a>About</a></li>
+        </ul>
+        <h3 class="text-muted">Modelling Route Distribution in Forests</h3>
+      </div>
 
 
-var map, layer, heatmap;
-var lastRequestExtent;
-var point_radius = 50;  // px
-var kPOINT_RADIUS_METERS = 50.;
-var kPOINT_RADIUS_DEGREE = kPOINT_RADIUS_METERS / 111694.;
+    <div id="main">
+        <div id="heatmapArea"></div>
+    </div>
 
+      <div id="home" class="row marketing">
+        <div class="col-lg-12">
+          <h4>A Model for Forest Trail Utilization</h4>
+          <p>This project models utilization of forests based on publicly
+          available data about population, road networks and route planning techniques.
+          On this website we present the outcome of our computations as colorful map layers.
+          This webpage will be regularily updated with new data.</p>
+          <p>The map above shows such a model for the Freiburg area. The colors encode the utilization
+           of the underlying ways. Areas with more intesive colors are more
+           frequented that those blue or no color.</p>
 
-// Transforms the json (lat, lon, count) by applying the maps' projection.
-function transform_data(inputData) {
-    var transformedHeatmapData = { max: inputData.max , data: [] };
-    var data = inputData.data;
-    var datalen = data.length;
+          <h4>The role of forest</h4>
+          <p>Nowadays mankind uses the forests in its surroundings not only for
+           leisure activities and lumbering. The woods also fulfill an important
+           part of keeping the worlds ecosystem in balance and must therefore
+           be conserved. These three major functions conflict each other. Ongoing
+           logging naturally inhibits the ability
+           of the forests to provide for a basis of biodiversity. Also steady
+           presence of humans scares off animals and takes a heavy toll on nature's health.</p>
 
-    // in order to use the OpenLayers Heatmap Layer we have to transform the data into
-    // { max: <max>, data: [{lonlat: <OpenLayers.LonLat>, count: <count>},...]}
+          <h4>Who cares?</h4>
+          <p>Governments aim to divide the forestal areas into parts fulfilling
+          the functions explained above. A model of forest utilization
+          serves as a basis for this regulation. Unfortunately, statistics about
+          people's activity inside the forest are hard to obtain. Other than
+          in road networks, the frequency along hiking trails is too low and
+          varies strongly between sunny and rainy days, so counting of visitors using
+          humans or computers does not pay off.</p>
 
-    while(datalen--){
-        transformedHeatmapData.data.push({
-            lonlat: new OpenLayers.LonLat(data[datalen].lon, data[datalen].lat),
-            count: data[datalen].count
-        });
-    }
-    return transformedHeatmapData;
-};
-
-
-function data_bounds(data) {
-    var minLat = 90., minLon = 180., maxLat = -90., maxLon = -180.;
-    for (var i = 0; i < data.length; ++i) {
-        if (data[i].lat < minLat) { minLat = data[i].lat; }
-        if (data[i].lat > maxLat) { maxLat = data[i].lat; }
-        if (data[i].lon < minLon) { minLon = data[i].lon; }
-        if (data[i].lon > maxLon) { maxLon = data[i].lon; }
-    }
-    bounds = new OpenLayers.Bounds();
-    bounds.extend(new OpenLayers.LonLat(minLon, minLat));
-    bounds.extend(new OpenLayers.LonLat(maxLon, maxLat));
-    return bounds;
-};
-
-
-function init(){
-    map = new OpenLayers.Map('heatmapArea', {
-        projection: new OpenLayers.Projection("EPSG:4326"),
-        displayProjection: new OpenLayers.Projection("EPSG:4326")
-    });
-    layer = new OpenLayers.Layer.OSM();
-
-    // create heatmap layer
-    heatmap = new OpenLayers.Layer.Heatmap(
-        "Heatmap Layer",
-        map,
-        layer,
-        {
-            visible: true,
-            radius: point_radius
-        },
-        {
-            isBaseLayer: false,
-            opacity: 0.3,
-            projection: new OpenLayers.Projection("EPSG:4326")
-        }
-    );
-    map.addLayers([layer, heatmap]);
-
-    map.zoomToMaxExtent();
-    map.zoomIn();
-    lastRequestExtent = map.getExtent();
-
-    // Load initial data from server
-    get_heatmap_extract("");
-
-    //$.getJSON( "dummy.json", function( data ) {
-        //update_heatmap(data);
-    //});
-}
-
-
-function get_current_map_extent() {
-    return map.getExtent().transform(layer.projection, map.projection).toBBOX();
-}
-
-
-// Avoids inconsistent updates. If set, no ajax heatmapRequest will be sent.
-var allowNewHeatmapRequest = true;
-
-
-// Updates the heatmap with json data (lat, lon, count)
-function update_heatmap(data) {
-    var transformedHeatmapData = transform_data(data);
-    heatmap.setDataSet(transformedHeatmapData);
-    if (data.data.length) {
-        allowNewHeatmapRequest = false;
-        //map.zoomToExtent(data_bounds(data.data).transform(map.projection, layer.projection));
-        allowNewHeatmapRequest = true;
-        set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
-    }
-}
-
-
-// Updates the radius in pixels of heatmap points in order to match meters
-function set_heatmap_point_scale(targetRadius) {
-    var ext, deltaLatitudeOfMap, pixelHeightOfMap;
-    ext = layer.getExtent().transform(layer.projection, map.projection);
-    deltaLatitudeOfMap = Math.abs(ext.top - ext.bottom);
-    pixelHeightOfMap = $('#heatmapArea').height();
-    point_radius = targetRadius / deltaLatitudeOfMap * pixelHeightOfMap;
-    point_radius = Math.ceil(point_radius) + 1
-    heatmap.heatmap.set("radius", point_radius)
-    //console.log("setting point scale to " + point_radius)
-};
-
-
-var url = "http://sambesi.informatik.uni-freiburg.de:8080/index.html";
-var lastRequestTimeStamp = 0;
-var paramOfLastRequest = "none"
-
-
-function milliseconds() {
-    var d = new Date();
-    return d.getMinutes() * 60000 + d.getSeconds() * 1000 + d.getMilliseconds();
-}
-
-
-function get_heatmap_extract(bbox) {
-    if (allowNewHeatmapRequest) {
-        var timestamp = milliseconds();
-        if (paramOfLastRequest != bbox) {
-            if (Math.abs(timestamp - lastRequestTimeStamp) > 500) {
-                $.ajax({
-                    url: url + "?heatmapRequest=" + bbox,
-                    dataType: "jsonp"
-                });
-                lastRequestTimeStamp = timestamp;
-                paramOfLastRequest = bbox;
-                lastRequestExtent = map.getExtent();
-            }
-        }
-    }
-}
-
-
-// Parses the datastring "lat0,lon0,count0,lat1,lon1,count1,..."
-function parse_datastring(json) {
-    var length = json.datacount;
-    //console.log("Received jsonp with " + length + " elements.")
-    var dataStringArray = json.datapoints.split(",");
-    var result = { max: 0 , data: [] };
-    var maxi = 0;
-    for (var i = 0; i < length; i++) {
-        var heat = parseFloat(dataStringArray[3*i+2]);
-        maxi = Math.max(maxi, heat);
-        result.data.push({
-            lat :   parseFloat(dataStringArray[3*i]),
-            lon :   parseFloat(dataStringArray[3*i+1]),
-            count : heat
-        });
-    }
-    result.max = maxi;
-    return result;
-}
-
-var allowCentering = true
-function heatmap_request_callback(json) {
-    //console.log("heatmap_request_callback() called.")
-    if (json.datacount > 1) {
-        var data = parse_datastring(json);
-        update_heatmap(data);
-        if (allowCentering) {
-            //console.log("Allow initial centering.")
-            allowCentering = false;
-            map.zoomToExtent(data_bounds(data.data).transform(map.projection, layer.projection));
-        }
-    }
-}
-
-
-window.onload = function() {
-    init();
-    set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
-
-    // register event handlers
-    map.events.register("zoomend", map, function(){
-        if (!lastRequestExtent.containsBounds(map.getExtent())) {
-            get_heatmap_extract(get_current_map_extent());
-        }
-        set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
-    });
-
-    map.events.register("moveend", map, function(){
-        if (!lastRequestExtent.containsBounds(map.getExtent())) {
-            get_heatmap_extract(get_current_map_extent());
-        }
-        set_heatmap_point_scale(kPOINT_RADIUS_DEGREE);
-    });
-};
-
-
-$(document).ready(function(){
-    allowCentering = true
-    lastRequestTimeStamp = 0;
-    paramOfLastRequest = "none"
-});
-
-
-    </script>
-
-    </head>
-
-    <body>
-        <div id="main">
-            <h1>ForestMaps GUI using OpenLayers.js with heatmap.js &amp; OpenStreetMap</h1>
-            <div id="heatmapArea"></div>
         </div>
-<!--
-        <form action="index.html">
-          <input type="file" />
-          <input type="submit" value="Load JSON" />
-        </form>
--->
 
-    </body>
+      </div>
+
+      <div id="about" class="row marketing">
+        <div class="col-lg-6">
+          <h4>This website is built using</h4>
+          <ul>
+            <li><a href="http://openlayers.org/">OpenLayers.js with OpenStreetMap Layer</a></li>
+            <li><a href="http://www.patrick-wied.at/static/heatmapjs/">heatmap.js</a></li>
+            <li><a href="http://jquery.com/">jQuery</a></li>
+            <li><a href="http://getbootstrap.com/">Bootstrap 3</a></li>
+          </ul>
+
+<!--
+          <h4>Subheading1</h4>
+          <p>Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Cras mattis consectetur purus sit amet fermentum.</p>
+
+          <h4>Subheading2</h4>
+          <p>Maecenas sed diam eget risus varius blandit sit amet non magna.</p>
+-->
+        </div>
+
+        <div class="col-lg-6">
+          <h4>About us</h4>
+          <p>We are a team of researchers from the university of Freiburg. You can find further information about our work at our <a href="http://ad.informatik.uni-freiburg.de/front-page-en?set_language=en">group's website</a>.</p>
+
+<!--
+          <h4>Subheading4</h4>
+          <p>Morbi leo risus, porta ac consectetur ac, vestibulum at eros. Cras mattis consectetur purus sit amet fermentum.</p>
+
+          <h4>Subheading5</h4>
+          <p>Maecenas sed diam eget risus varius blandit sit amet non magna.</p>
+-->
+        </div>
+      </div>
+
+      <div class="footer">
+        <p>&copy; University of Freiburg 2013</p>
+      </div>
+
+    </div> <!-- /container -->
+
+</body>
 </html>
