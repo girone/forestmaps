@@ -42,7 +42,10 @@ def main():
   # TODO(Jonas): implement this
   #forest_fids = set(road_features_array[road_features_array['wanderweg'] == 1]['fid'])
 
-  tmp1, tmp2 = mem + "dissolved", mem + "buffered"
+  if arcpy.management.GetCount(road_dataset) < 25e4:
+    tmp1, tmp2 = mem + "dissolved", mem + "buffered"
+  else:
+    tmp1, tmp2 = path + "dissolved.shp", path + "buffered.shp"
 
   t.start_timing("Dissolve forest polygons for faster clipping...")
   arcpy.management.Dissolve(forest_dataset, tmp1)
