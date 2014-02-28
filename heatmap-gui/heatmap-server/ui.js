@@ -125,7 +125,7 @@ function set_heatmap_point_scale(targetRadius) {
 };
 
 
-var url = "http://sambesi.informatik.uni-freiburg.de:8080/index.html";
+//var url = "http://sambesi.informatik.uni-freiburg.de:8080/index.html";
 var hostname = window.location.hostname;
 var port = window.location.port;
 var url = "http://" + hostname + ":" + port + "/"
