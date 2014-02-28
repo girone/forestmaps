@@ -22,9 +22,6 @@ def arc_repetition(arcs_so_far, next_arc):
 def noop(*args):
   pass
 
-def cry(*args):
-  print "Uehhh"
-
 def prune(tree_node):
   tree_node.pruned = True
   for s in tree_node.successors:
@@ -43,19 +40,21 @@ class WayTreeNode(object):
   def create_successor(self, successor, cost):
     return WayTreeNode(successor, self, self.cost + cost)
 
-  def traverse(self, collect, test_func=true, action_func=noop):
+  def traverse(self, collect, result):
     ''' Recursively descends the tree, collecting things and testing. '''
     if not self.successors:
+      result.append((self, collect)) # save the collection for the next traverse
       pass
     else:
       for successor in self.successors:
         if successor.pruned:
           continue
-        if test_func(collect, (self.node, successor.node)):
-          action_func(self)
-        copy = collect.copy()
-        copy.add((self.node, successor.node))
-        successor.traverse(copy, test_func, action_func)
+        if arc_repetition(collect, (self.node, successor.node)):
+          prune(self)
+        else:
+          copy = collect.copy()
+          copy.add((self.node, successor.node))
+          successor.traverse(copy, result)
 
 
 class WayTree(object):
@@ -63,6 +62,7 @@ class WayTree(object):
   def __init__(self, node_idx):
     self.root = WayTreeNode(node_idx)
     self.nodes = [self.root]
+    self.prune_state = None
 
   def detect_cycle(self, start_tree_node, node_id, depth):
     ''' Returns true, if @node_id is among the ids of the @depth last nodes. '''
@@ -133,9 +133,10 @@ class WayGenerator(object):
   def trace(self, targets=None):
     ''' Backtracks paths from leaves of the generated WayTree back to the root.
     '''
-    leaves = \
-        [node for node in self.tree.nodes if node.node in targets] if targets \
-        else [node for node in self.tree.nodes if node.successors == []]
+    if targets:
+      leaves = [node for node in self.tree.nodes if node.node in targets] 
+    else:
+      leaves = [node for node in self.tree.nodes if node.successors == []]
     leaves = [leaf for leaf in leaves if not leaf.pruned]
     return [self.backtrack_path(leaf) for leaf in leaves]
 
