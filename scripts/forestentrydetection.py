@@ -27,7 +27,12 @@ from graph import Graph, Edge, NodeInfo
 import convexhull
 import osm_parse
 
+# find Polygon library on machines without admin rights
+# libpath = os.path.abspath("/home/sternis/code/forst/scripts/lib/python2.7/site-packages")
+# sys.path.append(libpath)
+
 visualize = True
+
 
 
 def width_and_height(bbox):
@@ -211,12 +216,77 @@ def classify_forest(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId, filenam
     return feps, forestHighwayNodes, population, nodeinfo
 
 
+def classify_forest_entries(nodes, edges, nodeFlags):
+    """Sets values in @nodeFlags to 2 for forest entries.
+
+    A forest entry is a node which is not inside the forest (flag = 0 so far),
+    from which there is an arc to at least one node in the forest (flag = 1).
+
+    """
+    for (s, t, _) in edges:
+        if nodeFlags[s] == 0 and nodeFlags[t] == 1:
+            nodeFlags[s] = 2
+    return nodeFlags
+
+
+def classify_forest_nodes(nodes, edges, forestPolygons):
+    """Returns a vector of flags distinguishing forest and normal nodes.
+
+    A node is a forest node (flag = 1) if it falls inside a forest polygon.
+
+    """
+    from Polygon import Polygon
+    # sort nodes and bounding boxes of polygons ascending by latitude
+    sortedNodes = sorted([(node, index) for index, node in enumerate(nodes)])
+    sortedBoxes = sorted([(bounding_box(poly), index)
+                          for index, poly in enumerate(forestPolygons)])
+    nodeFlags = [0] * len(nodes)
+    leftPointer = -1
+    lat = -90.
+    for box, polygonIndex in sortedBoxes:
+        minPolygonLatitude = box[0][0]  # TODO(Jonas): Be sure about bbox == (lat, lon)
+        maxPolygonLatitude = box[1][0]
+        minPolygonLongitude = box[0][1]
+        maxPolygonLongitude = box[1][1]
+        while leftPointer < len(sortedNodes) and lat < minPolygonLatitude:
+            leftPointer += 1
+            lat = sortedNodes[leftPointer][0][0]
+
+        poly = Polygon(forestPolygons[polygonIndex])
+        nodePointer = leftPointer
+        while nodePointer < len(sortedNodes) and lat <= maxPolygonLatitude:
+            ((lat, lon, _), index) = sortedNodes[nodePointer]
+            if lon >= minPolygonLongitude and lon <= maxPolygonLongitude:
+                nodeFlags[index] = 1 if poly.isInside(lat, lon) else 0
+            nodePointer += 1
+    return nodeFlags
+
+
+def classify_nodes(nodes, edges, forestPolygons):
+    """Returns a vector of forest flags for the nodes.
+
+    The flag of a node x is
+        - 1, if x is inside the forest,
+        - 2, if x is an forest entry (it is outside, but has an arc into),
+        - 0 otherwise
+
+    """
+    nodeFlags = classify_forest_nodes(nodes, edges, forestPolygons)
+    nodeFlags = classify_forest_entries(nodes, edges, nodeFlags)
+    return nodeFlags
+
+
 def usage_information():
     return "Usage: python script.py <osm_file> <max_speed>"
 
 
 def main():
-    if len(sys.argv) < 2 or os.path.splitext(sys.argv[1])[1] != '.osm':
+    """Parse an OSM file, classify forest nodes and dump graph and polygons."""
+    from osm_parse import OSMParser, dump_graph
+
+    filebase, ext = os.path.splitext(sys.argv[1])
+    path, filename = os.path.split(filebase)
+    if len(sys.argv) < 2 or ext != '.osm':
         print "No osm file specified!"
         print usage_information()
         exit(1)
@@ -232,26 +302,39 @@ def main():
     print "Reading nodes and ways from OSM and creating the graph..."
     iterpreter = (osm_parse.OSMWayTagInterpreter if standardOSM
                   else osm_parse.ATKISWayTagInterpreter)
-    tmp = osm_parse.read_file(osmfile, maxspeed, iterpreter)
-    (nodeIds, waysByType, graph, nodes, nodeIndexToOsmId) = tmp
+    parser = OSMParser(maxspeed)
+    (nodes, edges, forestPolygons) = parser.read_osm_file(osmfile)
 
-    print (len(graph.nodes), graph.size(),
-           sum([len(edges) for edges in graph.edges.values()]))
+    print "Classifying the nodes..."
+    forestFlags = classify_nodes(nodes, edges, forestPolygons)
 
-    filenameBase = os.path.splitext(osmfile)[0]
-    tmp = classify_forest(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId,
-                          filenameBase)
-    (feps, forestHighwayNodes, population, nodeinfo) = tmp
+    dump_graph(nodes, edges, filename, forestFlags)
+    with open(filename + ".forest.txt", "w") as polyFile:
+        for poly in forestPolygons:
+            polyFile.write("{0}\n".format(poly))
 
-    print "Writing output..."
-    filename = filenameBase + "." + str(maxspeed) + "kmh"
-    zipped = zip(
-    [feps, forestHighwayNodes, population, graph, nodeIndexToOsmId, nodes, nodeinfo],
-    ['Feps', 'ForestIds', 'Population', 'Graph', 'IdMap', 'Nodes', 'Nodeinfo'])
-    for data, extension in zipped:
-        f = open(filename + "." + extension + ".out", 'w')
-        pickle.dump(data, f, protocol=2)
-        f.close()
+
+
+    #tmp = osm_parse.read_file(osmfile, maxspeed, iterpreter)
+    #(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId) = tmp
+
+    #print (len(graph.nodes), graph.size(),
+           #sum([len(edges) for edges in graph.edges.values()]))
+
+    #filenameBase = os.path.splitext(osmfile)[0]
+    #tmp = classify_forest(nodeIds, waysByType, graph, nodes, nodeIndexToOsmId,
+                          #filenameBase)
+    #(feps, forestHighwayNodes, population, nodeinfo) = tmp
+
+    #print "Writing output..."
+    #filename = filenameBase + "." + str(maxspeed) + "kmh"
+    #zipped = zip(
+    #[feps, forestHighwayNodes, population, graph, nodeIndexToOsmId, nodes, nodeinfo],
+    #['Feps', 'ForestIds', 'Population', 'Graph', 'IdMap', 'Nodes', 'Nodeinfo'])
+    #for data, extension in zipped:
+        #f = open(filename + "." + extension + ".out", 'w')
+        #pickle.dump(data, f, protocol=2)
+        #f.close()
 
 
 if __name__ == '__main__':

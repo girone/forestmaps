@@ -153,7 +153,7 @@ class OSMParser(object):
         t = s / (v / 3.6)
         return t
 
-    def expand_current_way_to_edges(self):
+    def expand_current_way_to_edges(self, bidirectional=True):
         """Expands a list of way node ids to a sequence of edges."""
         wayNodeIdList = self.currentWay
         edges = []
@@ -164,6 +164,8 @@ class OSMParser(object):
             wayClass = self.currentHighwayCategory
             cost = self.compute_cost_between_ids(osmIdA, osmIdB, wayClass)
             edges.append((wayNodeIdList[i], wayNodeIdList[j], cost))
+            if bidirectional:
+                edges.append((wayNodeIdList[j], wayNodeIdList[i], cost))
         return edges
 
     def read_node_line(self, line, state):
@@ -288,7 +290,8 @@ class OSMParser(object):
 
     def translate_osm_to_node_polygons(self, osmNodeIdPolygons):
         """Replaces osm node ids with coordinates."""
-        return [map(self.osm_id_to_node, poly) for poly in osmNodeIdPolygons]
+        tmp = [map(self.osm_id_to_node, poly) for poly in osmNodeIdPolygons]
+        return [[(lat,lon) for lat,lon,_ in poly] for poly in tmp]  # strip osmId
 
 
 
@@ -385,17 +388,32 @@ def read_file(filename, maxspeed, interpret=OSMWayTagInterpreter):
     return way_nodes, ways_by_type, graph, nodes, osm_id_map
 
 
-def output_graph(data, target=None):
+def dump_graph(nodes, edges, filename=None, nodeFlags=None):
     """Writes output to some target, stdout by default."""
-    (nodes, edges) = data
-    print len(nodes)
-    print len(edges)
-    for node in nodes:
-        (lat, lon, osm_id) = node
-        print lat, lon#, osm_id
-    for edge in edges:
-        s, t, cost = edge
-        print s, t, cost
+    if filename:
+        with open(filename + ".graph.txt", "w") as f:
+            f.write(str(len(nodes)) + "\n")
+            f.write(str(len(edges)) + "\n")
+            if not nodeFlags:
+                for node in nodes:
+                    (lat, lon, osm_id) = node
+                    f.write("{0} {1} {2}\n".format(lat, lon, osm_id))
+            else:
+                for node, flag in zip(nodes, nodeFlags):
+                    (lat, lon, osm_id) = node
+                    f.write("{0} {1} {2} {3}\n".format(lat, lon, osm_id, flag))
+            for edge in edges:
+                s, t, cost = edge
+                f.write("{0} {1} {2}\n".format(s, t, cost))
+    else:
+        print len(nodes)
+        print len(edges)
+        for node in nodes:
+            (lat, lon, osm_id) = node
+            print lat, lon#, osm_id
+        for edge in edges:
+            s, t, cost = edge
+            print s, t, cost
 
 
 def main():
@@ -405,7 +423,8 @@ def main():
         exit(1)
     parser = OSMParser(maxSpeed=50)
     nodes, edges, polygons = parser.read_osm_file(sys.argv[1])
-    output_graph((nodes, edges))
+    dump_graph(nodes, edges)
+    print polygons
 
 
 if __name__ == '__main__':
