@@ -7,7 +7,7 @@
 # variable to you system's installation of SCons. See the SConstruct file for
 # further documentation and the structure of the source and build directories.
 
-all: compile test checkstyle
+all: compile test #checkstyle
 
 SCONS = ./scons/bin/scons
 NUM_CORES = $(shell grep -c ^processor /proc/cpuinfo)
@@ -37,5 +37,5 @@ clean:
 	rm -f build/*Test* build/*Main
 
 checkstyle:
-	#python cpplint.py src/*.h src/*.hpp src/*impl.h src/*.cpp test/*.cpp
+	python cpplint.py src/*.h src/*.hpp src/*impl.h src/*.cpp test/*.cpp
 

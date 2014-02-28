@@ -108,7 +108,7 @@ env = Environment(ENV = os.environ)
 
 # Set compiler and flags
 #env.Replace(CXX = "g++-4.6")
-env.Append(CXXFLAGS='-std=c++0x -Wall')
+env.Append(CXXFLAGS='-std=c++11 -Wall')
 #env.Replace(CXX = "clang")
 #env.Append(CXXFLAGS='-stdlib=libstdc++')
 
