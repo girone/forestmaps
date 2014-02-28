@@ -264,12 +264,12 @@ TEST(EdgeAttractivenessModelTest, normalize_contributions) {
 // _____________________________________________________________________________
 TEST(EdgeAttractivenessModelTest, distribute_contribution) {
   ForestRoadGraph g;
-  g.from_string("[5,4,"                  // NOTE(Jonas): This is a dummy graph
-                "{(1,0)},"               // with unidirectional arcs only.
+  g.from_string("[5,8,"
+                "{(1,0)},"
+                "{(0,0),(2,0)},"
+                "{(1,0),(3,0),(4,0)},"
                 "{(2,0)},"
-                "{(3,0),(4,0)},"
-                "{},"
-                "{}]");
+                "{(2,0)}]");
   const vector<int> f = {};
   const vector<float> p = {};
   vector<vector<float> > pref =
