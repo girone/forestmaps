@@ -1,3 +1,6 @@
+.sconsign.dblite
+*.kdev4*
+*.pyc
 *.aux
 *~
 *.backup

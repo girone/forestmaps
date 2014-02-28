@@ -101,6 +101,7 @@ OSMGraphBuilder OSMGraphBuilder::RoadGraphBuilder(OSMGraph* g) {
     roadTypeToSpeed["unclassified"]   = 40;
     roadTypeToSpeed["residential"]    = 30;
     roadTypeToSpeed["unsurfaced"]     = 30;
+    roadTypeToSpeed["cycleway"]       = 25;
     roadTypeToSpeed["living_street"]  = 10;
     roadTypeToSpeed["service"]        = 5;
     roadTypeToSpeed["OTHER"]          = 0;
