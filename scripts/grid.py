@@ -8,6 +8,7 @@
 from PIL import Image, ImageDraw
 import numpy as np
 import sys
+from itertools import chain
 
 
 def hom(point):
@@ -16,9 +17,11 @@ def hom(point):
 
 
 def bounding_box(points):
+  assert len(points) > 1
+  chained = chain(*points) if len(points[0]) != 2 else points
   xmax = ymax = float(-sys.maxint)
   xmin = ymin = float(sys.maxint)
-  for point in points:
+  for point in chained:
     if xmax < point[0]:
       xmax = point[0]
     if xmin > point[0]:
