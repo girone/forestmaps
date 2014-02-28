@@ -18,14 +18,61 @@ import math
 from collections import defaultdict
 import scipy
 from scipy.spatial import qhull
+import math
 from grid import Grid
+from graph import Graph, Edge
 
 
-def map_way_ids_to_nodes(osmfile):
-  """ Creates two mappings and a graph from an osm-file.
+speed_table = {"motorway"       : 110, \
+               "trunk"          : 110, \
+               "primary"        : 70, \
+               "secondary"      : 60, \
+               "tertiary"       : 50, \
+               "motorway_link"  : 50, \
+               "trunk_link"     : 50, \
+               "primary_link"   : 50, \
+               "secondary_link" : 50, \
+               "road"           : 40, \
+               "unclassified"   : 40, \
+               "residential"    : 30, \
+               "unsurfaced"     : 30, \
+               "cycleway"       : 25, \
+               "living_street"  : 10, \
+               "service"        : 5, \
+               "OTHER"          : 0, \
+               "track"          : 5, \
+               "footway"        : 5, \
+               "pedestrian"     : 5, \
+               "tertiary_link"  : 5, \
+               "path"           : 4, \
+               "steps"          : 3}
+def type_to_speed(typee):
+  if typee in speed_table:
+    return speed_table[typee]
+  else:
+    #print "type '" + typee + "' unknown."
+    return 0
+
+
+def great_circle_distance((lat0, lon0), (lat1, lon1)):
+  ''' http://en.wikipedia.org/wiki/Great-circle_distance '''
+  to_rad = math.pi / 180.
+  r = 6371000.785
+  dLat = (lat1 - lat0) * to_rad
+  dLon = (lon1 - lon0) * to_rad
+  a = math.sin(dLat / 2.) * math.sin(dLat / 2.)
+  a += math.cos(lat0 * to_rad) * math.cos(lat1 * to_rad) * \
+      math.sin(dLon / 2) * math.sin(dLon / 2)
+  return 2 * r * math.asin(math.sqrt(a))
+
+
+def read_osmfile(filename):
+  """ Parses nodes and arcs from an osm-file.
+      Creates two mappings, a graph and a collection of nodes from an osm-file.
       - a mapping {way id -> [list of node ids]}
       - a mapping {way type -> [list of way ids]}
       - a bidirectional graph as a map {node_id -> set([successors])}
+      - a dictionary of nodes {node_id -> (lon, lat)}
   """
   def expand_way_to_edges(way_node_list):
     """ For a list of way nodes, this adds arcs between successors.
@@ -35,53 +82,56 @@ def map_way_ids_to_nodes(osmfile):
     for i, j in zip(range(size-1), range(1,size)):
       edges.append((way_node_list[i], way_node_list[j]))
     return edges
-  f = open(osmfile)
-  p = re.compile('\D*k="(\w+)" v="(\w+)"')
+  def calculate_edge_cost(a, b, v):
+    s = great_circle_distance(a, b)
+    t = s / v
+    return t
+  f = open(filename)
+  p_node = re.compile('.*<node id="(\S+)" lat="(\S+)" lon="(\S+)"')
+  nodes = {}
+  p_waytag = re.compile('\D*k="(\w+)" v="(\w+)"')
   way_nodes = {}
-  way_types = {'forest_delim': [], 'highway': []}
-  graph = defaultdict(set)
+  ways_by_type = {'forest_delim': [], 'highway': []}
+  graph = Graph()
   state = 'none'
   for line in f:
     stripped = line.strip()
-    if state == 'none':
+    res = p_node.match(line)
+    if res:
+      assert state != 'way'
+      # switch (lat, lon) to (lon, lat) for (x, y)-coordinates
+      nodes[int(res.group(1))] = (float(res.group(3)), float(res.group(2)))
+    elif state == 'none':
       if stripped.startswith('<way'):
         state = 'way'
         way_id = int(line.split('id=\"')[1].split('\"')[0])
         node_list = []
     if state == 'way':
       if stripped.startswith('<tag'):
-        res = p.match(stripped)
+        res = p_waytag.match(stripped)
         if res:
-          if res.group(1) == 'highway':
-            way_types['highway'].append(way_id)
-          if (res.group(1) == 'landuse' and res.group(2) == 'forest') or  \
-             (res.group(1) == 'natural' and res.group(2) == 'wood'):
-            way_types['forest_delim'].append(way_id)
+          k, v = res.group(1), res.group(2)
+          if k == 'highway':
+            ways_by_type['highway'].append(way_id)
+            way_type = v
+          if (k == 'landuse' and v == 'forest') or  \
+             (k == 'natural' and v == 'wood'):
+            ways_by_type['forest_delim'].append(way_id)
       elif stripped.startswith('<nd'):
         node_id = int(stripped.split("ref=\"")[1].split("\"")[0])
         node_list.append(node_id)
       elif stripped.startswith('</way'):
         state = 'none'
         way_nodes[way_id] = node_list
-        if way_types['highway'][-1] is way_id:
+        if ways_by_type['highway'][-1] is way_id:
           edges = expand_way_to_edges(node_list)
           for e in edges:
-            graph[e[0]].add(e[1])
-            graph[e[1]].add(e[0])
-  return way_nodes, way_types, graph
-
-
-def read_nodes(osmfile):
-  """ Parses OSM nodes from a file. """
-  f = open(osmfile)
-  p = re.compile('.*<node id="(\S+)" lat="(\S+)" lon="(\S+)"')
-  nodes = {}
-  for line in f:
-    res = p.match(line)
-    if res:
-      # switch (lat, lon) to (lon, lat) for (x, y)-coordinates
-      nodes[int(res.group(1))] = (float(res.group(3)), float(res.group(2)))
-  return nodes
+            v = type_to_speed(way_type)
+            if v != 0:
+              t = calculate_edge_cost(nodes[e[0]], nodes[e[1]], v)
+              graph.add_edge(e[0], e[1], t)
+              graph.add_edge(e[1], e[0], t)
+  return way_nodes, ways_by_type, graph, nodes
 
 
 def bounding_box(points):
@@ -129,7 +179,7 @@ def lcc(nodes, graph, threshold):
     while len(queue):
       top = queue.pop()
       component.add(top)
-      for adjacent_node in graph[top]:
+      for adjacent_node in graph.edges[top].keys():
         if adjacent_node in nodes and adjacent_node not in component:
           queue.append(adjacent_node)
     assert len(component) == len(set(component))
@@ -153,7 +203,7 @@ def select_wep(open_highway_nodes, forestal_highway_nodes, graph):
   ''' Selects nodes as WEP which are outside the forest and point into it. '''
   weps = set()
   for node_id in open_highway_nodes:
-    for other_node_id in graph[node_id]:
+    for other_node_id in graph.edges[node_id].keys():
       if other_node_id in forestal_highway_nodes:
         weps.add(node_id)
         break
@@ -235,18 +285,16 @@ def main():
     Second sweep: Store lat-lon pairs for all boundary nodes in the correct
     order.
   '''
-  print 'Reading ways from OSM and creating the graph...'
-  node_ids, way_types, digraph = map_way_ids_to_nodes(osmfile)
-  forest_delim = way_types['forest_delim']
-  print 'Reading nodes from OSM...'
-  nodes = read_nodes(osmfile)
+  print 'Reading nodes and ways from OSM and creating the graph...'
+  node_ids, ways_by_type, digraph, nodes = read_osmfile(osmfile)
+  forest_delim = ways_by_type['forest_delim']
   bbox = bounding_box(nodes.values())
   print 'Computing the convex hull...'
   visual_grid = Grid(bbox, mode="RGB")
   points = [list(p) for p in nodes.values()]
   hull = scipy.spatial.qhull.Delaunay(points).convex_hull
   hull = sort_hull(hull, np.array(points))
-  visual_grid.fill_polygon(hull, color="#EEEEEE")
+  visual_grid.fill_polygon(hull, color="#fadbaa")
 
   print 'Creating forest grid from polygons...'
   forest_polygons = \
@@ -257,7 +305,7 @@ def main():
 
   print 'Classifying highway nodes...'
   highway_node_ids = \
-      set([id for way_id in way_types['highway'] for id in node_ids[way_id]])
+      set([id for way_id in ways_by_type['highway'] for id in node_ids[way_id]])
   forestal_highway_nodes, open_highway_nodes = \
       classify(highway_node_ids, nodes, forest_grid)
 
