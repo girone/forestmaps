@@ -2,7 +2,6 @@
 
 #include "./EdgeAttractivenessModel.h"
 #include <algorithm>
-#include "./Dijkstra.h"
 #include "./Util.h"
 #include "./Timer.h"
 
@@ -207,7 +206,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   size_t done = 0;
   Timer timer;
   timer.start();
-  for (size_t arcIndex = 0; arcIndex < arcs.size(); ++arcIndex) {
+  for (size_t arcIndex = 0; arcIndex < arcs.size() / 10; ++arcIndex) {
     // Set up
     const ForestRoadGraph::Arc_t& arc = arcs[arcIndex];
     int s = arc.source;
@@ -221,10 +220,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
 
     bwd.run(s, Dijkstra<ForestRoadGraph>::no_target);
     fwd.run(t, Dijkstra<ForestRoadGraph>::no_target);
-    evaluate(arcIndex, c, w,
-             bwd.get_costs(), bwd.get_settled_flags(),
-             fwd.get_costs(), fwd.get_settled_flags(),
-             &contributions);
+    evaluate(arcIndex, c, w, bwd, fwd, &contributions);
 
     // Clean up
     nodesToIgnoreBwd[t] = false;
@@ -255,27 +251,47 @@ void ViaEdgeApproach::evaluate(
     const int edgeIndex,
     const int c,
     const int w,
-    const vector<int>& costsS,
-    const vector<bool>& settledS,
-    const vector<int>& costsT,
-    const vector<bool>& settledT,
+    const Dijkstra<ForestRoadGraph>& bwd,
+    const Dijkstra<ForestRoadGraph>& fwd,
     MapMap* contributions) {
+  const vector<int>& costsS = bwd.get_costs();
+  const vector<bool>& settledS = bwd.get_settled_flags();
+  const vector<int>& costsT = fwd.get_costs();
+  const vector<bool>& settledT = fwd.get_settled_flags();
+
+  const size_t fepsize = _forestEntries.size();
+  vector<uint> settledNodesS = bwd.get_settled_node_indices();
+  std::sort(settledNodesS.begin(), settledNodesS.end());
+  vector<int> forestEntriesSettledFromS;
+  forestEntriesSettledFromS.reserve(std::min(settledNodesS.size(), fepsize));
+  std::set_intersection(settledNodesS.begin(), settledNodesS.end(),
+                        _forestEntries.begin(), _forestEntries.end(),
+                        std::back_inserter(forestEntriesSettledFromS));
+
+  vector<uint> settledNodesT = fwd.get_settled_node_indices();
+  std::sort(settledNodesT.begin(), settledNodesT.end());
+  vector<int> forestEntriesSettledFromT;
+  forestEntriesSettledFromT.reserve(std::min(settledNodesT.size(), fepsize));
+  std::set_intersection(settledNodesT.begin(), settledNodesT.end(),
+                        _forestEntries.begin(), _forestEntries.end(),
+                        std::back_inserter(forestEntriesSettledFromT));
+
   // Evaluate routes fep1 -->* s --> t --> fep2.
-  for (int fep1: _forestEntries) {
-    if (!settledS[fep1]) { continue; }
+  for (int fep1: forestEntriesSettledFromS) {
+    //if (!settledS[fep1]) { continue; }
     const int costsFep1 = costsS[fep1];
-    for (int fep2: _forestEntries) {
-      if (!settledT[fep2]) { continue; }
-      const int costsFep2 = costsT[fep2];
-      const int routeCostViaThisEdge = costsFep1 + c + costsFep2;
+    for (int fep2: forestEntriesSettledFromT) {
+//       if (!settledT[fep2]) { continue; }
+//       const int costsFep2 = costsT[fep2];
+      const int routeCostViaThisEdge = costsFep1 + c + costsT[fep2];
       if (routeCostViaThisEdge > _maxCost) { continue; }
       float gain = 0;
       const float share = sum_of_user_shares_after(routeCostViaThisEdge);
       if (fep1 == fep2) {
-        gain = share * 1.f / (costsFep2 + 1.f);
+        gain = share / (costsT[fep2] + 60.f);
       } else {
         const float distance = _distances[fep1][fep2];
-        gain = share * distance / (routeCostViaThisEdge + 1.f);
+        gain = share * distance / (routeCostViaThisEdge + 60.f);
       }
       float increase = w * gain;
       if (increase > 0) {

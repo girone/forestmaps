@@ -7,6 +7,7 @@
 #include <vector>
 #include <gtest/gtest_prod.h>
 #include "./DirectedGraph.h"
+#include "./Dijkstra.h"
 
 using std::unordered_map;
 using std::vector;
@@ -36,6 +37,7 @@ class EdgeAttractivenessModel {
     assert(_preferences.size() == 2);
     assert(_preferences[0].size() > 0);
     assert(_preferences[0].size() == _preferences[1].size());
+    std::sort(_forestEntries.begin(), _forestEntries.end());
   }
   // D'tor.
   virtual ~EdgeAttractivenessModel() { };
@@ -50,7 +52,7 @@ class EdgeAttractivenessModel {
 
  protected:
   const ForestRoadGraph& _graph;
-  const vector<int>& _forestEntries;
+  vector<int> _forestEntries;
   const vector<vector<float>>& _preferences;
   Map _popularities;
   const int _maxCost;
@@ -98,10 +100,8 @@ class ViaEdgeApproach : public EdgeAttractivenessModel {
       const int edgeIndex,
       const int c,
       const int w,
-      const vector<int>& costsS,
-      const vector<bool>& settledS,
-      const vector<int>& costsT,
-      const vector<bool>& settledT,
+      const Dijkstra<ForestRoadGraph>& bwd,
+      const Dijkstra<ForestRoadGraph>& fwd,
       MapMap* contributions);
 
  private:
