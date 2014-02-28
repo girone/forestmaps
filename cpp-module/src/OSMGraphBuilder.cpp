@@ -199,8 +199,8 @@ void OSMGraphBuilder::parseWay() {
       assert(_osmIdToId.count(toOsmId));
       const size_t fromId = _osmIdToId[fromOsmId];
       const size_t toId = _osmIdToId[toOsmId];
-      const OSMNode& f = _g->nodes[fromId];
-      const OSMNode& t = _g->nodes[toId];
+      const OSMNode& f = _g->_nodes[fromId];
+      const OSMNode& t = _g->_nodes[toId];
       const size_t distance = utils::distance(f.lat, f.lon, t.lat, t.lon);
       const size_t duration = std::ceil((distance * 3.6) / speed);
       addArc(fromId, toId, duration);
@@ -222,15 +222,15 @@ size_t OSMGraphBuilder::findPos(const string& s,
 // _____________________________________________________________________________
 void OSMGraphBuilder::addNode(int osmId, float lat, float lon) {
   assert(_osmIdToId.count(osmId) == 0);
-  size_t id = _g->nodes.size();
-  _g->nodes.push_back(OSMNode(lat, lon));
+  size_t id = _g->_nodes.size();
+  _g->_nodes.push_back(OSMNode(lat, lon));
   _osmIdToId.insert(std::make_pair(osmId, id));
-  _g->outArcLists.push_back(vector<OSMArc>());
+  _g->_arcs.push_back(vector<OSMArc>());
 }
 
 // _____________________________________________________________________________
 void OSMGraphBuilder::addArc(size_t fromId, size_t toId, size_t duration) {
-  assert(fromId < _g->outArcLists.size());
-  assert(toId < _g->outArcLists.size());
-  _g->outArcLists[fromId].push_back(OSMArc(duration, toId));
+  assert(fromId < _g->_arcs.size());
+  assert(toId < _g->_arcs.size());
+  _g->_arcs[fromId].push_back(OSMArc(duration, toId));
 }
