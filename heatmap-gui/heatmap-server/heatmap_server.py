@@ -230,7 +230,7 @@ class HeatmapRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         index = 0 if not opt else shortNameToIndex[opt['dataset']]
         zoomlvl = int(opt["zoomlevel"]) if "zoomlevel" in opt else 14
         lvl = normalize_zoomlvl(zoomlvl)
-        print "Returning data at zoomindex: ", zoomlevel
+        print "Returning data at zoomindex: ", lvl
         hm = gHeatmapDB.rasterHeatmaps[index][lvl]
 
         if not leftBottomRightTop or leftBottomRightTop == '':
