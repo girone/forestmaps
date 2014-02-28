@@ -12,6 +12,16 @@
 
 #define SQR(x) ((x)*(x))
 
+// The user studies revealed these numbers:
+const float kUserShareBicycle = 20 / 124.f;  // TODO(Jonas): Update these values.
+const float kUserShareWalking = 71 / 124.f;  // using the study.
+const float kUnmappedPeople = (124.f - kUserShareWalking - kUserShareBicycle) /
+                               124.f;
+
+// We combined the extraction of travel costs for bike and walking by assuming
+// the average bike speed being at a constant factor from the walking speed:
+const float kWalkingToBikeSpeedFactor = 4.f;
+
 // _____________________________________________________________________________
 // Returns the bucket index for a cost.
 uint determine_bucket_index(int cost, const vector<int>& bucketCostBounds) {
@@ -27,22 +37,34 @@ uint determine_bucket_index(int cost, const vector<int>& bucketCostBounds) {
 // visited nodes, and store buckets for these. Repeat the search and use the
 // buckets as a likelihood for distributing the population of nodes to which
 // population has been mapped.
+//
+// graph       - The road graph with edge costs being the walking (!) time.
+// preferences - We assume the same user preferences for walking and biking, but
+//               the provided times refer to walking. Biking times are derived
+//               using the constant factor above.
 vector<float> reachability_analysis(
     const RoadGraph& graph,
     const vector<int>& fepIndices,
-    const vector<float>& population,
+    const vector<float>& populations,
     const vector<int>& populationIndices,
     const vector<vector<float> >& preferences) {
   // Get the buckets from the user preferences.
   const vector<float>& upperBounds = preferences[0];
   const vector<float>& shares = preferences[1];
   vector<int> bucketCostBounds;
-  for (float bound: upperBounds) { bucketCostBounds.push_back(60 * bound); }
-  const float costLimit = bucketCostBounds.back();
+  for (float val: upperBounds) { bucketCostBounds.push_back(60 * val); }
+  vector<int> bucketCostBoundsBike;
+  const float f = kWalkingToBikeSpeedFactor;
+  for (float val: bucketCostBounds) { bucketCostBoundsBike.push_back(f * val); }
+  // As cost limit we use the maximum biking time.
+  const float costLimitWalking = bucketCostBounds.back();
+  const float costLimitBike = costLimitWalking * kWalkingToBikeSpeedFactor;
 
-  assert(population.size() == populationIndices.size());
+  assert(populations.size() == populationIndices.size());
+  vector<bool> reachesForestByWalking(populations.size(), false);
+  vector<bool> reachesForestByBicycle(populations.size(), false);
   Dijkstra<RoadGraph> dijkstra(graph);
-  dijkstra.set_cost_limit(costLimit);
+  dijkstra.set_cost_limit(costLimitBike);
 
   // Prepare progress information
   size_t total = 2 * fepIndices.size();
@@ -56,7 +78,8 @@ vector<float> reachability_analysis(
   // the population point in less that the time bound in the corresponding slot
   // of bucketCostBounds.
   vector<vector<float>> buckets(
-      population.size(), vector<float>(bucketCostBounds.size(), 0.f));
+      populations.size(), vector<float>(bucketCostBounds.size(), 0.f));
+  vector<vector<float>> bucketsBike = buckets;
   for (int index: fepIndices) {
     dijkstra.reset();
     dijkstra.shortestPath(index, Dijkstra<RoadGraph>::no_target);
@@ -66,9 +89,14 @@ vector<float> reachability_analysis(
       int popIndex = populationIndices[i];
       if (settled[popIndex]) {
         int cost = costs[popIndex];
-        assert(cost != Dijkstra<RoadGraph>::infinity);
-        uint b = determine_bucket_index(cost, bucketCostBounds);
-        buckets[i][b]++;
+        // biking: no need to divide by the speed factor here
+        uint b = determine_bucket_index(cost, bucketCostBoundsBike);
+        bucketsBike[i][b]++;
+        // walking
+        if (cost <= costLimitWalking) {
+          uint bb = determine_bucket_index(cost, bucketCostBounds);
+          buckets[i][bb]++;
+        }
       }
     }
 
@@ -81,18 +109,27 @@ vector<float> reachability_analysis(
   }
 
   // Evaluate the buckets: Compute likelihood, store it in place.
-  for (size_t i = 0; i < population.size(); ++i) {
+  for (size_t i = 0; i < populations.size(); ++i) {
     float sumOfCosts = 0.f;
+    float sumOfCostsBike = 0.f;
     for (size_t b = 0; b < buckets[i].size(); ++b) {
       sumOfCosts += buckets[i][b] * bucketCostBounds[b];  // TODO(Jonas): Maybe better use the average instead of the upper bound.
+      sumOfCostsBike += bucketsBike[i][b] * bucketCostBoundsBike[b];
     }
-    if (sumOfCosts > 0) {
+    if (sumOfCosts > 0) {  // ==> sumOfCostsBike > 0 as well
       for (size_t b = 0; b < buckets[i].size(); ++b) {
+        // walking
         if (bucketCostBounds[b] < sumOfCosts) {
           buckets[i][b] = 1.f - bucketCostBounds[b] / sumOfCosts;
         } else {
           // small hack for values which would be negative without this
           buckets[i][b] = 1.f / SQR(b+1);
+        }
+        // biking
+        if (bucketCostBoundsBike[b] < sumOfCostsBike) {
+          bucketsBike[i][b] = 1.f - bucketCostBoundsBike[b] / sumOfCostsBike;
+        } else {
+          bucketsBike[i][b] = 1.f / SQR(b+1);
         }
       }
     }
@@ -101,6 +138,7 @@ vector<float> reachability_analysis(
   // Second round of Dijkstras: Use buckets as likelihood to distribute the
   // population according to the reachable forest entries and their distance.
   vector<float> fepPop(fepIndices.size(), 0.f);
+  vector<float> fepPopBike(fepIndices.size(), 0.f);
   for (size_t i = 0; i < fepIndices.size(); ++i) {
     dijkstra.reset();
     dijkstra.shortestPath(fepIndices[i], Dijkstra<RoadGraph>::no_target);
@@ -108,35 +146,100 @@ vector<float> reachability_analysis(
     const vector<bool>& settled = dijkstra.get_settled_flags();
     for (size_t j = 0; j < populationIndices.size(); ++j) {
       int popIndex = populationIndices[j];
+      //std::cout << "i,j=" << i << "," << j << " shape.size()=" << shares.size() << std::endl;
       if (settled[popIndex]) {
         int cost = costs[popIndex];
-        assert(cost != Dijkstra<RoadGraph>::infinity);
-        uint b = determine_bucket_index(cost, bucketCostBounds);
-        fepPop[i] += buckets[i][b] * shares[b] * population[j];  // TODO(Jonas): Users which accept long distances to forests will also use entries in the vicinity.
+        //std::cout << "costs: " << cost << " c.size: " << costs.size() << " popIndex: " << popIndex << " j: " << j << " pI.size " << populationIndices.size() << std::endl;
+        // biking
+        uint b = determine_bucket_index(cost, bucketCostBoundsBike);
+        //printf("b: %d, bB.size: %d, shares.size: %d, populations.size: %d, j: %d\n",
+        //       b, bucketsBike[i].size(), shares.size(), populations.size(), j);
+        fepPopBike[i] += bucketsBike[i][b] * shares[b] * populations[j];
+        reachesForestByBicycle[j] = true;
+        // walking
+        if (cost < costLimitWalking) {
+          uint bb = determine_bucket_index(cost, bucketCostBounds);
+          fepPop[i] += buckets[i][bb] * shares[bb] * populations[j];  // TODO(Jonas): Users which accept long distances to forests will also use entries in the vicinity. Rewrite the preferences in the main().
+          reachesForestByWalking[j] = true;
+        }
       }
     }
 
     done++;
     if ((clock() - timestamp) / CLOCKS_PER_SEC > 2) {
       timestamp = clock();
-      printf("Progress: %5.1f%%\n", done * 100.f / total);
+      printf("Progress: %d of %d, this is %5.1f%% \r\n",
+             done, total, done * 100.f / total);
     }
   }
 
-  // Normalize the population numbers: Sum must equal the sum before.
-  float normalizer = std::accumulate(fepPop.begin(), fepPop.end(), 0.f) /
-                     std::accumulate(population.begin(), population.end(), 0.f);
+  // Normalize the population numbers:
+  // - For population points which can reach the forest within <limit> time, all
+  //   people are distributed over the reachable forest entries.
+  // - For population points which cannot reach any forest entry, the bike and
+  //   walking population is distributed over all entries such that their weight
+  //   factor remains the same.
+  // The car share is considered separately (return the numbers, such that they
+  // can be mapped to the parking lots) =: TODO(Jonas)
+  float sumFepPop = accumulate(fepPop.begin(), fepPop.end(), 0.f);
+  float mappedPopulation = 0;
+  for (size_t i = 0; i < populations.size(); ++i) {
+    mappedPopulation += reachesForestByWalking[i] * populations[i] * kUserShareWalking;
+  }
+  float normalizer = sumFepPop / mappedPopulation;
   for (size_t i = 0; i < fepPop.size(); ++i) {
     fepPop[i] /= normalizer;
   }
+  // biking
+  float sumFepPopBike = accumulate(fepPopBike.begin(), fepPopBike.end(), 0.f);
+  float mappedPopulationBike = 0;
+  for (size_t i = 0; i < populations.size(); ++i) {
+    mappedPopulationBike += reachesForestByBicycle[i] * populations[i] * kUserShareBicycle;
+  }
+  normalizer = sumFepPopBike / mappedPopulationBike;
+  for (size_t i = 0; i < fepPop.size(); ++i) {
+    fepPopBike[i] /= normalizer;
+  }
 
+  // Map those (bicycle+walking) who are not yet assigned to any forest entry.
+  float unmapped = 0;
+  for (size_t i = 0; i < populations.size(); ++i) {
+    unmapped += (!reachesForestByWalking[i] * kUserShareWalking +
+                 !reachesForestByBicycle[i] * kUserShareBicycle) * populations[i];
+  }
+  float mapped = mappedPopulation + mappedPopulationBike;
+  for (size_t i = 0; i < fepIndices.size(); ++i) {
+    float share = (fepPop[i] + fepPopBike[i]) / mapped;
+    fepPop[i] += share * unmapped;
+  }
+
+  std::cout << "mapped/unmapped: " << mapped << " " << unmapped << std::endl;
+
+  float totalPopulation = accumulate(populations.begin(), populations.end(), 0.f);
+  if ((1.f - kUserShareWalking - kUserShareBicycle) *  totalPopulation != totalPopulation - (mapped + unmapped)) {
+    std::cout << "Populations (1) differ: "
+              << (1.f - kUserShareWalking - kUserShareBicycle) * totalPopulation
+              << " vs. "
+              << totalPopulation - (mapped + unmapped) << std::endl;
+    //assert(false && "See stdout above.");
+  }
+  if ((kUserShareWalking + kUserShareBicycle) * totalPopulation
+      != mapped + unmapped) {
+    std::cout << "Populations (2) differ: "
+              << (kUserShareWalking + kUserShareBicycle) * totalPopulation
+              << " vs. "
+              << mapped + unmapped << std::endl;
+    //assert(false && "See stdout above.");
+  }
+  // TODO(Jonas): Return car population or do that elsewhere.
+  const float kUserShareCar = 1.f - kUserShareWalking - kUserShareBicycle;
   return fepPop;
 }
 
 
 void print_usage() {
   std::cout <<
-  "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes> <Preferences>\n"
+  "Usage: ./NAME <GraphFile> <ForestEntries> <PopulationNodes> <Preferences> <OutputFile>\n"
   "  GraphFile -- ...\n"
   "  ForestEntries -- ...\n"
   "  PopulationNodes -- ...\n"
