@@ -29,11 +29,11 @@ ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
 
 columnName = "EdgeWeight"
-kWALKING_SPEED = 4.  
-                     
+kWALKING_SPEED = 4.
+
 
 def set_paths(argv, env):
-    """  """
+    """Sets the paths for temporary files. Deletes the files, if present."""
     global scriptDir
     scriptDir = os.path.split(argv[0])[0] + "\\"
     global roadFcDump, forestFcDump, arcMappingFile
@@ -58,6 +58,18 @@ def set_paths(argv, env):
     edgeWeightFile      = tmpDir + edgeWeightFile
     parkingLotsFile     = tmpDir + parkingLotsFile
     entryAndParkingXYRFFile = tmpDir + entryAndParkingXYRFFile
+
+    # delete old files
+    for path in [roadFcDump, roadGraphFile, forestFcDump, forestGraphFile,
+            arcMappingFile, entryXYFile, populationFile, entryXYRFFile,
+            entryPopularityFile, edgeWeightFile, parkingLotsFile,
+            entryAndParkingXYRFFile]:
+        try:
+            os.remove(path)
+        except:
+            pass
+
+
 
 
 def shape_to_polygons(lines, idKeyword):
@@ -133,9 +145,9 @@ def dump_graph_feature_class(dataset, outfile, max_speed):
                     dist += atkis_graph.distance(previousCoords, coords)
                 else:  # index != previousIndex
                     # ignore large roads when walking
-                    if previousIndex and not (max_speed == kWALKING_SPEED and 
+                    if previousIndex and not (max_speed == kWALKING_SPEED and
                                               previousWayType in largeRoads):
-                        finish_way_segment(f, previousIndex, 
+                        finish_way_segment(f, previousIndex,
                                 firstCoords, previousCoords, dist, previousWayType,
                                 (previousWeight if weightKeyword else -1))
                     dist = 0
@@ -148,10 +160,10 @@ def dump_graph_feature_class(dataset, outfile, max_speed):
                 if weightKeyword:
                     previousWeight = weight
             # finish the last segment
-            if previousIndex and not (max_speed == kWALKING_SPEED and 
+            if previousIndex and not (max_speed == kWALKING_SPEED and
                                       previousWayType in largeRoads):
                 if weightKeyword:
-                    finish_way_segment(f, previousIndex, 
+                    finish_way_segment(f, previousIndex,
                             firstCoords, previousCoords, dist, previousWayType,
                             (previousWeight if weightKeyword else -1))
 
@@ -186,8 +198,8 @@ def create_population(fc, distance):
     # workaround for data still not conforming to specification
     populationKey = "first_bevo" if "first_bevo" in fields else None
     if not populationKey:
-        populationKey = ("first_bevoelkerung_touris_2011__touris" 
-                         if "first_bevoelkerung_touris_2011__touris" in fields 
+        populationKey = ("first_bevoelkerung_touris_2011__touris"
+                         if "first_bevoelkerung_touris_2011__touris" in fields
                          else None)
     assert populationKey and \
             ("Population field missing in data or it has a wrong name.")
@@ -317,7 +329,7 @@ def call_subprocess(prog, args):
     return output
 
 
-def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID, 
+def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID,
                           edgeWeightFile):
     """Adds a column to the dataset (shp-file or geoDB) and inserts the values.
 
@@ -384,7 +396,7 @@ class AlgorithmEnvironment(object):
         self.paramTxtTimeInForest = arcpy.GetParameterAsText(6)
         self.paramValAlgorithm = arcpy.GetParameterAsText(7)
         self.paramPopulationShares = [
-                float(arcpy.GetParameterAsText(i).replace(",", ".")) 
+                float(arcpy.GetParameterAsText(i).replace(",", "."))
                 for i in [8, 9, 10]]
 
         """The path for temporaries and output."""
@@ -394,7 +406,7 @@ class AlgorithmEnvironment(object):
                 self.paramShpForestRoads and
                 self.paramShpSettlements and
                 self.paramShpEntrypoints and
-                self.paramShpParking and 
+                self.paramShpParking and
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
@@ -408,7 +420,7 @@ class AlgorithmEnvironment(object):
 
 
 def main():
-    """Prepares data from the ArcGIS/ArcPy side.
+    """Wrapper to the C++ modules. Prepares data from the ArcGIS/ArcPy side.
 
     1. Read supplied parameters. Open the shapefiles, dump the content as .txt.
     2. Call the succeeding steps of the C++ module, wait for each to finish.
@@ -427,9 +439,9 @@ def main():
 
     call_subprocess(scriptDir + "ForestEntryPopularityMain.exe",
             roadGraphFile + " " + entryAndParkingXYRFFile + " " +
-            populationFile + " " + ttfFile + " " + parkingLotsFile + " " + 
-            " ".join(str(e) for e in env.paramPopulationShares) + " " +
-            entryPopularityFile)
+            populationFile + " " + ttfFile + " " + parkingLotsFile + " " +
+            entryPopularityFile + " " +
+            " ".join(str(e) for e in env.paramPopulationShares))
 
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryAndParkingXYRFFile + " " +
