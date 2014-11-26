@@ -21,7 +21,7 @@ using std::max_element;
 
 
 // _____________________________________________________________________________
-// Reads a grapha and simplifies it.  Every node except forest entries can be
+// Reads a graph and simplifies it. Every node except forest entries can be
 // contracted. Returns the simple graph, the number of edges in the original
 // graph, a map {arc : represented edge indices} and the shifted indices of the
 // forest entries.

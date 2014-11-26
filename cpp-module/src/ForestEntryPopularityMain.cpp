@@ -348,6 +348,7 @@ void print_usage() {
   "  OutputFile -- Path and name of the ouput file for populations.\n"
   "  User share {walking, bicycle, car} (floating numbers, three or none) -- \n"
   "The share of the population that uses the respective mean of transport.\n"
+  "If no values are given, this defaults to 13/124, 71/124 40/124.\n"
        << endl;
 }
 

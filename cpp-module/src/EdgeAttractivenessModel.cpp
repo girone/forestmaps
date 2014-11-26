@@ -65,20 +65,20 @@ void EdgeAttractivenessModel::normalize_contributions(MapMap* contributions) {
 // _____________________________________________________________________________
 void EdgeAttractivenessModel::distribute(
     const Map& popu,
-    const MapMap& contr,
+    const MapMap& contribution,
     vector<float>* attractivenesses) const {
   for (auto it = popu.begin(); it != popu.end(); ++it) {
     const int entryPoint = it->first;
     const float population = it->second;
-    auto fit = contr.find(entryPoint);
+    auto fit = contribution.find(entryPoint);
     // Use an empty map if the entry point does not contribute to any edge.
     // TODO(Jonas): For via edge, try something more focused.
-    const Map& shares = (fit == contr.end()) ? Map() : fit->second;
+    const Map& shares = (fit == contribution.end()) ? Map() : fit->second;
     for (auto it2 = shares.begin(); it2 != shares.end(); ++it2) {
-      const int edgeIndex = it2->first;
+      const int elementIndex = it2->first;
       const float share = it2->second;
-      assert(static_cast<size_t>(edgeIndex) < attractivenesses->size());
-      (*attractivenesses)[edgeIndex] += share * population;
+      assert(static_cast<size_t>(elementIndex) < attractivenesses->size());
+      (*attractivenesses)[elementIndex] += share * population;
     }
   }
 }
@@ -103,6 +103,18 @@ vector<int> FloodingModel::compute_node_from_arc_weights(
     int w = arc.labels[1];
     assert(s < weights.size());
     assert(t < weights.size());
+    /*
+     * TODO(Jonas): Contracted arcs over forest boundaries lead to edges outside
+     * of the forest with attractivity > 0. Maybe use this here:
+     * if (w == 0)
+     * {
+     *   weights[s] = 0;
+     *   weights[t] = 0;
+     * } else {
+     *   weights[s] = ...;
+     *   weights[t] = ...;
+     * }
+     */
     weights[s] = std::max(weights[s], w);
     weights[t] = std::max(weights[t], w);
   }
@@ -120,7 +132,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
 
   vector<int> nodeWeights = compute_node_from_arc_weights(_graph);
 
-  // Collect contribution of forest entries to node attractivenesses.
+  // Collect contribution of forest entries to /node/ attractivenesses.
   MapMap contribution;
   Dijkstra<ForestRoadGraph> dijkstra(_graph);
   dijkstra.set_cost_limit(_maxCost / 2);  // half way forth and back
@@ -138,7 +150,7 @@ vector<float> FloodingModel::compute_edge_attractiveness() {
       float share = sum_of_user_shares_after(2.f * cost);
       float gain = share / (cost + 60);
       int w = nodeWeights[node];
-      float value = w * gain;
+      float value = w * gain;  // leads to value 0 if the attractivity is 0
       if (value != 0.f) {
         contribution[fep][node] = value;
       }
@@ -267,6 +279,7 @@ vector<float> ViaEdgeApproach::compute_edge_attractiveness() {
   // Iterate over all forest edges s --> t.
   // For each edge, do a forward Dijkstra from t and a backward Dijkstra from s.
   const vector<ForestRoadGraph::Arc_t>& arcs = _graph.arclist();
+  // Maps from forest entry and edge index to contributed weight.
   MapMap contributions;
   // We only have bidirectional arcs. The code avoids to compute everything
   // twice for a-->b and b-->a
@@ -387,7 +400,7 @@ void ViaEdgeApproach::evaluate(
         const float distance = get_distance(fep1, fep2);
         gain = share * (distance + 60.f) / (routeCostViaThisEdge + 60.f);
       }
-      float increase = w * gain;
+      float increase = w * gain;  // leads to increase 0 if attractivity is 0
       if (increase > 0.f) {
         (*contributions)[fep1][edgeIndex] += increase;
       }

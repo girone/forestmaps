@@ -70,8 +70,6 @@ def set_paths(argv, env):
             pass
 
 
-
-
 def shape_to_polygons(lines, idKeyword):
     """Parses polygons from the points represented by a numpy RecordArray."""
     from itertools import tee, izip
