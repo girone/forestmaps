@@ -12,6 +12,7 @@ from arcutil import msg, Timer, Progress
 import postprocessing as pp
 
 scriptDir = ""
+tmpDir = ""
 
 # Some general names
 roadFcDump          = "road_feature_class.tmp.txt"
@@ -42,7 +43,12 @@ def set_paths(argv, env):
     global entryXYRFFile, entryPopularityFile, edgeWeightFile
     global ttfFile, tifFile, parkingLotsFile, entryAndParkingXYRFFile
     # converted inputs are created at the input data's location
-    tmpDir = env.path + "\\"
+    global tmpDir
+    tmpDir = env.path + "tmp\\"
+    try:
+        os.mkdir(tmpDir)
+    except OSError:
+        assert os.path.exists(tmpDir) and "Could not create the temporary dir."
     roadFcDump          = tmpDir + roadFcDump
     roadGraphFile       = tmpDir + roadGraphFile
     forestFcDump        = tmpDir + forestFcDump
