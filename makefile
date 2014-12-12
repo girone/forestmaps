@@ -19,3 +19,6 @@ deploy:
 
 ship:
 	echo Implement this
+
+all: deploy
+

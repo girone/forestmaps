@@ -114,6 +114,7 @@ env.Append(CXXFLAGS='-std=c++0x -Wall')
 
 # Add include dirs
 env.Append(CPPPATH=["/usr/include/",  # required for MinGW
+                    "lib/libkdtree/",
                     gmock_dir + 'include', gmock_dir,
                     gtest_dir + 'include', gtest_dir,
                     gperftools_dir,
