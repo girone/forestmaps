@@ -391,18 +391,22 @@ def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID,
 class AlgorithmEnvironment(object):
     def __init__(self):
         """Reads the parameters from ArcGIS."""
-        self.paramShpRoads = arcpy.GetParameterAsText(0)
-        self.paramShpForestRoads = arcpy.GetParameterAsText(1)
-        self.paramShpEntrypoints = arcpy.GetParameterAsText(2)
-        self.paramShpSettlements = arcpy.GetParameterAsText(3)
+        self.paramShpRoads         = arcpy.GetParameterAsText(1)
+        self.paramShpForestRoads   = arcpy.GetParameterAsText(2)
+        self.paramShpSettlements   = arcpy.GetParameterAsText(3)
+        self.paramShpEntrypoints   = arcpy.GetParameterAsText(4)
+        self.paramShpParking       = arcpy.GetParameterAsText(5)
 
-        self.paramShpParking = arcpy.GetParameterAsText(4)
-        self.paramTxtTimeToForest = arcpy.GetParameterAsText(5)
-        self.paramTxtTimeInForest = arcpy.GetParameterAsText(6)
-        self.paramValAlgorithm = arcpy.GetParameterAsText(7)
+        self.paramTxtTimeToForest  = arcpy.GetParameterAsText(7)
         self.paramPopulationShares = [
-                float(arcpy.GetParameterAsText(i).replace(",", "."))
-                for i in [8, 9, 10]]
+            float(arcpy.GetParameterAsText(i).replace(",", "."))
+            for i in [8, 9, 10]
+        ]
+        self.paramOutputName1      = arcpy.GetParameterAsText(11)
+
+        self.paramTxtTimeInForest  = arcpy.GetParameterAsText(13)
+        self.paramValAlgorithm     = arcpy.GetParameterAsText(14)
+        self.paramOutputName2      = arcpy.GetParameterAsText(15)
 
         """The path for temporaries and output."""
         self.path = os.path.split(self.paramShpRoads)[0] + "\\"
@@ -415,13 +419,28 @@ class AlgorithmEnvironment(object):
                 self.paramTxtTimeToForest and
                 self.paramTxtTimeInForest and
                 self.paramValAlgorithm and
-                self.paramPopulationShares):
+                self.paramPopulationShares and
+                self.paramOutputName1 and
+                self.paramOutputName2):
             msg("Error with input.")
             exit(1)
 
         self.paramValAlgorithm = int(self.paramValAlgorithm)
         assert (sum(self.paramPopulationShares) > 0 and
                 sum(self.paramPopulationShares) <= 1)
+
+        msg("Parameters are: \n" +
+            ",\n".join([str(e) for e in [self.paramShpRoads,
+                        self.paramShpForestRoads,
+                        self.paramShpSettlements,
+                        self.paramShpEntrypoints,
+                        self.paramShpParking,
+                        self.paramTxtTimeToForest,
+                        self.paramTxtTimeInForest,
+                        self.paramValAlgorithm,
+                        self.paramPopulationShares,
+                        self.paramOutputName1,
+                        self.paramOutputName2]]))
 
 
 def main():
