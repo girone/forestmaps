@@ -8,6 +8,7 @@ import subprocess
 import random
 from collections import defaultdict
 import atkis_graph
+from datetime import datetime
 from arcutil import msg, Timer, Progress
 import postprocessing as pp
 
@@ -30,7 +31,6 @@ edgeWeightFile      = "edge_weights.tmp.txt"
 ttfFile             = "preferences_TTF.txt"
 tifFile             = "preferences_TIF.txt"
 
-columnName = "EdgeWeight"
 kWALKING_SPEED = 4.
 
 
@@ -263,11 +263,28 @@ def parse_and_dump(env):
     t.start_timing("Creating population points...")
     population_groups, inhabitants = create_population(env.paramShpSettlements,
                                                        200)
+    global tmpDir
+    shp = "populations_computed_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S") + ".shp"
+    msg("Writing populations to '{}'' and '{}'.".format(populationFile, tmpDir + shp))
+    ptGeoms = []
+    populations = []
+    sr = arcpy.Describe(env.paramShpRoads).spatialReference
+    arcpy.management.CreateFeatureclass(tmpDir, shp, "POINT", spatial_reference=sr)
+    cursor = arcpy.da.InsertCursor(tmpDir + shp, ["SHAPE@"])
     with open(populationFile, "w") as f:
+        #pt = arcpy.Point()
         for coordinates, inhabs in zip(population_groups, inhabitants):
             avg_population = inhabs / float(len(coordinates))
             for c in coordinates:
                 f.write("{0} {1} {2}\n".format(c[0], c[1], avg_population))
+                # arcpy shape file generation
+                #pt.x, pt.y = c
+                #ptGeoms.append(arcpy.PointGeometry(pt))
+                pt = arcpy.Point(c[0], c[1])
+                cursor.insertRow([pt])
+                populations.append(avg_population)
+    #arcpy.management.Append(ptGeoms, tmpDir + shp, "NO_TEST")
+    pp.add_column_with_values(tmpDir + shp, "population", populations)
     t.stop_timing()
 
     t.start_timing("Parsing forest entry locations...")
@@ -473,13 +490,22 @@ def main():
             entryPopularityFile + " " +
             " ".join(str(e) for e in env.paramPopulationShares))
 
+    pp.write_entry_and_parking_population_files(
+            entryPopularityFile, env.paramShpEntrypoints, env.paramShpParking,
+            env.paramOutputName1)
+
+    # TODO(Jonas): Use gflags for all the binaries to pass parameters more readable.
+    tifFileWalk = tifFileBike = tifFileCar = tifFile # TODO(Jonas): Remove this with separate values.
     call_subprocess(scriptDir + "ForestEdgeAttractivenessMain.exe",
             forestGraphFile + " " + entryAndParkingXYRFFile + " " +
-            entryPopularityFile + " " + tifFile +
-            " " + str(env.paramValAlgorithm) + " " + edgeWeightFile)
+            entryPopularityFile + " " +
+            tifFileWalk + " " +
+            #tifFileBike + " " +
+            #tifFileCar + " " +
+            str(env.paramValAlgorithm) + " " + edgeWeightFile)
 
-    add_edgeweight_column(env.paramShpForestRoads, columnName, forestGraphFile,
-            forestArcToFID, edgeWeightFile)
+    add_edgeweight_column(env.paramShpForestRoads, env.paramOutputName2,
+        forestGraphFile, forestArcToFID, edgeWeightFile)
 
     msg("Finished!")
     return 0
