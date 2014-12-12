@@ -6,7 +6,8 @@ PYCODE=arcpy_c++_pipeline_wrapper.py \
        arcutil.py \
        forestentrydetection.py \
        grid.py \
-       convexhull.py
+       convexhull.py \
+       postprocessing.py
 
 
 .PHONY : deploy
