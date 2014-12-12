@@ -233,9 +233,11 @@ int reachability_analysis(const RoadGraph& graph,
         * populations[i];
   }
   float mapped = mappedPopulation + mappedPopulationBike;
+  float additionalPopulationByCar = userShareCar * unmapped;
+  float additionalPopulationWalkingAndBiking = (1 - userShareCar) * unmapped;
   for (size_t i = 0; i < fepIndices.size(); ++i) {
     float share = (fepPop[i] + fepPopBike[i]) / mapped;
-    fepPop[i] += share * unmapped;
+    fepPop[i] += share * additionalPopulationWalkingAndBiking;
   }
 
   // Add bicycle to walking populations.
@@ -267,6 +269,7 @@ int reachability_analysis(const RoadGraph& graph,
   for (size_t i = 0; i < populations.size(); ++i) {
     carPopulation += userShareCar * populations[i];
   }
+  carPopulation += additionalPopulationByCar;
   /*{
     std::ofstream ofs(carPopulationFile);
     ofs << carPopulation << endl;
