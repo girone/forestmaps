@@ -1,6 +1,6 @@
 #CXX = g++ -g -Wall -Wno-deprecated -std=c++0x
 
-CXX = x86_64-w64-mingw32-g++ -g -O3 -Wall -Wno-deprecated -std=c++0x -static-libgcc -static-libstdc++
+CXX = x86_64-w64-mingw32-g++ -g -O3 -Wall -Wno-deprecated -std=c++0x -static-libgcc -static-libstdc++ -static
 MAIN_BINARIES = $(addsuffix .exe,$(basename $(wildcard *Main.cpp)))
 TEST_BINARIES = $(basename $(wildcard *Test.cpp))
 HEADER = $(wildcard *.h)

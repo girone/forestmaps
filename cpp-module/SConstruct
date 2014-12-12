@@ -113,7 +113,8 @@ env.Append(CXXFLAGS='-std=c++0x -Wall')
 #env.Append(CXXFLAGS='-stdlib=libstdc++')
 
 # Add include dirs
-env.Append(CPPPATH=[gmock_dir + 'include', gmock_dir,
+env.Append(CPPPATH=["/usr/include/",  # required for MinGW
+                    gmock_dir + 'include', gmock_dir,
                     gtest_dir + 'include', gtest_dir,
                     gperftools_dir,
                     sparse_hash_map_dir,
@@ -121,7 +122,10 @@ env.Append(CPPPATH=[gmock_dir + 'include', gmock_dir,
                     'external/']);
 
 # Colorful output of colormake / clang will be forwarded by SCons
-env['ENV']['TERM'] = os.environ['TERM']
+try:
+	env['ENV']['TERM'] = os.environ['TERM']
+except:
+	env['ENV']['TERM'] = 'xterm'
 
 # select target set
 target_set  = ARGUMENTS.get('target_set', 'main')

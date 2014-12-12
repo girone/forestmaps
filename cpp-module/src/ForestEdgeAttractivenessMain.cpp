@@ -1,6 +1,7 @@
 // Copyright 2013: Jonas Sternisko
 
 #include <algorithm>
+#include <unordered_map>
 #include <set>
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@
 
 using std::set;
 using std::vector;
+using std::unordered_map;
 using std::cout;
 using std::endl;
 using std::max;
