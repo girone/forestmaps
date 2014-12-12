@@ -460,10 +460,10 @@ int main(int argc, char** argv) {
   // Finally, the population of the parking lots is added to nodes of the graph,
   // such as if they were regular forest entries.
 
-  bool useParkingLotPopulationFromInput = true;
+  bool useParkingLotPopulationFromInput = false;
   vector<float> parkingPopulations;
   if (useParkingLotPopulationFromInput) {
-    parkingPopulations = parkingLots[3];
+    parkingPopulations = parkingLots[3];  // TODO(Jonas): Remove this?!
   } else {
     parkingPopulations = distribute_car_population(carPopulation, parkingLots);
   }
