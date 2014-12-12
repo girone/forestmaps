@@ -1,6 +1,7 @@
 // Copyright 2013-2014: Jonas Sternisko
 
 #include <algorithm>
+#include <cassert>
 #include <set>
 #include <string>
 #include <utility>
@@ -16,6 +17,7 @@
 #include "./Tree2d.h"
 
 using std::pair;
+using std::vector;
 using std::cout;
 using std::endl;
 
@@ -31,7 +33,7 @@ const float kUserShareCar = 1.f - (kUserShareWalking + kUserShareBicycle);
 const float kWalkingToBikeSpeedFactor = 4.f;
 
 // _____________________________________________________________________________
-// Returns true if the differnce is more than 1% of a.
+// Returns true if the difference is more than 1% of a.
 bool differ(const double a, const double b, double deviation = 0.01) {
   return fabs(a - b) > fabs(deviation * a);
 }
@@ -94,7 +96,7 @@ int reachability_analysis(const RoadGraph& graph,
 
   // First round of Dijkstras: Analize reachability and determine frequency of
   // forest distance categories for each population point. For each population
-  // grid point a set of buckets is mainted. After the first round of Dijkstra
+  // grid point a set of buckets is maintained. After the first Dijkstra
   // each bucket contains the number of forest entries that can be reached from
   // the population point in less that the time bound in the corresponding slot
   // of bucketCostBounds.
@@ -192,12 +194,15 @@ int reachability_analysis(const RoadGraph& graph,
     }
   }
 
-  // Normalize the population numbers:
-  // - For population points which can reach the forest within <limit> time, all
-  //   people are distributed over the reachable forest entries.
-  // - For population points which cannot reach any forest entry, the bike and
-  //   walking population is distributed over all entries such that their weight
-  //   factor remains the same.
+  /** Normalize the population numbers:
+   - For population points which can reach the forest within `limit` time, all
+     people are distributed over the reachable forest entries.
+   - For population points which cannot reach any forest entry, the sum of the
+     bike and walking population computed. From that, a share according to the
+     car share is distributed over parking lots and the remaining share of the
+     sum is distributed over the forest entries according the the weights
+     described by their already assigned population.
+   */
   float sumFepPop = util::sum(fepPop);
   float mappedPopulation = 0;
   for (size_t i = 0; i < populations.size(); ++i) {
@@ -468,7 +473,7 @@ int main(int argc, char** argv) {
   cout << "Writing entry point popularity to " << outfile << endl;
   util::dump_vector(fepPopulation, outfile);
 
-  // Message to external callers which can't fetch the return code.
+  // Message to external callers which can't fetch the return code (arcpy).
   cout << endl << "OK" << endl;
   return 0;
 }

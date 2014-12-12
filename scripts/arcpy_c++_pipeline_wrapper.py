@@ -1,6 +1,6 @@
 """This is an Python/ArcPy wrapper to the C++ module.
 
-Important note: Keep all input data in the same directoy.
+Important note: Keep all input data in the same directory.
 """
 import arcpy
 import os
@@ -332,6 +332,12 @@ def add_edgeweight_column(shp, columnName, forestGraphFile, arcToFID,
     """Adds a column to the dataset (shp-file or geoDB) and inserts the values.
 
     Needs graph file as input to map from arcs to FIDs.
+    Args:
+        shp: The shapefile containing the forest graph edges.
+        columnName: The name for the new column.
+        forestGraphFile: The tempfile containing the forest graph.
+        arcToFID: The file containing the mapping from arc to forest id.
+        edgeWeightFile: The file containing the edge weights.
     """
     edges = []
     with open(forestGraphFile) as f:
@@ -420,9 +426,9 @@ class AlgorithmEnvironment(object):
 def main():
     """Wrapper to the C++ modules. Prepares data from the ArcGIS/ArcPy side.
 
-    1. Read supplied parameters. Open the shapefiles, dump the content as .txt.
+    1. Read supplied parameters. Open the shape files, dump the content as .txt.
     2. Call the succeeding steps of the C++ module, wait for each to finish.
-    3. Load back the resuling arc weights,
+    3. Load back the resulting arc weights,
     4. If selected, visualize the result in ArcGIS.
     """
     env = AlgorithmEnvironment()

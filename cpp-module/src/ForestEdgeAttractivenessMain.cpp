@@ -94,14 +94,14 @@ void write_output(const string& filename,
 void print_usage() {
   cout <<
   "Usage: ./Program <ForestGraphFile> <EntryAndParkingXYRF> <EntryPopulation> "
-  "<Preferences> <Approach> <OutputFile>\n"
+  "<TimeInForest> <Approach> <OutputFile>\n"
   "  ForestGraphFile -- ...\n"
   "  EntryAndParkingXYRF -- Contains position (X,Y) and graph node indices "
   "(Road, Forest) for forest entries and parking lots. Both are treated "
   "equally by this module.\n"  // NOTE(Jonas): Separate parking here.
   "  EntryPopulation -- Population numbers of the forest entries and parking "
   "lots.\n"
-  "  Preferences -- 2-column table with time intervals (upper bounds) and "
+  "  TimeInForest -- 2-column table with time intervals (upper bounds) and "
   "share in [0,1]. The last interval bound also defines the maximum search "
   "radius.\n"
   "  Approach -- selects the attractiveness modelling approach. 0 for "
