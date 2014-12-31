@@ -7,9 +7,9 @@
 # variable to you system's installation of SCons. See the SConstruct file for
 # further documentation and the structure of the source and build directories.
 
-all: compile test #checkstyle
+all: compile #test #checkstyle
 
-SCONS = ./scons/bin/scons
+SCONS = scons
 NUM_CORES = $(shell grep -c ^processor /proc/cpuinfo)
 MODE = RelWithDebInfo
 OMP = 0
