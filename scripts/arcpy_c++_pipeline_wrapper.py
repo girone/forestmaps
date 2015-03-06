@@ -264,7 +264,10 @@ def parse_and_dump(env):
     population_groups, inhabitants = create_population(env.paramShpSettlements,
                                                        200)
     global tmpDir
-    shp = "populations_computed_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S") + ".shp"
+    shp = "populations_computed_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S")
+    if ".gdb" not in tmpDir: 
+        # The suffix ".shp" does not work with geodatabases.
+        shp = shp + ".shp"
     msg("Writing populations to '{}'' and '{}'.".format(populationFile, tmpDir + shp))
     ptGeoms = []
     populations = []
