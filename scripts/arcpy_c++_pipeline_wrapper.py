@@ -44,7 +44,10 @@ def set_paths(argv, env):
     global ttfFile, tifFile, parkingLotsFile, entryAndParkingXYRFFile
     # converted inputs are created at the input data's location
     global tmpDir
-    tmpDir = env.path + "tmp\\"
+    if ".gdb" in env.path:
+      tmpDir = env.path + "tmp-"
+    else:
+      tmpDir = env.path + "tmp\\"
     try:
         os.mkdir(tmpDir)
     except OSError:

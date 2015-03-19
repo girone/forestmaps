@@ -44,7 +44,10 @@ def set_paths(argv, env):
     global ttfFile, tifFile, parkingLotsFile, entryAndParkingXYRFFile
     # converted inputs are created at the input data's location
     global tmpDir
-    tmpDir = env.path + "tmp\\"
+    if ".gdb" in env.path:
+      tmpDir = env.path + "tmp-"
+    else:
+      tmpDir = env.path + "tmp\\"
     try:
         os.mkdir(tmpDir)
     except OSError:
@@ -265,7 +268,7 @@ def parse_and_dump(env):
                                                        200)
     global tmpDir
     shp = "populations_computed_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S")
-    if ".gdb" not in tmpDir:
+    if ".gdb" not in tmpDir: 
         # The suffix ".shp" does not work with geodatabases.
         shp = shp + ".shp"
     msg("Writing populations to '{}'' and '{}'.".format(populationFile, tmpDir + shp))
