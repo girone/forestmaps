@@ -45,7 +45,7 @@ def set_paths(argv, env):
     # converted inputs are created at the input data's location
     global tmpDir
     if ".gdb" in env.path:
-      tmpDir = env.path + "tmp-"
+      tmpDir = env.path + "tmp_"
     else:
       tmpDir = env.path + "tmp\\"
     try:
@@ -271,7 +271,8 @@ def parse_and_dump(env):
     if ".gdb" not in tmpDir: 
         # The suffix ".shp" does not work with geodatabases.
         shp = shp + ".shp"
-    msg("Writing populations to '{}'' and '{}'.".format(populationFile, tmpDir + shp))
+    shp = arcpy.ValidateTableName(shp, tmpDir)
+    msg("Writing populations to '{}' and '{}'.".format(populationFile, tmpDir + shp))
     ptGeoms = []
     populations = []
     sr = arcpy.Describe(env.paramShpRoads).spatialReference
