@@ -45,7 +45,7 @@ def set_paths(argv, env):
     # converted inputs are created at the input data's location
     global tmpDir
     if ".gdb" in env.path:
-      tmpDir = env.path + "tmp_"
+      tmpDir = env.path
     else:
       tmpDir = env.path + "tmp\\"
     try:
@@ -62,12 +62,20 @@ def set_paths(argv, env):
     tifFile             = env.paramTxtTimeInForest
 
     # intermediate files are created at the script's location
-    populationFile      = tmpDir + populationFile
-    entryXYRFFile       = tmpDir + entryXYRFFile
-    entryPopularityFile = tmpDir + entryPopularityFile
-    edgeWeightFile      = tmpDir + edgeWeightFile
-    parkingLotsFile     = tmpDir + parkingLotsFile
-    entryAndParkingXYRFFile = tmpDir + entryAndParkingXYRFFile
+    if ".gdb" in env.path:
+        populationFile      = tmpDir + "tmp_" + populationFile
+        entryXYRFFile       = tmpDir + "tmp_" + entryXYRFFile
+        entryPopularityFile = tmpDir + "tmp_" + entryPopularityFile
+        edgeWeightFile      = tmpDir + "tmp_" + edgeWeightFile
+        parkingLotsFile     = tmpDir + "tmp_" + parkingLotsFile
+        entryAndParkingXYRFFile = tmpDir + "tmp_" + entryAndParkingXYRFFile
+    else:
+        populationFile      = tmpDir + populationFile
+        entryXYRFFile       = tmpDir + entryXYRFFile
+        entryPopularityFile = tmpDir + entryPopularityFile
+        edgeWeightFile      = tmpDir + edgeWeightFile
+        parkingLotsFile     = tmpDir + parkingLotsFile
+        entryAndParkingXYRFFile = tmpDir + entryAndParkingXYRFFile
 
     # delete old files
     for path in [roadFcDump, roadGraphFile, forestFcDump, forestGraphFile,
@@ -268,7 +276,7 @@ def parse_and_dump(env):
                                                        200)
     global tmpDir
     shp = "populations_computed_" + datetime.today().strftime("%Y_%m_%d_%H_%M_%S")
-    if ".gdb" not in tmpDir: 
+    if ".gdb" not in tmpDir:
         # The suffix ".shp" does not work with geodatabases.
         shp = shp + ".shp"
     shp = arcpy.ValidateTableName(shp, tmpDir)
