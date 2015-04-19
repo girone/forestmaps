@@ -285,20 +285,20 @@ def parse_and_dump(env):
     populations = []
     sr = arcpy.Describe(env.paramShpRoads).spatialReference
     arcpy.management.CreateFeatureclass(tmpDir, shp, "POINT", spatial_reference=sr)
-    cursor = arcpy.da.InsertCursor(tmpDir + shp, ["SHAPE@"])
-    with open(populationFile, "w") as f:
-        #pt = arcpy.Point()
-        for coordinates, inhabs in zip(population_groups, inhabitants):
-            avg_population = inhabs / float(len(coordinates))
-            for c in coordinates:
-                f.write("{0} {1} {2}\n".format(c[0], c[1], avg_population))
-                # arcpy shape file generation
-                #pt.x, pt.y = c
-                #ptGeoms.append(arcpy.PointGeometry(pt))
-                pt = arcpy.Point(c[0], c[1])
-                cursor.insertRow([pt])
-                populations.append(avg_population)
-    #arcpy.management.Append(ptGeoms, tmpDir + shp, "NO_TEST")
+    with arcpy.da.InsertCursor(tmpDir + shp, ["SHAPE@"]) as cursor:
+        with open(populationFile, "w") as f:
+            #pt = arcpy.Point()
+            for coordinates, inhabs in zip(population_groups, inhabitants):
+                avg_population = inhabs / float(len(coordinates))
+                for c in coordinates:
+                    f.write("{0} {1} {2}\n".format(c[0], c[1], avg_population))
+                    # arcpy shape file generation
+                    #pt.x, pt.y = c
+                    #ptGeoms.append(arcpy.PointGeometry(pt))
+                    pt = arcpy.Point(c[0], c[1])
+                    cursor.insertRow([pt])
+                    populations.append(avg_population)
+        #arcpy.management.Append(ptGeoms, tmpDir + shp, "NO_TEST")
     pp.add_column_with_values(tmpDir + shp, "population", populations)
     t.stop_timing()
 
