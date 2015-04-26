@@ -106,6 +106,9 @@ def create_grid_points(bbox, resolution, gridPointDistance):
         for j in range(1, int(math.ceil(w / step))):
             # (lon,lat) ~ (x,y)
             gridPoints.append((j*step + xmin, i*step + ymin))
+    if gridPoints == []:
+        # The bounding box is too small. Add one corner point of the bbox.
+        gridPoints.append(bbox[0])
     return gridPoints
 
 
